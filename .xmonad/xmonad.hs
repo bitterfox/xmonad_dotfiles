@@ -76,6 +76,15 @@ main = do
         , ((mod4Mask .|. controlMask .|. shiftMask, xK_Left), shiftToPrev >> prevWS)
         , ((mod4Mask .|. controlMask .|. shiftMask, xK_Down), shiftToNext >> nextWS)
         , ((mod4Mask .|. controlMask .|. shiftMask, xK_Right), shiftToNext >> nextWS)
+
+        -- j/k key
+        -- ワークスペースの移動
+        , ((mod4Mask .|. controlMask, xK_j), nextWS)
+        , ((mod4Mask .|. controlMask, xK_k), prevWS)
+
+        -- ワークスペース間のスワップ
+        , ((mod4Mask .|. controlMask .|. shiftMask, xK_j), shiftToNext >> nextWS)
+        , ((mod4Mask .|. controlMask .|. shiftMask, xK_k), shiftToPrev >> prevWS)
         ]`additionalKeysP`
         [
         -- ボリューム周り
