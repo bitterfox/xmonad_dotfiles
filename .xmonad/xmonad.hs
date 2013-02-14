@@ -38,7 +38,7 @@ main = do
                         }
         , modMask = mod4Mask     -- Rebind Mod to the Windows key
         , borderWidth = 3
-        , normalBorderColor  = "#5382a1" -- Java blue
+        , normalBorderColor  = "#587993" -- Java blue
         , focusedBorderColor = "#e76f00" -- Java orange
         , focusFollowsMouse = False -- マウスの移動でフォーカスが映らないように
         } `additionalKeys`
