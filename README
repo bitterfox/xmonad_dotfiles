@@ -1,0 +1,34 @@
+XMonad, XMobarのdotfileです。
+
+GNOMEに一部依存します。
+
+* 依存するパッケージ
+** ライブラリ系
+*** libghc-parsec3-dev
+*** libghc-split-dev
+etc...
+
+** ソフトウェア系
+*** dmenu
+*** gmrun
+*** dropbox
+etc...
+
+* キーバインド
+MはWindowsキーの類に割り当てられています
+M-S-l: ロック
+M-S-s: サスペンド
+C-<Print>: クリップボードにスクリーンショット(FIXME: うまくいかない？)
+<Print>: スクリーンショット
+M-r: リフレッシュ
+M-f: フルスクリーン(□)に切り替える
+M-<Space>: Tall(├)<->Mirror Tall(┬)
+M-<Left>, M-<Up>: M-k(標準)と同じ
+M-<Right>, M-<Down>: M-j(標準)と同じ
+M-S-<Left>, M-S-<Up>: M-S-k(標準)と同じ
+M-S-<Right>, M-S-<Down>: M-S-j(標準)と同じ
+M-C-<Left>, M-C-<Up>, M-C-k: 前のワークスペースへ
+M-C-<Right>, M-C-<Down>, M-C-j: 次のワークスペースへ
+M-C-S-<Left>, M-C-S-<Up>, M-C-S-k: フォーカスウィンドウを前のワークスペースへ(現在のワークスペースも移動)
+M-C-S-<Right>, M-C-S-<Down>, M-C-S-j: フォーカスウィンドウを次のワークスペースへ(現在のワークスペースも移動)
+
