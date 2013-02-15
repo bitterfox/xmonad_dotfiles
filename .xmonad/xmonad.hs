@@ -15,6 +15,7 @@ import qualified XMonad.StackSet as W
 import XMonad.Layout.ToggleLayouts
 import XMonad.Util.Run(spawnPipe)
 import XMonad.Util.EZConfig
+import System.Exit
 import System.IO
 import qualified Data.Map as M
 
@@ -45,6 +46,9 @@ main = do
         [
           ((mod4Mask .|. shiftMask, xK_l), spawn "gnome-screensaver-command --lock") -- Lock
         , ((mod4Mask .|. shiftMask, xK_s), spawn "gnome-screensaver-command --lock ; dbus-send --print-reply --system --dest=org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower.Suspend") -- Lock & Suspend
+        , ((mod4Mask .|. controlMask .|. shiftMask, xK_l), io (exitWith ExitSuccess)) -- Logout
+        , ((mod4Mask .|. controlMask .|. shiftMask, xK_s), spawn "/usr/lib/indicator-session/gtk-logout-helper --shutdown") -- Shutdown
+
         , ((controlMask, xK_Print), spawn "gnome-screenshot -c")
         , ((0, xK_Print), spawn "gnome-screenshot")
         , ((mod4Mask, xK_r), refresh)
@@ -85,11 +89,13 @@ main = do
         -- ワークスペース間のスワップ
         , ((mod4Mask .|. controlMask .|. shiftMask, xK_j), shiftToNext >> nextWS)
         , ((mod4Mask .|. controlMask .|. shiftMask, xK_k), shiftToPrev >> prevWS)
-        ]`additionalKeysP`
+        ] `additionalKeysP`
         [
         -- ボリューム周り
           ("<XF86AudioLowerVolume>", setMute(False) >> lowerVolume 3 >> return ())
         , ("<XF86AudioRaiseVolume>", setMute(False) >> raiseVolume 3 >> return ())
         , ("<XF86AudioMute>",        setMute(False) >> setVolume 0   >> return ()) -- toggleMuteで問題がなければそうすると良いです。
+        ] `removeKeys`
+        [
+          (mod4Mask .|. shiftMask, xK_q)
         ]
-
