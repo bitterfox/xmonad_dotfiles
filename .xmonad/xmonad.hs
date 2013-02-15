@@ -21,7 +21,7 @@ import qualified Data.Map as M
 tall = Tall 1 (3/100) (1/2)
 
 main = do
-    spawn "killall trayer ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent false --tint 0x000000 --height 20" -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動
+    spawn "killall trayer ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent false --tint 0x000000 --height 17" -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動
     spawn "gnome-settings-daemon" -- GNOME上での設定を反映させる
 --    spawn "gnome-power-manager"
     spawn "killall nm-applet ; nm-applet" -- ネット接続のアプレットを起動
