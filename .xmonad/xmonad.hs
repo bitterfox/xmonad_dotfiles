@@ -27,7 +27,7 @@ main = do
 --    spawn "gnome-power-manager"
     spawn "killall nm-applet ; nm-applet" -- ネット接続のアプレットを起動
     spawn "gnome-sound-applet" -- gnome-volume-control-applet? -- ボリューム変更のアプレットを起動
-    spawn "nautilus --no-default-window --no-desktop" -- nautilusを起動(なんのために起動するのかわからない)
+    spawn "nautilus --no-default-window" -- デスクトップを読み込む
     spawn "dropbox start" -- dropboxを起動させて同期できるようにする
     xmproc <- spawnPipe "/usr/bin/xmobar ~/.xmobarrc"
     xmonad $ defaultConfig
