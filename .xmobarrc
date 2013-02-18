@@ -5,7 +5,7 @@ Config { font = "xft:monospace-9:bold"
        , lowerOnStart = False
        , commands = [ Run Network "eth0" ["-L", "0", "-H", "32", "--normal", "green", "--high", "red"] 10
                     , Run Cpu ["-L","3","-H","50","--normal","green","--high","red"] 10
-                    , Run Memory ["-t","Mem: <cache>MB(<usedratio>%)"] 10
+                    , Run Memory ["-t","Mem: <used>MB(<usedratio>%)"] 10
                     , Run Date "%a %b %_d %l:%M" "date" 10
                     , Run Battery ["-t", "Bat: <leftbar> <left>%(<timeleft>)", "-L", "15", "-H", "70", "--high", "green", "--low", "red"] 10
                     , Run StdinReader
