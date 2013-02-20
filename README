@@ -2,6 +2,10 @@ XMonad, XMobarのdotfileです。
 
 GNOMEに一部依存します。
 
+* Installing
+$sudo make PACKAGER=aptitude
+等です。
+
 * 依存するパッケージ
 ** ライブラリ系
 *** libghc-parsec3-dev
