@@ -3,7 +3,12 @@ XMonad, XMobarのdotfileです。
 GNOMEに一部依存します。
 
 * Installing
+** Install & Setup
 $sudo make PACKAGER=aptitude
+** Install required packages
+$sudo make PACKAGER=aptitude
+** Setup
+$make setup
 等です。
 
 * 依存するパッケージ
