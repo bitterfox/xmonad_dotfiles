@@ -53,6 +53,8 @@ main = do
         , ((0, xK_Print), spawn "gnome-screenshot")
         , ((mod4Mask, xK_r), refresh)
 
+        , ((mod4Mask .|. shiftMask, xK_e), spawn "nautilus")
+
         -- Full screen
         , ((mod4Mask, xK_f), sendMessage ToggleLayout)
 
