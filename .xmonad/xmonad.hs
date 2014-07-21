@@ -25,19 +25,24 @@ tall = Tall 1 (3/100) (1/2)
 main = do
     spawn "nautilus --no-default-window" -- デスクトップを読み込む
 
-    spawn "killall trayer ; sleep 2 ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent false --tint 0x000000 --height 17" -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
+    spawn "killall trayer ; sleep 2 ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 20 --widthtype percent --transparent false --tint 0x000000 --height 17" -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
+
     spawn "gnome-settings-daemon" -- GNOME上での設定を反映させる
 --    spawn "gnome-power-manager"
     spawn "killall nm-applet ; nm-applet" -- ネット接続のアプレットを起動
     spawn "gnome-sound-applet" -- gnome-volume-control-applet? -- ボリューム変更のアプレットを起動
     spawn "bluetooth-applet"
     spawn "dropbox start" -- dropboxを起動させて同期できるようにする
+    spawn "sparkleshare restart"
 
-    spawn "sleep 10 ; killall trayer ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent false --tint 0x000000 --height 17" -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
+    spawn "sleep 10 ; killall trayer ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 20 --widthtype percent --transparent false --tint 0x000000 --height 17" -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
+
+    spawn "wmname LG3D"
+
     xmproc <- spawnPipe "/usr/bin/xmobar ~/.xmobarrc"
     xmonad $ defaultConfig
         { manageHook = manageDocks <+> manageHook defaultConfig
-        , layoutHook = avoidStruts $ toggleLayouts (named "□" $ noBorders Full) ((named "├" $ tall) ||| (named "┬" $ Mirror tall)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Space>での変更はtall, Mirror tall)
+        , layoutHook = avoidStruts $ toggleLayouts (named "□" $ noBorders Full) ((named "├" $ tall) ||| (named "┬" $ Mirror tall)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall)
         , logHook = dynamicLogWithPP xmobarPP
                         { ppOutput = hPutStrLn xmproc
                         , ppTitle = xmobarColor "green" "" . shorten 110
@@ -100,7 +105,7 @@ main = do
         , ((mod4Mask, xK_w), goToSelected defaultGSConfig)
         , ((mod4Mask .|. shiftMask, xK_w), gridselectWorkspace defaultGSConfig W.view)
 
-        , ((mod4Mask, xK_e), spawnSelected defaultGSConfig ["firefox", "nautilus", "gimp", "emacs", "gnome-terminal", "gnome-control-center", "libreoffice"])
+        , ((mod4Mask, xK_e), spawnSelected defaultGSConfig ["firefox", "nautilus", "gimp", "emacs", "gnome-terminal", "gnome-control-center", "libreoffice", "~/bin/netbeans-8.0/bin/netbeans"])
         ] `additionalKeysP`
         [
         -- ボリューム周り
