@@ -10,8 +10,11 @@ import XMonad.Layout.Fullscreen
 import XMonad.Layout.Gaps
 import XMonad.Layout.MultiToggle
 import XMonad.Layout.MultiToggle.Instances
-import XMonad.Layout.Named
+import XMonad.Layout.Renamed
 import XMonad.Layout.NoBorders
+import XMonad.Layout.ResizableTile
+import XMonad.Layout.TwoPane
+import XMonad.Layout.ThreeColumns
 import qualified XMonad.StackSet as W
 import XMonad.Layout.ToggleLayouts
 import XMonad.Util.Run(spawnPipe)
@@ -23,6 +26,9 @@ import qualified Data.Map as M
 tall = Tall 1 (3/100) (1/2)
 
 main = do
+    spawn "`sleep 3; xmodmap /home/bitter_fox/.xmodmap` &" -- for Mac keyboard
+    spawn "ginn .wishes.xml" -- for Mac mouse
+
     spawn "nautilus --no-default-window" -- デスクトップを読み込む
 
     spawn "killall trayer ; sleep 2 ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 20 --widthtype percent --transparent false --tint 0x000000 --height 17" -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
@@ -42,7 +48,9 @@ main = do
     xmproc <- spawnPipe "/usr/bin/xmobar ~/.xmobarrc"
     xmonad $ defaultConfig
         { manageHook = manageDocks <+> manageHook defaultConfig
-        , layoutHook = avoidStruts $ toggleLayouts (named "□" $ noBorders Full) ((named "├" $ tall) ||| (named "┬" $ Mirror tall)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall)
+        , layoutHook = avoidStruts $
+                       toggleLayouts (renamed [Replace "□"] $ noBorders Full)
+ $                       ((renamed [Replace "├"] $ myLayout) ||| (renamed [Replace "┬"] $ Mirror myLayout)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall)
         , logHook = dynamicLogWithPP xmobarPP
                         { ppOutput = hPutStrLn xmproc
                         , ppTitle = xmobarColor "green" "" . shorten 110
@@ -67,6 +75,10 @@ main = do
 
         -- Full screen
         , ((mod4Mask, xK_f), sendMessage ToggleLayout)
+
+        -- 水平のサイズ変更
+        , ((mod4Mask, xK_i), sendMessage MirrorExpand)
+        , ((mod4Mask, xK_m), sendMessage MirrorShrink)
 
         -- Arrow Keys
         -- フォーカスの移動
@@ -105,7 +117,7 @@ main = do
         , ((mod4Mask, xK_w), goToSelected defaultGSConfig)
         , ((mod4Mask .|. shiftMask, xK_w), gridselectWorkspace defaultGSConfig W.view)
 
-        , ((mod4Mask, xK_e), spawnSelected defaultGSConfig ["firefox", "nautilus", "gimp", "emacs", "gnome-terminal", "gnome-control-center", "libreoffice", "~/bin/netbeans-8.0/bin/netbeans"])
+        , ((mod4Mask, xK_e), spawnSelected defaultGSConfig ["firefox", "nautilus", "gimp", "emacs", "gnome-terminal", "gnome-control-center", "libreoffice", "~/bin/netbeans-8.0.1/bin/netbeans", "~/bin/idea-IC-139.225.3/bin/idea.sh"])
         ] `additionalKeysP`
         [
         -- ボリューム周り
@@ -120,3 +132,6 @@ main = do
           ((mod4Mask .|. controlMask, button1), \w -> focus w >> mouseResizeWindow w
                                                               >> windows W.shiftMaster)
         ]
+
+myLayout = (ResizableTall 1 (3/100) (1/2) [])
+
