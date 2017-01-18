@@ -1,16 +1,16 @@
 Config { font = "xft:monospace-9:bold"
        , bgColor = "black"
        , fgColor = "grey"
-       , position = TopW L 80
+       , position = TopW L 90
        , lowerOnStart = False
        , commands = [ Run Network "eth0" ["-L", "0", "-H", "32", "--normal", "green", "--high", "red"] 10
                     , Run Cpu ["-L","3","-H","50","--normal","green","--high","red"] 10
                     , Run Memory ["-t","Mem: <used>MB(<usedratio>%)"] 10
-                    , Run Date "%a %b %_d %l:%M" "date" 10
+                    , Run Com "date" ["+\"%_m/%_d(%a) %H:%M\""] "jadate" 10
                     , Run Battery ["-t", "Bat: <leftbar> <left>%(<timeleft>)", "-L", "15", "-H", "70", "--high", "green", "--low", "red"] 600
                     , Run StdinReader
                     ]
        , sepChar = "%"
        , alignSep = "}{"
-       , template = "%StdinReader% }{ %cpu% | %memory% | %eth0% | %battery%    <fc=#ee9a00>%date%</fc>"
+       , template = "%StdinReader% }{ %cpu% | %memory% | %eth0% | %battery%    <fc=#ee9a00>%jadate%</fc>"
        }
