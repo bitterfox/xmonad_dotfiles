@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DOT_FILES=(.xmobarrc .xmonad)
+DOT_FILES=(.xmobarrc .xmonad .wishes.xml)
 
 DISCARD_FILES= # 現状なし
 

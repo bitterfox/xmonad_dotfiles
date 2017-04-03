@@ -1,0 +1,68 @@
+<ginn>
+  <global>
+    <wish gesture="Drag" fingers="3">
+      <action name="NextWorkspace" when="update">
+        <trigger prop="delta x" min="1400" max="4000"/>
+	<key modifier1="Super_L" modifier2="Control_R">Right</key>
+      </action>
+    </wish>
+    <wish gesture="Drag" fingers="3">
+      <action name="PrevWorkspace" when="update">
+	<trigger prop="delta x" min="-4000" max="-1400"/>
+	<key modifier1="Super_L" modifier2="Control_R">Left</key>
+      </action>
+    </wish>
+    
+    <wish gesture="Drag" fingers="3">
+      <action name="NextWindow" when="update">
+	<trigger prop="delta y" min="1400" max="4000"/>
+	<key modifier1="Super_L">Right</key>
+      </action>
+    </wish>
+    <wish gesture="Drag" fingers="3">
+      <action name="PrevWindow" when="update">
+	<trigger prop="delta y" min="-4000" max="-1400"/>
+	<key modifier1="Super_L">Left</key>
+      </action>
+    </wish>
+    
+    <wish gesture="Pinch" fingers="2">
+      <action name="action1" when="update">
+        <trigger prop="radius delta" min="-200" max="-40"/>
+        <key modifier1="Control_L">KP_Subtract</key>
+      </action>
+    </wish>
+    <wish gesture="Pinch" fingers="2">
+      <action name="action1" when="update">
+        <trigger prop="radius delta" min="40" max="200"/>
+        <key modifier1="Control_L">KP_Add</key>
+      </action>
+    </wish>
+
+    <wish gesture="Drag" fingers="4">
+      <action name="NextWorkspace" when="update">
+	<trigger prop="delta x" min="1400" max="4000"/>
+	<key modifier1="Super_L" modifier2="Control_R">F9</key>
+      </action>
+    </wish>
+    <wish gesture="Drag" fingers="4">
+      <action name="PrevWorkspace" when="update">
+	<trigger prop="delta x" min="-4000" max="-1400"/>
+	<key modifier1="Super_L" modifier2="Control_R">F7</key>
+      </action>
+    </wish>
+    <wish gesture="Drag" fingers="4">
+      <action name="NextWindow" when="update">
+	<trigger prop="delta y" min="1400" max="4000"/>
+	<key modifier1="Super_L" modifier2="Control_R">F8</key>
+      </action>
+    </wish>
+    <wish gesture="Drag" fingers="4">
+      <action name="PrevWindow" when="update">
+	<trigger prop="delta y" min="-4000" max="-1400"/>
+	<key modifier1="Super_L" modifier2="Control_R" modifier3="Shift_L">F8</key>
+      </action>
+    </wish>
+
+  </global>
+</ginn>
