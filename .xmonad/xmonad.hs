@@ -39,11 +39,11 @@ onTop = (customFloating $ W.RationalRect 0 0.02 1 0.48)
 
 myScratchpads :: [NamedScratchpad]
 myScratchpads = [
-    NS "mainterm"  "gnome-terminal --app-id bitter_fox.xmonad.mainterm" (appName =? "mainterm")
+    NS "mainterm"  "/usr/lib/gnome-terminal/gnome-terminal-server --app-id bitter_fox.xmonad.mainterm --name=mainterm --class=mainterm & gnome-terminal --app-id bitter_fox.xmonad.mainterm" (appName =? "mainterm")
         (customFloating $ W.RationalRect 0 0.02 1 0.98)
-  , NS "term1"  "gnome-terminal --app-id bitter_fox.xmonad.term1" (appName =? "term1")
+  , NS "term1"  "/usr/lib/gnome-terminal/gnome-terminal-server --app-id bitter_fox.xmonad.term1 --name=term1 --class=term1 & gnome-terminal --app-id bitter_fox.xmonad.term1" (appName =? "term1")
         (customFloating $ W.RationalRect 0 0.02 1 0.48)
-  , NS "term2"  "gnome-terminal --app-id bitter_fox.xmonad.term2" (appName =? "term2")
+  , NS "term2"  "/usr/lib/gnome-terminal/gnome-terminal-server --app-id bitter_fox.xmonad.term2 --name=term2 --class=term2 & gnome-terminal --app-id bitter_fox.xmonad.term2" (appName =? "term2")
         (customFloating $ W.RationalRect 0 0.5 1 0.5)
   , NS "jshell1"  "gnome-terminal --disable-factory --name=jshell1 -e ~/bin/jdk9b138/bin/jshell" (appName =? "jshell1")
         (customFloating $ W.RationalRect 0 0.02 1 0.48)
@@ -309,10 +309,6 @@ prevWS' = moveTo Prev (WSIs notSP)
 tall = Tall 1 (3/100) (1/2)
 
 main = do
-    spawn "/usr/lib/gnome-terminal/gnome-terminal-server --app-id bitter_fox.xmonad.mainterm --name=mainterm --class=mainterm"
-    spawn "/usr/lib/gnome-terminal/gnome-terminal-server --app-id bitter_fox.xmonad.term1 --name=term1 --class=term1"
-    spawn "/usr/lib/gnome-terminal/gnome-terminal-server --app-id bitter_fox.xmonad.term2 --name=term2 --class=term2"
-
     spawn "unity-settings-daemon" -- Unity上での設定を反映させる
     io (threadDelay (1 * 1000 * 1000)) -- Wait unity-settings-daemon reflect their settings
 
