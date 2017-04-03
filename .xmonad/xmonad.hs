@@ -111,6 +111,8 @@ showOrHideScratchpads scratchpads show =
       toMoveActions s filtered
     )
   where
+    acceleration = 0.0001
+    delay = 10
     toShowActions = \s ws -> do
                       MaybeWindowLocationMap evacuateds <- XS.get
                       let
@@ -122,7 +124,7 @@ showOrHideScratchpads scratchpads show =
                           ) ws
                       io $ appendFile "/tmp/xmonad.debug" "show\n"
                       io $ appendFile "/tmp/xmonad.debug" $ TS.show toBeShowns
-                      dynamicMoving toBeShowns 0.001 10
+                      dynamicMoving toBeShowns acceleration delay
                       XS.put $ MaybeWindowLocationMap $ L.foldl (\m (w, c, t) -> M.delete w m) evacuateds toBeShowns
     toHideActions = \s ws -> do
                       MaybeWindowLocationMap evacuateds <- XS.get
@@ -139,7 +141,7 @@ showOrHideScratchpads scratchpads show =
                           ) ws
                       io $ appendFile "/tmp/xmonad.debug" "hide\n"
                       io $ appendFile "/tmp/xmonad.debug" $ TS.show toBeEvacuateds
-                      newLocationMap <- evacuateWindowsLikeMac toBeEvacuateds 0.001 10
+                      newLocationMap <- evacuateWindowsLikeMac toBeEvacuateds acceleration delay
                       let
                         evacuatedWindowLocations = mapMaybe (\(w, c) -> do
                           newLocation <- M.lookup w newLocationMap
