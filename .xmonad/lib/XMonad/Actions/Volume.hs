@@ -63,9 +63,9 @@ import System.Process
 import Text.ParserCombinators.Parsec
 import XMonad.Core
 
-infixl 1 <*
-(<*) :: Monad m => m a -> m b -> m a
-pa <* pb = pa >>= \a -> pb >> return a
+infixl 1 <<*
+(<<*) :: Monad m => m a -> m b -> m a
+pa <<* pb = pa >>= \a -> pb >> return a
 
 {- $usage
 You can use this module with the following in your @~\/.xmonad\/xmonad.hs@:
@@ -172,7 +172,7 @@ outputOf s = do
     uninstallSignalHandlers
     (hIn, hOut, hErr, p) <- runInteractiveCommand s
     mapM_ hClose [hIn, hErr]
-    hGetContents hOut <* waitForProcess p <* installSignalHandlers
+    hGetContents hOut <<* waitForProcess p <<* installSignalHandlers
 
 amixerSetAll :: Double -> Bool -> [String] -> IO ()
 amixerSet    :: Double -> Bool ->  String  -> IO String
@@ -199,7 +199,7 @@ parseAmixerGetAll ss = (geomMean vols, mute) where
     mute             = or . catMaybes $ mutings
 
 amixerGetParser :: Parser [(Double, Maybe Bool)]
-amixerGetParser = headerLine >> playbackChannels >>= volumes <* eof
+amixerGetParser = headerLine >> playbackChannels >>= volumes <<* eof
 
 headerLine       :: Parser  String
 playbackChannels :: Parser [String]
@@ -214,7 +214,7 @@ volumes channels = fmap concat . many1 $ keyValueLine >>= \kv -> return $ case k
 
 upTo         :: Char -> Parser String
 keyValueLine :: Parser (String, String)
-upTo c = many (satisfy (/= c)) <* char c
+upTo c = many (satisfy (/= c)) <<* char c
 keyValueLine = do
     string "  "
     key   <- upTo ':'
@@ -224,7 +224,7 @@ keyValueLine = do
 parseChannel  :: String -> [(Double, Maybe Bool)]
 channelParser :: Parser    [(Double, Maybe Bool)]
 parseChannel  = either (const []) id . parse channelParser ""
-channelParser = fmap catMaybes (many1 playbackOrCapture) <* eof
+channelParser = fmap catMaybes (many1 playbackOrCapture) <<* eof
 
 playbackOrCapture :: Parser (Maybe (Double, Maybe Bool))
 playbackOrCapture = do
