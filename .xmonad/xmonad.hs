@@ -39,11 +39,11 @@ onTop = (customFloating $ W.RationalRect 0 0.02 1 0.48)
 
 myScratchpads :: [NamedScratchpad]
 myScratchpads = [
-    NS "mainterm"  "gnome-terminal --disable-factory --name=mainterm" (appName =? "mainterm")
+    NS "mainterm"  "gnome-terminal --app-id bitter_fox.xmonad.mainterm" (appName =? "mainterm")
         (customFloating $ W.RationalRect 0 0.02 1 0.98)
-  , NS "term1"  "gnome-terminal --disable-factory --name=term1" (appName =? "term1")
+  , NS "term1"  "gnome-terminal --app-id bitter_fox.xmonad.term1" (appName =? "term1")
         (customFloating $ W.RationalRect 0 0.02 1 0.48)
-  , NS "term2"  "gnome-terminal --disable-factory --name=term2" (appName =? "term2")
+  , NS "term2"  "gnome-terminal --app-id bitter_fox.xmonad.term2" (appName =? "term2")
         (customFloating $ W.RationalRect 0 0.5 1 0.5)
   , NS "jshell1"  "gnome-terminal --disable-factory --name=jshell1 -e ~/bin/jdk9b138/bin/jshell" (appName =? "jshell1")
         (customFloating $ W.RationalRect 0 0.02 1 0.48)
@@ -307,6 +307,13 @@ prevWS' = moveTo Prev (WSIs notSP)
 tall = Tall 1 (3/100) (1/2)
 
 main = do
+    spawn "/usr/lib/gnome-terminal/gnome-terminal-server --app-id bitter_fox.xmonad.mainterm --name=mainterm --class=mainterm"
+    spawn "/usr/lib/gnome-terminal/gnome-terminal-server --app-id bitter_fox.xmonad.term1 --name=term1 --class=term1"
+    spawn "/usr/lib/gnome-terminal/gnome-terminal-server --app-id bitter_fox.xmonad.term2 --name=term2 --class=term2"
+
+    spawn "unity-settings-daemon" -- Unity上での設定を反映させる
+    io (threadDelay (1 * 1000 * 1000)) -- Wait unity-settings-daemon reflect their settings
+
     spawn "`sleep 3; xmodmap /home/bitter_fox/.xmodmap` &" -- for Mac keyboard
     spawn "ginn .wishes.xml" -- for Mac mouse
 
@@ -314,7 +321,6 @@ main = do
 
     spawn "killall trayer ; sleep 2 ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent false --tint 0x000000 --height 17" -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
 
-    spawn "gnome-settings-daemon" -- GNOME上での設定を反映させる
 --    spawn "gnome-power-manager"
     spawn "killall nm-applet ; nm-applet" -- ネット接続のアプレットを起動
     spawn "gnome-sound-applet" -- gnome-volume-control-applet? -- ボリューム変更のアプレットを起動
@@ -440,7 +446,7 @@ applications = [
  "gimp",
  "emacs",
  "gnome-terminal",
- "gnome-control-center",
+ "unity-control-center",
  "libreoffice",
  "~/bin/netbeans-8.0.1/bin/netbeans",
  "~/bin/idea-IC-139.225.3/bin/idea.sh"]
