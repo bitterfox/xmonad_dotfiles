@@ -3,14 +3,16 @@ Config { font = "xft:monospace-9:bold"
        , fgColor = "grey"
        , position = TopW L 90
        , lowerOnStart = False
-       , commands = [ Run Network "eth0" ["-L", "0", "-H", "32", "--normal", "green", "--high", "red"] 10
+       , commands = [ Run Network "wlp3s0" ["-L", "0", "-H", "32", "--normal", "green", "--high", "red"] 10
                     , Run Cpu ["-L","3","-H","50","--normal","green","--high","red"] 10
+		    , Run Com "cat" ["/sys/devices/platform/applesmc.768/temp9_input"] "temp" 10
+		    , Run Com "cat" ["/sys/devices/platform/applesmc.768/fan1_output"] "fan" 10
                     , Run Memory ["-t","Mem: <used>MB(<usedratio>%)"] 10
-                    , Run Com "date" ["+\"%_m/%_d(%a) %H:%M\""] "jadate" 10
-                    , Run Battery ["-t", "Bat: <leftbar> <left>%(<timeleft>)", "-L", "15", "-H", "70", "--high", "green", "--low", "red"] 600
+                    , Run Com "date" ["+\"%_m/%_d(%a) %H:%M\""] "jadate" 100
+                    , Run Battery ["-t", "Bat: <left>%(<timeleft>)", "-L", "15", "-H", "70", "--high", "green", "--low", "red"] 100
                     , Run StdinReader
                     ]
        , sepChar = "%"
        , alignSep = "}{"
-       , template = "%StdinReader% }{ %cpu% | %memory% | %eth0% | %battery%    <fc=#ee9a00>%jadate%</fc>"
+       , template = "%StdinReader% }{ %cpu%(%temp%℃) | Fan: %fan% | %memory% | %wlp3s0% | %battery%    <fc=#ee9a00>%jadate%</fc>"
        }

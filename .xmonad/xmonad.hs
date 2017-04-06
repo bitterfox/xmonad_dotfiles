@@ -49,8 +49,8 @@ myScratchpads = [
         (customFloating $ W.RationalRect 0 0.02 1 0.48)
   , NS "jshell2"  "gnome-terminal --disable-factory --name=jshell2 -e ~/bin/jdk9b138/bin/jshell" (appName =? "jshell2")
         (customFloating $ W.RationalRect 0 0.5 1 0.5)
-  , NS "bunnaru"  "google-chrome --new-window http://www.dmm.com/netgame/social/-/gadgets/=/app_id=798209/" (fmap (L.isInfixOf "文豪とアルケミスト - オンラインゲーム - DMM GAMES") title)
-        (customFloating $ W.RationalRect 0 0.02 1 0.98)
+  , NS "bunnaru"  "google-chrome --new-window --app=http://www.dmm.com/netgame/social/-/gadgets/=/app_id=798209/" (fmap (L.isInfixOf "文豪とアルケミスト - オンラインゲーム - DMM GAMES") title)
+        (customFloating $ W.RationalRect 0 0.02 0.6 0.6)
  ]
 myScratchpadsManageHook = namedScratchpadManageHook myScratchpads
 
@@ -107,8 +107,8 @@ instance ExtensionClass MaybeWindowLocationMap where
 
 showOrHideScratchpads scratchpads show =
     withWindowSet(\s -> do
-      filtered <- windowsMatchScratchpads s
-      toMoveActions s filtered
+--      filtered <- windowsMatchScratchpads s
+      toMoveActions s (currentWindows s)
     )
   where
     acceleration = 0.0001
@@ -308,11 +308,15 @@ prevWS' = moveTo Prev (WSIs notSP)
 
 tall = Tall 1 (3/100) (1/2)
 
+watch :: String -> String -> IO ()
+watch cmd interval = spawn $ "while :; do " ++ cmd ++ "; sleep " ++ interval ++ "; done"
+
 main = do
     spawn "unity-settings-daemon" -- Unity上での設定を反映させる
     io (threadDelay (1 * 1000 * 1000)) -- Wait unity-settings-daemon reflect their settings
 
-    spawn "`sleep 3; xmodmap /home/bitter_fox/.xmodmap` &" -- for Mac keyboard
+    watch "xmodmap ~/.xmodmap" "0.3"
+
     spawn "ginn .wishes.xml" -- for Mac mouse
 
     spawn "nautilus --no-default-window" -- デスクトップを読み込む
