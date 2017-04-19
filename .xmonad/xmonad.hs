@@ -37,21 +37,49 @@ import qualified Text.Show as TS
 
 onTop = (customFloating $ W.RationalRect 0 0.02 1 0.48)
 
+java9Home = "~/bin/jdk9b164"
+jshellPath = java9Home ++ "/bin/jshell"
+
+terminalScratchpad :: String -> Maybe String -> ManageHook -> NamedScratchpad
+terminalScratchpad name execMaybe manageHook =
+    NS name
+       ("/usr/lib/gnome-terminal/gnome-terminal-server" ++
+           " --app-id bitter_fox.xmonad." ++ name ++
+           " --name=" ++ name ++ " --class=" ++ name ++
+           " & gnome-terminal --app-id bitter_fox.xmonad." ++ name ++
+           (case execMaybe of
+              Just exec -> " -e " ++ exec
+              Nothing -> ""
+           )
+       )
+       (appName =? name)
+       manageHook
+
 myScratchpads :: [NamedScratchpad]
 myScratchpads = [
-    NS "mainterm"  "/usr/lib/gnome-terminal/gnome-terminal-server --app-id bitter_fox.xmonad.mainterm --name=mainterm --class=mainterm & gnome-terminal --app-id bitter_fox.xmonad.mainterm" (appName =? "mainterm")
-        (customFloating $ W.RationalRect 0 0.02 1 0.98)
-  , NS "term1"  "/usr/lib/gnome-terminal/gnome-terminal-server --app-id bitter_fox.xmonad.term1 --name=term1 --class=term1 & gnome-terminal --app-id bitter_fox.xmonad.term1" (appName =? "term1")
-        (customFloating $ W.RationalRect 0 0.02 1 0.48)
-  , NS "term2"  "/usr/lib/gnome-terminal/gnome-terminal-server --app-id bitter_fox.xmonad.term2 --name=term2 --class=term2 & gnome-terminal --app-id bitter_fox.xmonad.term2" (appName =? "term2")
-        (customFloating $ W.RationalRect 0 0.5 1 0.5)
-  , NS "jshell1"  "gnome-terminal --disable-factory --name=jshell1 -e ~/bin/jdk9b138/bin/jshell" (appName =? "jshell1")
-        (customFloating $ W.RationalRect 0 0.02 1 0.48)
-  , NS "jshell2"  "gnome-terminal --disable-factory --name=jshell2 -e ~/bin/jdk9b138/bin/jshell" (appName =? "jshell2")
-        (customFloating $ W.RationalRect 0 0.5 1 0.5)
-  , NS "bunnaru"  "google-chrome --new-window --app=http://www.dmm.com/netgame/social/-/gadgets/=/app_id=798209/" (fmap (L.isInfixOf "文豪とアルケミスト - オンラインゲーム - DMM GAMES") title)
-        (customFloating $ W.RationalRect 0 0.02 0.6 0.6)
+    terminalScratchpad "mainterm" Nothing
+           (customFloating $ W.RationalRect 0 0.02 1 0.98)
+  , terminalScratchpad "term1" Nothing
+           (customFloating $ W.RationalRect 0 0.02 1 0.48)
+  , terminalScratchpad "term2" Nothing
+           (customFloating $ W.RationalRect 0 0.5 1 0.5)
+  , terminalScratchpad "jshell1"
+           (Just jshellPath)
+           (customFloating $ W.RationalRect 0 0.02 1 0.48)
+  , terminalScratchpad "jshell1"
+           (Just jshellPath)
+           (customFloating $ W.RationalRect 0 0.5 1 0.5)
+  , NS "bunnaru"
+           "google-chrome --renderer-process-limit=1 --new-window --app=http://www.dmm.com/netgame/social/-/gadgets/=/app_id=798209/"
+           (appName =? "www.dmm.com__netgame_social_-_gadgets_=_app_id=798209")
+           (customFloating $ W.RationalRect 0 0.4 0.55 0.6)
+  , NS "艦これ"
+           "google-chrome --renderer-process-limit=1 --new-window --app=http://www.dmm.com/netgame/social/-/gadgets/=/app_id=854854/"
+           (appName =? "www.dmm.com__netgame_social_-_gadgets_=_app_id=854854")
+           (customFloating $ W.RationalRect 0.55 0.4 0.45 0.6)
  ]
+
+
 myScratchpadsManageHook = namedScratchpadManageHook myScratchpads
 
 myNamedScratchpadAction n =
@@ -306,6 +334,11 @@ nextWS' = moveTo Next (WSIs notSP)
 prevWS' :: X ()
 prevWS' = moveTo Prev (WSIs notSP)
 
+shiftToNextWS' :: X()
+shiftToNextWS' = shiftTo Next (WSIs notSP)
+shiftToPrevWS' :: X()
+shiftToPrevWS' = shiftTo Prev (WSIs notSP)
+
 tall = Tall 1 (3/100) (1/2)
 
 watch :: String -> String -> IO ()
@@ -321,17 +354,18 @@ main = do
 
     spawn "nautilus --no-default-window" -- デスクトップを読み込む
 
-    spawn "killall trayer ; sleep 2 ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent false --tint 0x000000 --height 17" -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
+    spawn "killall trayer ; sleep 2 ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent false --tint 0x000000 --height 22" -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
 
 --    spawn "gnome-power-manager"
     spawn "killall nm-applet ; nm-applet" -- ネット接続のアプレットを起動
-    spawn "gnome-sound-applet" -- gnome-volume-control-applet? -- ボリューム変更のアプレットを起動
-    spawn "bluetooth-applet"
-    spawn "dropbox start" -- dropboxを起動させて同期できるようにする
+--    spawn "gnome-sound-applet" -- gnome-volume-control-applet? -- ボリューム変更のアプレットを起動
+--    spawn "bluetooth-applet"
     spawn "sparkleshare restart"
 --  spawn "/opt/toggldesktop/TogglDesktop.sh"
 
-    spawn "sleep 10 ; killall trayer ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent false --tint 0x000000 --height 17" -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
+    -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
+    spawn "sleep 10 ; killall trayer ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent false --tint 0x000000 --height 22 ; dropbox start"
+    -- dropboxを起動させて同期できるようにする
 
     spawn "wmname LG3D"
 
@@ -353,6 +387,7 @@ main = do
         , normalBorderColor  = "#587993" -- Java blue
         , focusedBorderColor = "#e76f00" -- Java orange
         , focusFollowsMouse = False -- マウスの移動でフォーカスが映らないように
+        , clickJustFocuses = False
         } `additionalKeys`
         [
           ((mod4Mask .|. shiftMask, xK_l), spawn "gnome-screensaver-command --lock") -- Lock
@@ -367,6 +402,7 @@ main = do
         , ((mod4Mask .|. shiftMask, xK_e), spawn "nautilus")
 
         , ((mod4Mask, xK_Return), myNamedScratchpadAction "mainterm")
+        , ((mod4Mask, xK_F9), myNamedScratchpadAction "艦これ")
         , ((mod4Mask, xK_F10), myNamedScratchpadAction "bunnaru")
         , ((mod4Mask, xK_F11), myNamedScratchpadAction "term1")
         , ((mod4Mask, xK_F12), myNamedScratchpadAction "term2")
@@ -407,10 +443,10 @@ main = do
         , ((mod4Mask .|. controlMask, xK_Right), nextWS')
 
         -- ワーススペース間のスワップ
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Up), shiftToPrev >> prevWS')
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Left), shiftToPrev >> prevWS')
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Down), shiftToNext >> nextWS')
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Right), shiftToNext >> nextWS')
+        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Up), shiftToPrevWS' >> prevWS')
+        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Left), shiftToPrevWS' >> prevWS')
+        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Down), shiftToNextWS' >> nextWS')
+        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Right), shiftToNextWS' >> nextWS')
 
         -- j/k key
         -- ワークスペースの移動
@@ -418,19 +454,20 @@ main = do
         , ((mod4Mask .|. controlMask, xK_k), prevWS')
 
         -- ワークスペース間のスワップ
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_j), shiftToNext >> nextWS')
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_k), shiftToPrev >> prevWS')
+        , ((mod4Mask .|. controlMask .|. shiftMask, xK_j), shiftToNextWS' >> nextWS')
+        , ((mod4Mask .|. controlMask .|. shiftMask, xK_k), shiftToPrevWS' >> prevWS')
 
-        , ((mod4Mask, xK_w), goToSelected defaultGSConfig)
-        , ((mod4Mask .|. shiftMask, xK_w), gridselectWorkspace defaultGSConfig W.view)
+        , ((mod4Mask, xK_w), goToSelected hidpiGSConfig)
+        , ((mod4Mask .|. shiftMask, xK_w), gridselectWorkspace hidpiGSConfig W.view)
 
-        , ((mod4Mask, xK_e), spawnSelected defaultGSConfig applications)
+        , ((mod4Mask, xK_e), spawnSelected hidpiGSConfig applications)
+        , ((mod4Mask, xK_s), scratchpadSelected hidpiGSConfig myScratchpads)
         ] `additionalKeysP`
         [
         -- ボリューム周り
           ("<XF86AudioLowerVolume>", setMute(False) >> lowerVolume 3 >> return ())
         , ("<XF86AudioRaiseVolume>", setMute(False) >> raiseVolume 3 >> return ())
-        , ("<XF86AudioMute>",        setMute(False) >> setVolume 0   >> return ()) -- toggleMuteで問題がなければそうすると良いです。
+        , ("<XF86AudioMute>",        setMute(False) >> setVolume 50   >> return ()) -- toggleMuteで問題がなければそうすると良いです。
         ] `removeKeys`
         [
           (mod4Mask .|. shiftMask, xK_q)
@@ -442,6 +479,9 @@ main = do
 
 myLayout = (ResizableTall 1 (3/100) (1/2) [])
 
+hidpiGSConfig :: HasColorizer a => GSConfig a
+hidpiGSConfig = defaultGSConfig { gs_cellheight = 80, gs_cellwidth = 300, gs_font = "xft:Sans-18" }
+
 applications = [
  "google-chrome",
  "nautilus",
@@ -452,3 +492,9 @@ applications = [
  "libreoffice",
  "~/bin/netbeans-8.0.1/bin/netbeans",
  "~/bin/idea-IC-139.225.3/bin/idea.sh"]
+
+scratchpadSelected :: GSConfig NamedScratchpad -> [NamedScratchpad] -> X()
+scratchpadSelected config scratchpads = do
+    scratchpadMaybe <- gridselect config (map (\s -> (name s, s)) scratchpads)
+    myNamedScratchpadActionMaybe scratchpadMaybe
+
