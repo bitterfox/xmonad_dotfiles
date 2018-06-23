@@ -24,6 +24,7 @@ import XMonad.ManageHook
 import XMonad.Util.Run(spawnPipe)
 import XMonad.Util.EZConfig
 import XMonad.Util.NamedScratchpad
+import XMonad.Util.NamedWindows
 import qualified XMonad.Util.ExtensibleState as XS
 import System.Exit
 import System.IO
@@ -87,8 +88,8 @@ myNamedScratchpadAction n =
     >> withWindowSet (\s ->
          case (W.peek s, L.find isSameName myScratchpads) of
            (Just w, Just ns) -> do
-             isTarget <- runQuery (query ns) w
              hook <- runQuery (hook ns) w
+             isTarget <- runQuery (query ns) w
              case isTarget of
                True -> windows(\ws -> appEndo hook ws)
                _ -> return ()
@@ -137,6 +138,7 @@ showOrHideScratchpads scratchpads show =
     withWindowSet(\s -> do
 --      filtered <- windowsMatchScratchpads s
       toMoveActions s (currentWindows s)
+--      toMoveActions s filtered
     )
   where
     acceleration = 0.0001
@@ -368,8 +370,14 @@ main = do
     -- dropboxを起動させて同期できるようにする
 
     spawn "wmname LG3D"
+    spawn "prlcc"
+    spawn "prlcp"
 
-    xmproc <- spawnPipe "/usr/bin/xmobar ~/.xmobarrc"
+    spawn "compton -b --config ~/.comptonrc"
+
+    xmproc0 <- spawnPipe "/usr/bin/xmobar ~/.xmobarrc"
+    xmproc1 <- spawnPipe "/usr/bin/xmobar -x 1 ~/.xmobarrc"
+    let xmprocs = [xmproc0, xmproc1]
     xmonad $ defaultConfig
         { manageHook = manageHook defaultConfig
                        <+> manageDocks
@@ -377,13 +385,9 @@ main = do
         , layoutHook = avoidStruts $
                        toggleLayouts (renamed [Replace "□"] $ noBorders Full)
  $                       ((renamed [Replace "├"] $ myLayout) ||| (renamed [Replace "┬"] $ Mirror myLayout)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall)
-        , logHook = dynamicLogWithPP xmobarPP
-                        { ppOutput = hPutStrLn xmproc
-                        , ppTitle = xmobarColor "green" "" . shorten 60
-                        , ppSort = fmap (. namedScratchpadFilterOutWorkspace) $ ppSort xmobarPP
-                        }
+        , logHook = withWindowSet (\s -> L.foldl (>>) def (map (\(i, xmproc) -> dynamicLogWithPP (multiScreenXMobarPP s i xmproc)) (L.zip [0..(L.length xmprocs)] xmprocs)))
         , modMask = mod4Mask     -- Rebind Mod to the Windows key
-        , borderWidth = 3
+        , borderWidth = 6
         , normalBorderColor  = "#587993" -- Java blue
         , focusedBorderColor = "#e76f00" -- Java orange
         , focusFollowsMouse = False -- マウスの移動でフォーカスが映らないように
@@ -416,6 +420,7 @@ main = do
 
         , ((mod4Mask, xK_g), selectSearchBrowser "/usr/bin/google-chrome-stable" google)
 
+        , ((mod4Mask, xK_d), sendMessage NextLayout)
         -- Full screen
         , ((mod4Mask, xK_f), sendMessage ToggleLayout)
 
@@ -426,9 +431,9 @@ main = do
         -- Arrow Keys
         -- フォーカスの移動
         , ((mod4Mask, xK_Up), windows W.focusUp)
-        , ((mod4Mask, xK_Left), windows W.focusUp)
+        , ((mod4Mask, xK_Left), prevWS')
         , ((mod4Mask, xK_Down), windows W.focusDown)
-        , ((mod4Mask, xK_Right), windows W.focusDown)
+        , ((mod4Mask, xK_Right), nextWS')
 
         -- スワップ
         , ((mod4Mask .|. shiftMask, xK_Up), windows W.swapUp)
@@ -452,6 +457,13 @@ main = do
         -- ワークスペースの移動
         , ((mod4Mask .|. controlMask, xK_j), nextWS')
         , ((mod4Mask .|. controlMask, xK_k), prevWS')
+
+        -- ワークスペースの移動
+        , ((mod4Mask .|. mod1Mask, xK_j), nextScreen)
+        , ((mod4Mask .|. mod1Mask, xK_k), prevScreen)
+
+        , ((mod4Mask, xK_space), nextScreen)
+        , ((mod4Mask .|. shiftMask, xK_space), prevScreen)
 
         -- ワークスペース間のスワップ
         , ((mod4Mask .|. controlMask .|. shiftMask, xK_j), shiftToNextWS' >> nextWS')
@@ -480,21 +492,54 @@ main = do
 myLayout = (ResizableTall 1 (3/100) (1/2) [])
 
 hidpiGSConfig :: HasColorizer a => GSConfig a
-hidpiGSConfig = defaultGSConfig { gs_cellheight = 80, gs_cellwidth = 300, gs_font = "xft:Sans-18" }
+hidpiGSConfig = defaultGSConfig { gs_cellheight = 80, gs_cellwidth = 800, gs_font = "xft:Sans-9" }
 
 applications = [
  "google-chrome",
  "nautilus",
- "gimp",
  "emacs",
  "gnome-terminal",
  "unity-control-center",
  "libreoffice",
- "~/bin/netbeans-8.0.1/bin/netbeans",
- "~/bin/idea-IC-139.225.3/bin/idea.sh"]
+ "~/bin/idea-IU-181.5087.20/bin/idea.sh",
+ "/usr/local/pulse/pulseUi"]
 
 scratchpadSelected :: GSConfig NamedScratchpad -> [NamedScratchpad] -> X()
 scratchpadSelected config scratchpads = do
     scratchpadMaybe <- gridselect config (map (\s -> (name s, s)) scratchpads)
     myNamedScratchpadActionMaybe scratchpadMaybe
+
+multiScreenXMobarPP windowSet screenId xmproc = xmobarPP
+                        { ppOutput = hPutStrLn xmproc
+                        , ppTitle = \t -> ""
+                        , ppExtras = [ titleOfScreenId windowSet screenId ]
+                        , ppCurrent = fallbackIfNoScreen currentOfScreenId windowSet screenId
+                        , ppVisible = fallbackIfNoScreen visibleOfScreenId windowSet screenId
+                        , ppLayout = \t -> fallbackIfNoScreen layoutOfScreenId windowSet screenId
+                        , ppSort = fmap (. namedScratchpadFilterOutWorkspace) $ ppSort xmobarPP
+                        }
+
+titleOfScreenId windowSet screenId =
+    case (L.find (\sc -> (W.screen sc) == S screenId) (W.screens windowSet)) of
+      Just sc -> case ((W.stack (W.workspace sc)) >>= (\st -> Just (W.focus st))) of
+                   Just w -> fmap (\nw -> Just (xmobarColor (if ((W.screen (W.current windowSet)) == (W.screen sc)) then "green" else "gray") "" (show nw))) (getName w)
+                   Nothing -> def
+      Nothing -> titleOfScreenId windowSet 0 -- optimize
+
+layoutOfScreenId windowSet screenId =
+    case (L.find (\sc -> (W.screen sc) == S screenId) (W.screens windowSet)) of
+      Just sc -> description . W.layout . W.workspace $ sc
+      Nothing -> layoutOfScreenId windowSet 0 -- optimize
+
+currentOfScreenId windowSet screenId = if (W.screen(W.current windowSet) == S screenId) then xmobarColor "yellow" "" . wrap "[" "]" else wrap "" ""
+
+visibleOfScreenId windowSet screenId wid =
+    case L.find (\sc -> (W.screen sc) == S screenId) (W.visible windowSet) of
+      Just sc -> if (W.tag (W.workspace sc) == wid) then wrap "[" "]" wid else wrap "" "" wid
+      Nothing -> wrap "" "" wid
+
+fallbackIfNoScreen f windowSet screenId =
+    case (L.find (\sc -> (W.screen sc) == S screenId) (W.screens windowSet)) of
+      Just sc -> f windowSet screenId
+      Nothing -> f windowSet 0
 
