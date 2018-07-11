@@ -508,10 +508,10 @@ applications = [
  "google-chrome",
  "nautilus",
  "emacs",
- "gnome-terminal",
- "unity-control-center",
+ "wine /home/bitterfox/.wine/drive_c/users/bitterfox/Local Settings/Application Data/LINE/bin/LineLauncher.exe",
+ "gnome-control-center",
  "libreoffice",
- "~/bin/idea-IU-181.5087.20/bin/idea.sh",
+ "~/bin/idea-IU-181.5281.24/bin//idea.sh",
  "/usr/local/pulse/pulseUi"]
 
 scratchpadSelected :: GSConfig NamedScratchpad -> [NamedScratchpad] -> X()
