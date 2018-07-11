@@ -3,7 +3,7 @@ Config { font = "xft:monospace-9:bold,Symbola-9:bold"
        , fgColor = "grey"
        , position = TopW L 90
        , lowerOnStart = False
-       , commands = [ Run Network "wlp3s0" ["-L", "0", "-H", "32", "--normal", "green", "--high", "red"] 10
+       , commands = [ Run Network "wlp2s0" ["-L", "0", "-H", "32", "--normal", "green", "--high", "red"] 10
                     , Run Cpu ["-L","3","-H","50","--normal","green","--high","red"] 10
 		    , Run Com "cat" ["/sys/devices/platform/applesmc.768/temp9_input"] "temp" 10
 		    , Run Com "cat" ["/sys/devices/platform/applesmc.768/fan1_output"] "fan" 10
@@ -16,5 +16,5 @@ Config { font = "xft:monospace-9:bold,Symbola-9:bold"
                     ]
        , sepChar = "%"
        , alignSep = "}{"
-       , template = "%StdinReader% }{ %cpu% ∿%freq%MHz 🌡%temp%℃ 🌀%fan% | %memory% | %wlp3s0% | %battery% | 🔊%volume%    <fc=#ee9a00>%jadate%</fc>"
+       , template = "%StdinReader% }{ %cpu% ∿%freq%MHz 🌡%temp%℃ 🌀%fan% | %memory% | %wlp2s0% | %battery% | 🔊%volume%    <fc=#ee9a00>%jadate%</fc>"
        }

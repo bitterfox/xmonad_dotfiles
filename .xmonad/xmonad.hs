@@ -362,15 +362,15 @@ main = do
 --    spawn "killall trayer ; sleep 2 ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent false --tint 0x000000 --height 22" -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
 
 --    spawn "gnome-power-manager"
-    spawn "killall nm-applet ; nm-applet" -- ネット接続のアプレットを起動
+    spawn "nm-applet" -- ネット接続のアプレットを起動
 --    spawn "gnome-sound-applet" -- gnome-volume-control-applet? -- ボリューム変更のアプレットを起動
 --    spawn "bluetooth-applet"
 --    spawn "sparkleshare restart"
 --  spawn "/opt/toggldesktop/TogglDesktop.sh"
+    spawn "fcitx"
 
     -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
     spawn "sleep 10 ; killall trayer ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent false --tint 0x000000 --height 22 ; dropbox start"
---    spawn "trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent false --tint 0x000000 --height 22"
     -- dropboxを起動させて同期できるようにする
 
     spawn "wmname LG3D"
@@ -379,7 +379,6 @@ main = do
 
 --    spawn "compton -b --config ~/.comptonrc"
 --    spawn "sleep 5; gnome-session"
-
 
     xmproc0 <- spawnPipe "/usr/bin/xmobar ~/.xmobarrc"
     xmproc1 <- spawnPipe "/usr/bin/xmobar -x 1 ~/.xmobarrc"
@@ -485,8 +484,10 @@ main = do
         , ((mod4Mask, xK_s), scratchpadSelected hidpiGSConfig myScratchpads)
         ] `additionalKeysP`
         [
-        -- ボリューム周り
-          ("<XF86AudioLowerVolume>", setMute(False) >> lowerVolume 3 >> return ())
+        -- 輝度・ボリューム周り
+          ("<XF86MonBrightnessDown>", spawn "zsh ~/.xmonad/bright_down.sh")
+        , ("<XF86MonBrightnessUp>", spawn "zsh ~/.xmonad/bright_up.sh")
+        , ("<XF86AudioLowerVolume>", setMute(False) >> lowerVolume 3 >> return ())
         , ("<XF86AudioRaiseVolume>", setMute(False) >> raiseVolume 3 >> return ())
         , ("<XF86AudioMute>",        setMute(False) >> setVolume 50   >> return ()) -- toggleMuteで問題がなければそうすると良いです。
         ] `removeKeys`
