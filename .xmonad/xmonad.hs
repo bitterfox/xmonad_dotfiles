@@ -5,7 +5,8 @@ import XMonad.Actions.CycleWS
 import XMonad.Actions.Volume
 import XMonad.Actions.GridSelect
 import XMonad.Actions.Search (selectSearchBrowser, google)
-import XMonad.Config.Desktop (desktopLayoutModifiers)
+--import XMonad.Config.Desktop (desktopLayoutModifiers)
+import XMonad.Config.Desktop
 import XMonad.Config.Gnome
 import XMonad.Hooks.DynamicLog
 import XMonad.Hooks.ManageDocks
@@ -347,22 +348,24 @@ watch :: String -> String -> IO ()
 watch cmd interval = spawn $ "while :; do " ++ cmd ++ "; sleep " ++ interval ++ "; done"
 
 main = do
-    spawn "unity-settings-daemon" -- Unity上での設定を反映させる
+--    spawn "unity-settings-daemon" -- Unity上での設定を反映させる
+--    spawn "gnome-session"
+--    spawn "systemd --user"
     io (threadDelay (1 * 1000 * 1000)) -- Wait unity-settings-daemon reflect their settings
 
-    watch "xmodmap ~/.xmodmap" "0.3"
+--    watch "xmodmap ~/.xmodmap" "0.3"
 
-    spawn "ginn .wishes.xml" -- for Mac mouse
+--    spawn "ginn .wishes.xml" -- for Mac mouse
 
-    spawn "nautilus --no-default-window" -- デスクトップを読み込む
+    spawn "nautilus-desktop --force" -- デスクトップを読み込む
 
-    spawn "killall trayer ; sleep 2 ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent false --tint 0x000000 --height 22" -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
+--    spawn "killall trayer ; sleep 2 ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent false --tint 0x000000 --height 22" -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
 
 --    spawn "gnome-power-manager"
     spawn "killall nm-applet ; nm-applet" -- ネット接続のアプレットを起動
 --    spawn "gnome-sound-applet" -- gnome-volume-control-applet? -- ボリューム変更のアプレットを起動
 --    spawn "bluetooth-applet"
-    spawn "sparkleshare restart"
+--    spawn "sparkleshare restart"
 --  spawn "/opt/toggldesktop/TogglDesktop.sh"
 
     -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
@@ -370,16 +373,17 @@ main = do
     -- dropboxを起動させて同期できるようにする
 
     spawn "wmname LG3D"
-    spawn "prlcc"
-    spawn "prlcp"
+--    spawn "prlcc"
+--    spawn "prlcp"
 
     spawn "compton -b --config ~/.comptonrc"
+--    spawn "sleep 5; gnome-session"
 
     xmproc0 <- spawnPipe "/usr/bin/xmobar ~/.xmobarrc"
     xmproc1 <- spawnPipe "/usr/bin/xmobar -x 1 ~/.xmobarrc"
     let xmprocs = [xmproc0, xmproc1]
-    xmonad $ defaultConfig
-        { manageHook = manageHook defaultConfig
+    xmonad $ gnomeConfig -- defaultConfig
+        { manageHook = manageHook gnomeConfig -- defaultConfig
                        <+> manageDocks
                        <+> namedScratchpadManageHook myScratchpads
         , layoutHook = avoidStruts $
