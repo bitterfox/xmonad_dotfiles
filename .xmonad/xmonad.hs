@@ -508,7 +508,7 @@ applications = [
  "google-chrome",
  "nautilus",
  "emacs",
- "wine /home/bitterfox/.wine/drive_c/users/bitterfox/Local Settings/Application Data/LINE/bin/LineLauncher.exe",
+ "wine '/home/bitterfox/.wine/drive_c/users/bitterfox/Local Settings/Application Data/LINE/bin/LineLauncher.exe'",
  "gnome-control-center",
  "libreoffice",
  "~/bin/idea-IU-181.5281.24/bin//idea.sh",
