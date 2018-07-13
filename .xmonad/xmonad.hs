@@ -22,7 +22,7 @@ import XMonad.Layout.ThreeColumns
 import qualified XMonad.StackSet as W
 import XMonad.Layout.ToggleLayouts
 import XMonad.ManageHook
-import XMonad.Util.Run(spawnPipe)
+import XMonad.Util.Run(spawnPipe, runProcessWithInput, runProcessWithInputAndWait, seconds)
 import XMonad.Util.EZConfig
 import XMonad.Util.NamedScratchpad
 import XMonad.Util.NamedWindows
@@ -33,7 +33,7 @@ import qualified Data.List as L
 import qualified Data.Map.Strict as M
 import Data.Maybe
 import Data.Monoid
-import Control.Monad (foldM, filterM, mapM)
+import Control.Monad (foldM, filterM, mapM, forever)
 import Control.Concurrent
 import qualified Text.Show as TS
 
@@ -348,11 +348,6 @@ watch :: String -> String -> IO ()
 watch cmd interval = spawn $ "while :; do " ++ cmd ++ "; sleep " ++ interval ++ "; done"
 
 main = do
---    spawn "unity-settings-daemon" -- Unity上での設定を反映させる
---    spawn "systemd --user"
---    spawn "gnome-session"
---    io (threadDelay (1 * 1000 * 1000)) -- Wait unity-settings-daemon reflect their settings
-
 --    watch "xmodmap ~/.xmodmap" "0.3"
 
 --    spawn "ginn .wishes.xml" -- for Mac mouse
@@ -370,22 +365,19 @@ main = do
     spawn "fcitx"
 
     -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
-    spawn "sleep 10 ; killall trayer ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent true --tint 0x000000 --height 33 --alpha 0; dropbox start"
+    spawn "sleep 10 ; killall trayer ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent true --tint 0x000000 --height 33 --alpha 0; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent true --tint 0x000000 --height 33 --alpha 0 --monitor 1; dropbox start"
     -- dropboxを起動させて同期できるようにする
 
     spawn "wmname LG3D"
---    spawn "prlcc"
---    spawn "prlcp"
 
 --    spawn "compton -b --config ~/.comptonrc"
---    spawn "sleep 5; gnome-session"
 
     xmproc0 <- spawnPipe "/usr/bin/xmobar ~/.xmobarrc"
     xmproc1 <- spawnPipe "/usr/bin/xmobar -x 1 ~/.xmobarrc"
     let xmprocs = [xmproc0, xmproc1]
     spawn "xrandr  --verbose --output eDP-1 --off; xrandr  --verbose --output eDP-1 --auto"
---    spawn "systemd --user"
     spawn "sleep 3; gnome-session"
+
     xmonad $ gnomeConfig -- defaultConfig
         { manageHook = manageHook gnomeConfig -- defaultConfig
                        <+> manageDocks
@@ -394,12 +386,17 @@ main = do
                        toggleLayouts (renamed [Replace "□"] $ noBorders Full)
  $                       ((renamed [Replace "├"] $ myLayout) ||| (renamed [Replace "┬"] $ Mirror myLayout)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall)
         , logHook = withWindowSet (\s -> L.foldl (>>) def (map (\(i, xmproc) -> dynamicLogWithPP (multiScreenXMobarPP s i xmproc)) (L.zip [0..(L.length xmprocs)] xmprocs)))
+--                    >> withWindowSet(\s -> spawn ("xdotool getmouselocation >> /tmp/xmonad/mouse/" ++ (tail (tail (show (W.screen (W.current s)))))))
+                    >> logCurrentMouseLocation
         , modMask = mod4Mask     -- Rebind Mod to the Windows key
         , borderWidth = 6
         , normalBorderColor  = "#587993" -- Java blue
         , focusedBorderColor = "#e76f00" -- Java orange
         , focusFollowsMouse = False -- マウスの移動でフォーカスが映らないように
         , clickJustFocuses = False
+        , handleEventHook = (\e -> do
+            logCurrentMouseLocation
+            return (All True))
         } `additionalKeys`
         [
           ((mod4Mask .|. shiftMask, xK_l), spawn "gnome-screensaver-command --lock") -- Lock
@@ -470,7 +467,7 @@ main = do
         , ((mod4Mask .|. mod1Mask, xK_j), nextScreen)
         , ((mod4Mask .|. mod1Mask, xK_k), prevScreen)
 
-        , ((mod4Mask, xK_space), nextScreen)
+        , ((mod4Mask, xK_space), (withWindowSet (\s -> runProcessWithInputAndWait "sh" ["-c", ("tail -n 1 /tmp/xmonad/mouse/" ++ (tail (tail (show (nextScreenObjectOf s)))) ++ " | xargs xdotool mousemove")] "" (seconds 1))) >> nextScreen)
         , ((mod4Mask .|. shiftMask, xK_space), prevScreen)
 
         -- ワークスペース間のスワップ
@@ -553,3 +550,21 @@ fallbackIfNoScreen f windowSet screenId =
       Just sc -> f windowSet screenId
       Nothing -> f windowSet 0
 
+
+nextOf e l@(x:_) = case dropWhile (/= e) l of
+                          (_:y:_) -> y
+                          _       -> x
+nextScreenObjectOf :: WindowSet -> ScreenId
+nextScreenObjectOf ws = nextOf (W.screen (W.current ws)) (L.map (W.screen) (W.visible ws))
+
+logCurrentMouseLocation :: X ()
+logCurrentMouseLocation = do
+  out <- (runProcessWithInput "sh" ["-c", "xdotool getmouselocation | sed -r 's/^x:([0-9]+) y:([0-9]+) screen.*/\\1 \\2/'"] "" :: X (String))
+  let xy = words out
+  let x = head xy
+  let y = head $ tail xy
+  maybeScreen <- pointScreen (read x :: Position) (read y :: Position)
+  let screen = case maybeScreen of
+                 Just s -> tail (tail (show (W.screen s)))
+                 Nothing -> "unknown"
+  spawn ("echo '" ++ x ++ " " ++ y ++ "' >> /tmp/xmonad/mouse/" ++ screen)
