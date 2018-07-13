@@ -348,6 +348,8 @@ watch :: String -> String -> IO ()
 watch cmd interval = spawn $ "while :; do " ++ cmd ++ "; sleep " ++ interval ++ "; done"
 
 main = do
+    spawn $ "mkdir -p " ++ mouseLogDir
+
 --    watch "xmodmap ~/.xmodmap" "0.3"
 
 --    spawn "ginn .wishes.xml" -- for Mac mouse
@@ -387,7 +389,7 @@ main = do
  $                       ((renamed [Replace "├"] $ myLayout) ||| (renamed [Replace "┬"] $ Mirror myLayout)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall)
         , logHook = withWindowSet (\s -> L.foldl (>>) def (map (\(i, xmproc) -> dynamicLogWithPP (multiScreenXMobarPP s i xmproc)) (L.zip [0..(L.length xmprocs)] xmprocs)))
 --                    >> withWindowSet(\s -> spawn ("xdotool getmouselocation >> /tmp/xmonad/mouse/" ++ (tail (tail (show (W.screen (W.current s)))))))
-                    >> logCurrentMouseLocation
+--                    >> logCurrentMouseLocation
         , modMask = mod4Mask     -- Rebind Mod to the Windows key
         , borderWidth = 6
         , normalBorderColor  = "#587993" -- Java blue
@@ -467,7 +469,7 @@ main = do
         , ((mod4Mask .|. mod1Mask, xK_j), nextScreen)
         , ((mod4Mask .|. mod1Mask, xK_k), prevScreen)
 
-        , ((mod4Mask, xK_space), (withWindowSet (\s -> runProcessWithInputAndWait "sh" ["-c", ("tail -n 1 /tmp/xmonad/mouse/" ++ (tail (tail (show (nextScreenObjectOf s)))) ++ " | xargs xdotool mousemove")] "" (seconds 1))) >> nextScreen)
+        , ((mod4Mask, xK_space), (withWindowSet (\s -> runProcessWithInputAndWait "sh" ["-c", ("tail -n 1 " ++ mouseLogDir ++ "/" ++ (tail (tail (show (nextScreenObjectOf s)))) ++ " | xargs xdotool mousemove")] "" (seconds 1))) >> nextScreen)
         , ((mod4Mask .|. shiftMask, xK_space), prevScreen)
 
         -- ワークスペース間のスワップ
@@ -559,7 +561,7 @@ nextScreenObjectOf ws = nextOf (W.screen (W.current ws)) (L.map (W.screen) (W.vi
 
 logCurrentMouseLocation :: X ()
 logCurrentMouseLocation = do
-  out <- (runProcessWithInput "sh" ["-c", "xdotool getmouselocation | sed -r 's/^x:([0-9]+) y:([0-9]+) screen.*/\\1 \\2/'"] "" :: X (String))
+  out <- (runProcessWithInput "sh" ["-c", "eval $(xdotool getmouselocation --shell); echo $X $Y"] "" :: X (String))
   let xy = words out
   let x = head xy
   let y = head $ tail xy
@@ -567,4 +569,6 @@ logCurrentMouseLocation = do
   let screen = case maybeScreen of
                  Just s -> tail (tail (show (W.screen s)))
                  Nothing -> "unknown"
-  spawn ("echo '" ++ x ++ " " ++ y ++ "' >> /tmp/xmonad/mouse/" ++ screen)
+  spawn ("echo '" ++ x ++ " " ++ y ++ "' > " ++ mouseLogDir ++ "/" ++ screen)
+
+mouseLogDir = "/tmp/xmonad/mouse"
