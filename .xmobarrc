@@ -1,20 +1,20 @@
 Config { font = "xft:monospace-9:bold,Symbola-9:bold"
        , bgColor = "black"
-       , fgColor = "grey"
+       , fgColor = "gray"
        , position = TopW L 90
        , lowerOnStart = False
-       , commands = [ Run Network "wlp2s0" ["-L", "0", "-H", "32", "--normal", "green", "--high", "red"] 10
+       , commands = [ Run Network "wlp2s0" ["-t", "⬇️<rx>KB|⬆️<tx>KB",  "-L", "0", "-H", "32", "--normal", "green", "--high", "red"] 10
                     , Run Cpu ["-L","3","-H","50","--normal","green","--high","red"] 10
 		    , Run Com "cat" ["/sys/devices/platform/applesmc.768/temp9_input"] "temp" 10
 		    , Run Com "cat" ["/sys/devices/platform/applesmc.768/fan1_output"] "fan" 10
                     , Run Memory ["-t","Mem: <used>MB(<usedratio>%)"] 10
                     , Run Com "date" ["+%_m/%_d(%a) %H:%M"] "jadate" 100
-		    , Run Com "sh" ["-c", "amixer get 'Master' -c '1' | grep -o '[0-9]*%'"] "volume" 3
+		    , Run Com "sh" ["-c", "amixer get 'PCM' | grep -o '[0-9]*%'"] "volume" 3
 		    , Run Com "sh" ["-c", "lscpu | grep 'CPU MHz' | grep -o '[1-9][0-9]*'"] "freq" 10
                     , Run Battery ["-t", "🔋<left>%(<timeleft>)", "-L", "15", "-H", "70", "--high", "green", "--low", "red"] 100
                     , Run StdinReader
                     ]
        , sepChar = "%"
        , alignSep = "}{"
-       , template = "%StdinReader% }{ %cpu% ∿%freq%MHz 🌡%temp%℃ 🌀%fan% | %memory% | %wlp2s0% | %battery% | 🔊%volume%    <fc=#ee9a00>%jadate%</fc>"
+       , template = "%StdinReader% }{ %cpu% ∿%freq%MHz 🌡%temp%℃ 🌀%fan% | %memory% | 📶%wlp2s0% | %battery% | 🔊%volume%    <fc=#ee9a00>%jadate%</fc>"
        }
