@@ -352,7 +352,7 @@ main = do
 
 --    watch "xmodmap ~/.xmodmap" "0.3"
 
---    spawn "ginn .wishes.xml" -- for Mac mouse
+    spawn "ginn .wishes.xml" -- for Mac mouse
 
     spawn "nautilus-desktop --force" -- デスクトップを読み込む
 
@@ -367,7 +367,7 @@ main = do
     spawn "fcitx"
 
     -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
-    spawn "sleep 10 ; killall trayer ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent true --tint 0x000000 --height 33 --alpha 0; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent true --tint 0x000000 --height 33 --alpha 0 --monitor 1; dropbox start"
+    spawn "sleep 1; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent true --tint 0x000000 --height 33 --alpha 0;dropbox start"
     -- dropboxを起動させて同期できるようにする
 
     spawn "wmname LG3D"
@@ -377,8 +377,9 @@ main = do
     xmproc0 <- spawnPipe "/usr/bin/xmobar ~/.xmobarrc"
     xmproc1 <- spawnPipe "/usr/bin/xmobar -x 1 ~/.xmobarrc"
     let xmprocs = [xmproc0, xmproc1]
+    io (threadDelay (1 * 1000 * 1000))
     spawn "xrandr  --verbose --output eDP-1 --off; xrandr  --verbose --output eDP-1 --auto"
-    spawn "sleep 3; gnome-session"
+    spawn "sleep 1; gnome-session;"
 
     xmonad $ gnomeConfig -- defaultConfig
         { manageHook = manageHook gnomeConfig -- defaultConfig
