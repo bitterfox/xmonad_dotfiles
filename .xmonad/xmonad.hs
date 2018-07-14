@@ -490,9 +490,9 @@ main = do
         -- 輝度・ボリューム周り
           ("<XF86MonBrightnessDown>", spawn "zsh ~/.xmonad/bright_down.sh")
         , ("<XF86MonBrightnessUp>", spawn "zsh ~/.xmonad/bright_up.sh")
-        , ("<XF86AudioLowerVolume>", setMute(False) >> lowerVolume 3 >> return ())
-        , ("<XF86AudioRaiseVolume>", setMute(False) >> raiseVolume 3 >> return ())
-        , ("<XF86AudioMute>",        setMute(False) >> setVolume 50   >> return ()) -- toggleMuteで問題がなければそうすると良いです。
+--        , ("<XF86AudioLowerVolume>", setMute(False) >> lowerVolume 3 >> return ())
+--        , ("<XF86AudioRaiseVolume>", setMute(False) >> raiseVolume 3 >> return ())
+--        , ("<XF86AudioMute>",        setMute(False) >> setVolume 50   >> return ()) -- toggleMuteで問題がなければそうすると良いです。
         ] `removeKeys`
         [
           (mod4Mask .|. shiftMask, xK_q)
