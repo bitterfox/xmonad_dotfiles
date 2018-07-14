@@ -466,20 +466,23 @@ main = do
         , ((mod4Mask .|. controlMask, xK_j), nextWS')
         , ((mod4Mask .|. controlMask, xK_k), prevWS')
 
-        -- ワークスペースの移動
+        -- ワークスペース間のスワップ
+        , ((mod4Mask .|. controlMask .|. shiftMask, xK_j), shiftToNextWS' >> nextWS')
+        , ((mod4Mask .|. controlMask .|. shiftMask, xK_k), shiftToPrevWS' >> prevWS')
+
+        -- スクリーンの移動
         , ((mod4Mask .|. mod1Mask, xK_j), nextScreen)
         , ((mod4Mask .|. mod1Mask, xK_k), prevScreen)
 
         , ((mod4Mask, xK_space), (withWindowSet (\s -> runProcessWithInputAndWait "sh" ["-c", ("tail -n 1 " ++ mouseLogDir ++ "/" ++ (tail (tail (show (nextScreenObjectOf s)))) ++ " | xargs xdotool mousemove")] "" (seconds 1))) >> nextScreen)
         , ((mod4Mask .|. shiftMask, xK_space), prevScreen)
 
-        -- ワークスペース間のスワップ
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_j), shiftToNextWS' >> nextWS')
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_k), shiftToPrevWS' >> prevWS')
 
         , ((mod4Mask, xK_w), goToSelected hidpiGSConfig)
         , ((mod4Mask .|. shiftMask, xK_w), gridselectWorkspace hidpiGSConfig W.view)
 
+        , ((mod4Mask, xK_p), spawn "dmenu_run")
+        , ((mod4Mask .|. shiftMask, xK_p), spawn "gmrun")
         , ((mod4Mask, xK_e), spawnSelected hidpiGSConfig applications)
         , ((mod4Mask, xK_s), scratchpadSelected hidpiGSConfig myScratchpads)
         ] `additionalKeysP`
