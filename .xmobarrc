@@ -9,7 +9,7 @@ Config { font = "xft:monospace-9:bold,Symbola-9:bold"
 		    , Run Com "sh" [".xmonad/cpu_temp.sh"] "temp" 10
 		    , Run Com "cat" ["/sys/devices/platform/applesmc.768/fan1_output"] "fan" 10
                     , Run Memory ["-t","Mem: <used>MB(<usedratio>%)"] 10
-		    , Run Network "wlp2s0" ["-t", "⬇️<rx>KB|⬆️<tx>KB",  "-L", "0", "-H", "32", "--normal", "green", "--high", "red"] 10
+		    , Run DynNetwork ["-t", "⬇️<rx>KB|⬆️<tx>KB",  "-L", "0", "-H", "32", "--normal", "green", "--high", "red"] 10
                     , Run Battery ["-t", "🔋<left>%(<timeleft>)", "-L", "15", "-H", "70", "--high", "green", "--low", "red"] 100
 		    , Run Com "sh" ["-c", "amixer get 'PCM' | grep -o '[0-9]*%'"] "volume" 3
 		    , Run Com "sh" [".xmonad/bright_get.sh"] "brightness" 3
@@ -18,5 +18,5 @@ Config { font = "xft:monospace-9:bold,Symbola-9:bold"
                     ]
        , sepChar = "%"
        , alignSep = "}{"
-       , template = "%StdinReader% }{ %cpu% ∿%freq%MHz 🌡%temp%℃ 🌀%fan% | %memory% | 📶%wlp2s0% | %battery% | 🔊%volume% | ☀%brightness%    <fc=#ee9a00>%jadate%</fc>"
+       , template = "%StdinReader% }{ %cpu% ∿%freq%MHz 🌡%temp%℃ 🌀%fan% | %memory% | 📶%dynnetwork% | %battery% | 🔊%volume% | ☀%brightness%    <fc=#ee9a00>%jadate%</fc>"
        }

@@ -488,8 +488,10 @@ main = do
         ] `additionalKeysP`
         [
         -- 輝度・ボリューム周り
-          ("<XF86MonBrightnessDown>", spawn "zsh ~/.xmonad/bright_down.sh")
-        , ("<XF86MonBrightnessUp>", spawn "zsh ~/.xmonad/bright_up.sh")
+          ("<XF86MonBrightnessDown>", spawn "sh ~/.xmonad/bright_down.sh")
+        , ("<XF86MonBrightnessUp>", spawn "sh ~/.xmonad/bright_up.sh")
+        , ("<XF86KbdBrightnessDown>", spawn "sh ~/.xmonad/kbd_bright_down.sh")
+        , ("<XF86KbdBrightnessUp>", spawn "sh ~/.xmonad/kbd_bright_up.sh")
 --        , ("<XF86AudioLowerVolume>", setMute(False) >> lowerVolume 3 >> return ())
 --        , ("<XF86AudioRaiseVolume>", setMute(False) >> raiseVolume 3 >> return ())
 --        , ("<XF86AudioMute>",        setMute(False) >> setVolume 50   >> return ()) -- toggleMuteで問題がなければそうすると良いです。
@@ -512,7 +514,7 @@ applications = [
  "nautilus",
  "emacs",
  "wine '/home/bitterfox/.wine/drive_c/users/bitterfox/Local Settings/Application Data/LINE/bin/LineLauncher.exe'",
- "gnome-control-center",
+ "XDG_CURRENT_DESKTOP=GNOME gnome-control-center",
  "libreoffice",
  "~/bin/idea-IU-181.5281.24/bin//idea.sh",
  "/usr/local/pulse/pulseUi"]
@@ -564,15 +566,20 @@ nextScreenObjectOf :: WindowSet -> ScreenId
 nextScreenObjectOf ws = nextOf (W.screen (W.current ws)) (L.map (W.screen) (W.visible ws))
 
 logCurrentMouseLocation :: X ()
-logCurrentMouseLocation = do
-  out <- (runProcessWithInput "sh" ["-c", "eval $(xdotool getmouselocation --shell); echo $X $Y"] "" :: X (String))
-  let xy = words out
-  let x = head xy
-  let y = head $ tail xy
-  maybeScreen <- pointScreen (read x :: Position) (read y :: Position)
-  let screen = case maybeScreen of
-                 Just s -> tail (tail (show (W.screen s)))
-                 Nothing -> "unknown"
-  spawn ("echo '" ++ x ++ " " ++ y ++ "' > " ++ mouseLogDir ++ "/" ++ screen)
+logCurrentMouseLocation =
+    withWindowSet (\ws ->
+      do
+        out <- (runProcessWithInput "sh" ["-c", "eval $(xdotool getmouselocation --shell); echo $X $Y"] "" :: X (String))
+        let xy = words out
+        let x = head xy
+        let y = head $ tail xy
+        maybeScreen <- pointScreen (read x :: Position) (read y :: Position)
+        let screen = case maybeScreen of
+                       Just s -> if ((W.screen (W.current ws)) == W.screen s) then Just (tail (tail (show (W.screen s)))) else Nothing
+                       Nothing -> Nothing
+        case screen of
+          Just s ->  spawn ("echo '" ++ x ++ " " ++ y ++ "' > " ++ mouseLogDir ++ "/" ++ s)
+          Nothing -> def
+      )
 
 mouseLogDir = "/tmp/xmonad/mouse"
