@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 import XMonad
 import XMonad.Core
+import XMonad.Actions.CopyWindow
 import XMonad.Actions.CycleWS
 import XMonad.Actions.Volume
 import XMonad.Actions.GridSelect
@@ -14,11 +15,13 @@ import XMonad.Layout.Fullscreen
 import XMonad.Layout.Gaps
 import XMonad.Layout.MultiToggle
 import XMonad.Layout.MultiToggle.Instances
+import XMonad.Layout.NoFrillsDecoration
 import XMonad.Layout.Renamed
 import XMonad.Layout.NoBorders
 import XMonad.Layout.ResizableTile
 import XMonad.Layout.TwoPane
 import XMonad.Layout.ThreeColumns
+import XMonad.Layout.SimpleDecoration
 import qualified XMonad.StackSet as W
 import XMonad.Layout.ToggleLayouts
 import XMonad.ManageHook
@@ -79,6 +82,10 @@ myScratchpads = [
            "google-chrome --renderer-process-limit=1 --new-window --app=http://www.dmm.com/netgame/social/-/gadgets/=/app_id=854854/"
            (appName =? "www.dmm.com__netgame_social_-_gadgets_=_app_id=854854")
            (customFloating $ W.RationalRect 0.55 0.4 0.45 0.6)
+  , NS "rhythmbox"
+           "rhythmbox"
+           (className =? "Rhythmbox")
+           (customFloating $ W.RationalRect 0 0.02 1 0.98)
  ]
 
 
@@ -380,14 +387,15 @@ main = do
     io (threadDelay (1 * 1000 * 1000))
     spawn "xrandr  --verbose --output eDP-1 --off; xrandr  --verbose --output eDP-1 --auto"
     spawn "sleep 1; gnome-session;"
+    spawn "killall dunst"
 
     xmonad $ gnomeConfig -- defaultConfig
         { manageHook = manageHook gnomeConfig -- defaultConfig
                        <+> manageDocks
                        <+> namedScratchpadManageHook myScratchpads
-        , layoutHook = avoidStruts $
+        , layoutHook =  avoidStruts $
                        toggleLayouts (renamed [Replace "□"] $ noBorders Full)
- $                       ((renamed [Replace "├"] $ myLayout) ||| (renamed [Replace "┬"] $ Mirror myLayout)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall)
+ $                       ((renamed [Replace "├"] $ noFrillsDeco shrinkText mySDConfig $ myLayout) ||| (renamed [Replace "┬"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall)
         , logHook = withWindowSet (\s -> L.foldl (>>) def (map (\(i, xmproc) -> dynamicLogWithPP (multiScreenXMobarPP s i xmproc)) (L.zip [0..(L.length xmprocs)] xmprocs)))
 --                    >> withWindowSet(\s -> spawn ("xdotool getmouselocation >> /tmp/xmonad/mouse/" ++ (tail (tail (show (W.screen (W.current s)))))))
 --                    >> logCurrentMouseLocation
@@ -414,6 +422,7 @@ main = do
         , ((mod4Mask .|. shiftMask, xK_e), spawn "nautilus")
 
         , ((mod4Mask, xK_Return), myNamedScratchpadAction "mainterm")
+        , ((mod4Mask, xK_F8), myNamedScratchpadAction "rhythmbox")
         , ((mod4Mask, xK_F9), myNamedScratchpadAction "艦これ")
         , ((mod4Mask, xK_F10), myNamedScratchpadAction "bunnaru")
         , ((mod4Mask, xK_F11), myNamedScratchpadAction "term1")
@@ -485,6 +494,10 @@ main = do
         , ((mod4Mask .|. shiftMask, xK_p), spawn "gmrun")
         , ((mod4Mask, xK_e), spawnSelected hidpiGSConfig applications)
         , ((mod4Mask, xK_s), scratchpadSelected hidpiGSConfig myScratchpads)
+
+        -- CopyWindow
+        , ((mod4Mask, xK_a), windows copyToAll)
+        , ((mod4Mask .|. shiftMask, xK_a), killAllOtherCopies)
         ] `additionalKeysP`
         [
         -- 輝度・ボリューム周り
@@ -492,6 +505,9 @@ main = do
         , ("<XF86MonBrightnessUp>", spawn "sh ~/.xmonad/bright_up.sh")
         , ("<XF86KbdBrightnessDown>", spawn "sh ~/.xmonad/kbd_bright_down.sh")
         , ("<XF86KbdBrightnessUp>", spawn "sh ~/.xmonad/kbd_bright_up.sh")
+        , ("<XF86AudioLowerVolume>", spawn "sh ~/.xmonad/audio_down.sh")
+        , ("<XF86AudioRaiseVolume>", spawn "sh ~/.xmonad/audio_up.sh")
+        , ("<XF86AudioMute>",        spawn "sh ~/.xmonad/audio_mute.sh")
 --        , ("<XF86AudioLowerVolume>", setMute(False) >> lowerVolume 3 >> return ())
 --        , ("<XF86AudioRaiseVolume>", setMute(False) >> raiseVolume 3 >> return ())
 --        , ("<XF86AudioMute>",        setMute(False) >> setVolume 50   >> return ()) -- toggleMuteで問題がなければそうすると良いです。
@@ -507,7 +523,12 @@ main = do
 myLayout = (ResizableTall 1 (3/100) (1/2) [])
 
 hidpiGSConfig :: HasColorizer a => GSConfig a
-hidpiGSConfig = defaultGSConfig { gs_cellheight = 80, gs_cellwidth = 800, gs_font = "xft:Sans-9" }
+hidpiGSConfig = defaultGSConfig {
+                  gs_cellheight = 80
+                , gs_cellwidth = 800
+                , gs_font = "xft:Sans-9"
+                , gs_navigate   = navNSearch
+}
 
 applications = [
  "google-chrome",
@@ -583,3 +604,17 @@ logCurrentMouseLocation =
       )
 
 mouseLogDir = "/tmp/xmonad/mouse"
+
+mySDConfig = def {
+               activeColor = "black"
+             , inactiveColor = "black"
+             , urgentColor = "white"
+             , activeTextColor = "green"
+             , inactiveTextColor = "gray"
+             , urgentTextColor = "red"
+             , activeBorderColor = "black"
+             , inactiveBorderColor = "black"
+             , urgentBorderColor = "pink"
+             , decoHeight = 32
+             , fontName = "xft:monospace-9:bold,Symbola-9:bold"
+}
