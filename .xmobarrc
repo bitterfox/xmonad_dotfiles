@@ -1,16 +1,16 @@
 Config { font = "xft:monospace-9:bold,Symbola-9:bold"
-       , bgColor = "black"
-       , fgColor = "gray"
+       , bgColor = "#4E4B42"
+       , fgColor = "#D9D3BA"
        , position = TopW L 90
        , lowerOnStart = False
        , commands = [ 
-                      Run Cpu ["-L","3","-H","50","--normal","green","--high","red"] 10
+                      Run Cpu ["-L","3","-H","50","--normal","#3BA99F","--high","#CC654C"] 10
 		    , Run Com "sh" ["-c", "lscpu | grep 'CPU MHz' | grep -o '[1-9][0-9]*'"] "freq" 10
 		    , Run Com "sh" [".xmonad/cpu_temp.sh"] "temp" 10
 		    , Run Com "cat" ["/sys/devices/platform/applesmc.768/fan1_output"] "fan" 10
                     , Run Memory ["-t","Mem: <used>MB(<usedratio>%)"] 10
-		    , Run DynNetwork ["-t", "⬇️<rx>KB|⬆️<tx>KB",  "-L", "0", "-H", "32", "--normal", "green", "--high", "red"] 10
-                    , Run Battery ["-t", "🔋<left>%(<timeleft>)", "-L", "15", "-H", "70", "--high", "green", "--low", "red"] 100
+		    , Run DynNetwork ["-t", "⬇️<rx>KB|⬆️<tx>KB",  "-L", "0", "-H", "32", "--normal", "#3BA99F", "--high", "#CC654C"] 10
+                    , Run Battery ["-t", "🔋<left>%(<timeleft>)", "-L", "15", "-H", "70", "--high", "#3BA99F", "--low", "#CC654C"] 100
 		    , Run Com "sh" [".xmonad/audio_get.sh"] "volume" 3
 		    , Run Com "sh" [".xmonad/bright_get.sh"] "brightness" 3
 		    , Run Com "date" ["+%_m/%_d(%a) %H:%M"] "jadate" 100
@@ -18,5 +18,5 @@ Config { font = "xft:monospace-9:bold,Symbola-9:bold"
                     ]
        , sepChar = "%"
        , alignSep = "}{"
-       , template = "%StdinReader% }{ %cpu% ∿%freq%MHz 🌡%temp%℃ 🌀%fan% | %memory% | 📶%dynnetwork% | %battery% | %volume% | ☀%brightness%    <fc=#ee9a00>%jadate%</fc>"
+       , template = "%StdinReader% }{ %cpu% ∿%freq%MHz 🌡%temp%℃ 🌀%fan% | %memory% | 📶%dynnetwork% | %battery% | %volume% | ☀%brightness%    <fc=#cc8c4c>%jadate%</fc>"
        }

@@ -64,7 +64,8 @@
     frame_width = 5
 
     # Defines color of the frame around the notification window.
-    frame_color = "#FDF3F2"
+#    frame_color = "#FDF3F2"
+    frame_color = "#3BA99F"
 
     # Define a color for the separator.
     # possible values are:
@@ -253,17 +254,26 @@
     #icon = /path/to/icon
 
 [urgency_normal]
-    background = "#00a800"
-    foreground = "#f4fff4"
-    frame_color = "#f4fff4"
+#    background = "#00a800"
+#    foreground = "#f4fff4"
+#    frame_color = "#f4fff4"
+    background = "#4E4B42"
+    foreground = "#D9D3BA"
+#    frame_color = "#D9D3BA"
+#    background = "#cdc8b0"
+#    foreground = "#4e4b42"
+    frame_color = "#3BA99F"
     timeout = 10
     # Icon for notifications with normal urgency, uncomment to enable
     #icon = /path/to/icon
 
 [urgency_critical]
-    background = "#E53935"
+#    background = "#E53935"
+#    foreground = "#FDF3F2"
+#    frame_color = "#FDF3F2"
+    background = "#CC654C"
     foreground = "#FDF3F2"
-    frame_color = "#FDF3F2"
+    frame_color = "#3BA99F"
     timeout = 0
     # Icon for notifications with critical urgency, uncomment to enable
     #icon = /path/to/icon
@@ -329,14 +339,53 @@
 
 [imon]
     summary = "IMON"
+    body = *mail.google.com*
+    urgency = "critical"
+    background = "#CC654C"
+    foreground = "#D9D3BA"
+    timeout = 99999
+#    script = scripts/google_mail.sh
+    
+[imon_fatal]
+    summary = "IMON"
+    body = *mail.google.com*FATAL*
+    urgency = "critical"
+    background = "#A757A8"
+    foreground = "#FDF3F2"
+    timeout = 99999
+    script = scripts/google_mail.sh
+    
+[imon_stats]
+    summary = "IMON"
+    body = *mail.google.com*ERROR*STATS*
+    urgency = "critical"
+    background = "#A757A8"
+    foreground = "#FDF3F2"
+    timeout = 99999
+    script = scripts/google_mail.sh
+    
+[imon_release_naver_notify]
+    summary = *IMON*
+    body = *notify.navercorp.com*release*
     urgency = "critical"
     background = "#E53935"
     foreground = "#FDF3F2"
     timeout = 99999
-    script = scripts/google_mail.sh
+    script = scripts/open_naver_notify.sh
+    
+[other_naver_notify]
+    body = *notify.navercorp.com*
+#    script = scripts/open_naver_notify.sh
 
 [twitter]
     body = *twitter.com*
     timeout = 20
     background = "#15202b"
 #    urgency = normal
+
+[idea]
+    appname = *IDEA*
+    timeout = 20
+    background = "#3c3f41"
+#    urgency = normal
+

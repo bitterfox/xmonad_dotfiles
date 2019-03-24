@@ -22,6 +22,7 @@ import XMonad.Layout.ResizableTile
 import XMonad.Layout.TwoPane
 import XMonad.Layout.ThreeColumns
 import XMonad.Layout.SimpleDecoration
+import XMonad.Layout.Roledex
 import qualified XMonad.StackSet as W
 import XMonad.Layout.ToggleLayouts
 import XMonad.ManageHook
@@ -42,8 +43,8 @@ import qualified Text.Show as TS
 
 onTop = (customFloating $ W.RationalRect 0 0.02 1 0.48)
 
-java9Home = "~/bin/jdk9b164"
-jshellPath = java9Home ++ "/bin/jshell"
+javaHome = "~/bin/jdk-10.0.1/"
+jshellPath = javaHome ++ "/bin/jshell"
 
 terminalScratchpad :: String -> Maybe String -> ManageHook -> NamedScratchpad
 terminalScratchpad name execMaybe manageHook =
@@ -374,7 +375,7 @@ main = do
     spawn "fcitx"
 
     -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
-    spawn "sleep 1; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent true --tint 0x000000 --height 33 --alpha 0;dropbox start"
+    spawn "sleep 1; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0;dropbox start"
     -- dropboxを起動させて同期できるようにする
 
     spawn "wmname LG3D"
@@ -394,15 +395,17 @@ main = do
                        <+> manageDocks
                        <+> namedScratchpadManageHook myScratchpads
         , layoutHook =  avoidStruts $
-                       toggleLayouts (renamed [Replace "□"] $ noBorders Full)
- $                       ((renamed [Replace "├"] $ noFrillsDeco shrinkText mySDConfig $ myLayout) ||| (renamed [Replace "┬"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall)
+                       toggleLayouts (renamed [Replace "■"] $ noBorders Full)
+ $                       ((renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout) ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
         , logHook = withWindowSet (\s -> L.foldl (>>) def (map (\(i, xmproc) -> dynamicLogWithPP (multiScreenXMobarPP s i xmproc)) (L.zip [0..(L.length xmprocs)] xmprocs)))
 --                    >> withWindowSet(\s -> spawn ("xdotool getmouselocation >> /tmp/xmonad/mouse/" ++ (tail (tail (show (W.screen (W.current s)))))))
 --                    >> logCurrentMouseLocation
         , modMask = mod4Mask     -- Rebind Mod to the Windows key
-        , borderWidth = 6
-        , normalBorderColor  = "#587993" -- Java blue
-        , focusedBorderColor = "#e76f00" -- Java orange
+        , borderWidth = 4
+--        , normalBorderColor  = "#587993" -- Java blue
+--        , focusedBorderColor = "#e76f00" -- Java orange
+        , normalBorderColor  = "#3BA99F" -- NieR Automata normal
+        , focusedBorderColor = "#cd664d" -- NieR Automata forcused
         , focusFollowsMouse = False -- マウスの移動でフォーカスが映らないように
         , clickJustFocuses = False
         , handleEventHook = (\e -> do
@@ -429,6 +432,10 @@ main = do
         , ((mod4Mask, xK_F12), myNamedScratchpadAction "term2")
         , ((mod4Mask .|. controlMask, xK_F11), myNamedScratchpadAction "jshell1")
         , ((mod4Mask .|. controlMask, xK_F12), myNamedScratchpadAction "jshell2")
+        , ((mod4Mask, xK_bracketleft), myNamedScratchpadAction "term1")
+        , ((mod4Mask, xK_bracketright), myNamedScratchpadAction "term2")
+        , ((mod4Mask .|. controlMask, xK_bracketleft), myNamedScratchpadAction "jshell1")
+        , ((mod4Mask .|. controlMask, xK_bracketright), myNamedScratchpadAction "jshell2")
 
         , ((mod4Mask .|. controlMask, xK_F7), toggleScrachpadAction $ L.reverse myScratchpads)
         , ((mod4Mask .|. controlMask, xK_F8), showOrHideScratchpads myScratchpads True)
@@ -483,14 +490,13 @@ main = do
         , ((mod4Mask .|. mod1Mask, xK_j), nextScreen)
         , ((mod4Mask .|. mod1Mask, xK_k), prevScreen)
 
-        , ((mod4Mask, xK_space), (withWindowSet (\s -> runProcessWithInputAndWait "sh" ["-c", ("tail -n 1 " ++ mouseLogDir ++ "/" ++ (tail (tail (show (nextScreenObjectOf s)))) ++ " | xargs xdotool mousemove")] "" (seconds 1))) >> nextScreen)
+        , ((mod4Mask, xK_space), moveMouseToLastPosition >> nextScreen)
         , ((mod4Mask .|. shiftMask, xK_space), prevScreen)
-
 
         , ((mod4Mask, xK_w), goToSelected hidpiGSConfig)
         , ((mod4Mask .|. shiftMask, xK_w), gridselectWorkspace hidpiGSConfig W.view)
 
-        , ((mod4Mask, xK_p), spawn "dmenu_run")
+        , ((mod4Mask, xK_p), spawn "dmenu_run -nb '#DAD4BB' -nf '#4E4B42' -sb '#4E4B42' -p '❖'")
         , ((mod4Mask .|. shiftMask, xK_p), spawn "gmrun")
         , ((mod4Mask, xK_e), spawnSelected hidpiGSConfig applications)
         , ((mod4Mask, xK_s), scratchpadSelected hidpiGSConfig myScratchpads)
@@ -537,7 +543,7 @@ applications = [
  "wine '/home/bitterfox/.wine/drive_c/users/bitterfox/Local Settings/Application Data/LINE/bin/LineLauncher.exe'",
  "XDG_CURRENT_DESKTOP=GNOME gnome-control-center",
  "libreoffice",
- "~/bin/idea-IU-181.5281.24/bin//idea.sh",
+ "~/bin/idea-IU-183.5912.21/bin/idea.sh",
  "/usr/local/pulse/pulseUi"]
 
 scratchpadSelected :: GSConfig NamedScratchpad -> [NamedScratchpad] -> X()
@@ -548,6 +554,7 @@ scratchpadSelected config scratchpads = do
 multiScreenXMobarPP windowSet screenId xmproc = xmobarPP
                         { ppOutput = hPutStrLn xmproc
                         , ppTitle = \t -> ""
+                        , ppSep             = " | "
                         , ppExtras = [ titleOfScreenId windowSet screenId ]
                         , ppCurrent = fallbackIfNoScreen currentOfScreenId windowSet screenId
                         , ppVisible = fallbackIfNoScreen visibleOfScreenId windowSet screenId
@@ -558,7 +565,7 @@ multiScreenXMobarPP windowSet screenId xmproc = xmobarPP
 titleOfScreenId windowSet screenId =
     case (L.find (\sc -> (W.screen sc) == S screenId) (W.screens windowSet)) of
       Just sc -> case ((W.stack (W.workspace sc)) >>= (\st -> Just (W.focus st))) of
-                   Just w -> fmap (\nw -> Just (xmobarColor (if ((W.screen (W.current windowSet)) == (W.screen sc)) then "green" else "gray") "" (show nw))) (getName w)
+                   Just w -> fmap (\nw -> Just (xmobarColor (if ((W.screen (W.current windowSet)) == (W.screen sc)) then "#4E4B42" else "#D9D3BA") (if ((W.screen (W.current windowSet)) == (W.screen sc)) then "#D9D3BA" else "#4E4B42") (" " ++ (show nw) ++ " "))) (getName w)
                    Nothing -> def
       Nothing -> titleOfScreenId windowSet 0 -- optimize
 
@@ -567,7 +574,7 @@ layoutOfScreenId windowSet screenId =
       Just sc -> description . W.layout . W.workspace $ sc
       Nothing -> layoutOfScreenId windowSet 0 -- optimize
 
-currentOfScreenId windowSet screenId = if (W.screen(W.current windowSet) == S screenId) then xmobarColor "yellow" "" . wrap "[" "]" else wrap "" ""
+currentOfScreenId windowSet screenId = if (W.screen(W.current windowSet) == S screenId) then xmobarColor "#4E4B42" "#D9D3BA" . wrap " " " " else wrap "" ""
 
 visibleOfScreenId windowSet screenId wid =
     case L.find (\sc -> (W.screen sc) == S screenId) (W.visible windowSet) of
@@ -586,34 +593,70 @@ nextOf e l@(x:_) = case dropWhile (/= e) l of
 nextScreenObjectOf :: WindowSet -> ScreenId
 nextScreenObjectOf ws = nextOf (W.screen (W.current ws)) (L.map (W.screen) (W.visible ws))
 
+data MousePositionMap = MousePositionMap (M.Map ScreenId (Position, Position)) deriving Typeable
+instance ExtensionClass MousePositionMap where
+  initialValue = MousePositionMap M.empty
+data MousePosition = MousePosition (Maybe (Position, Position)) deriving Typeable
+instance ExtensionClass MousePosition where
+  initialValue = MousePosition Nothing
 logCurrentMouseLocation :: X ()
 logCurrentMouseLocation =
     withWindowSet (\ws ->
       do
-        out <- (runProcessWithInput "sh" ["-c", "eval $(xdotool getmouselocation --shell); echo $X $Y"] "" :: X (String))
-        let xy = words out
-        let x = head xy
-        let y = head $ tail xy
-        maybeScreen <- pointScreen (read x :: Position) (read y :: Position)
-        let screen = case maybeScreen of
-                       Just s -> if ((W.screen (W.current ws)) == W.screen s) then Just (tail (tail (show (W.screen s)))) else Nothing
-                       Nothing -> Nothing
-        case screen of
-          Just s ->  spawn ("echo '" ++ x ++ " " ++ y ++ "' > " ++ mouseLogDir ++ "/" ++ s)
-          Nothing -> def
+        MousePosition maybeLastMousePosition <- XS.get
+        xconf <- ask
+        let maybeMousePos = mousePosition xconf
+        if maybeLastMousePosition == maybeMousePos then
+          def
+        else
+          do
+            MousePositionMap lastMousePositions <- XS.get
+            case maybeMousePos of
+              Just (x, y) -> do
+                               maybeScreen <- pointScreen x y
+                               let screen = case maybeScreen of
+                                              Just s -> if ((W.screen (W.current ws)) == W.screen s) then
+                                                          Just $ W.screen s
+                                                        else
+                                                          Nothing
+                                              Nothing -> Nothing
+                               case screen of
+                                 Just s ->
+                                     (XS.put $ MousePositionMap $ M.insert s (x, y) lastMousePositions) >>
+                                     (XS.put $ MousePosition $ maybeMousePos) -- >>
+--                                     (spawn ("echo '" ++ (show lastMousePositions) ++ "' >> /tmp/xmonad.debug"))
+--                                     (spawn ("echo '" ++ (show x) ++ " " ++ (show y) ++ "' >> " ++ mouseLogDir ++ "/" ++ s))
+                                 Nothing -> def
+              Nothing -> def
       )
+
+moveMouseToLastPosition :: X ()
+moveMouseToLastPosition =
+    withWindowSet (\ws ->
+      do
+        MousePositionMap lastMousePositions <- XS.get
+        let s = nextScreenObjectOf ws
+--        spawn ("echo 'moveMouseToLastPosition: " ++ (show lastMousePositions) ++ " " ++ (show s ) ++ "' >> /tmp/xmonad.debug")
+--        spawn ("echo 'moveMouseToLastPosition: " ++ (show lastMousePositions) ++ "' >> /tmp/xmonad.debug")
+        case M.lookup s lastMousePositions of
+          Just (x, y) -> runProcessWithInputAndWait "sh" ["-c", ("xdotool mousemove " ++ (show (x+10)) ++ " " ++ (show y))] "" (seconds 1) -- Can we move mouse within XMonad?
+          Nothing -> def
+--          Nothing -> runProcessWithInputAndWait "sh" ["-c", "xdotool mousemove 0 0"] "" (seconds 1) -- Can we move mouse within XMonad?
+    )
 
 mouseLogDir = "/tmp/xmonad/mouse"
 
 mySDConfig = def {
-               activeColor = "black"
-             , inactiveColor = "black"
+--               activeColor = "black"
+               activeColor = "#D9D3BA"
+             , inactiveColor = "#4E4B42"
              , urgentColor = "white"
-             , activeTextColor = "green"
-             , inactiveTextColor = "gray"
+--             , activeTextColor = "green"
+             , activeTextColor = "#4E4B42"
+             , inactiveTextColor = "#D9D3BA"
              , urgentTextColor = "red"
-             , activeBorderColor = "black"
-             , inactiveBorderColor = "black"
+             , activeBorderColor = "#D9D3BA"
+             , inactiveBorderColor = "#4E4B42"
              , urgentBorderColor = "pink"
              , decoHeight = 32
              , fontName = "xft:monospace-9:bold,Symbola-9:bold"
