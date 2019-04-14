@@ -368,7 +368,7 @@
     summary = *IMON*
     body = *notify.navercorp.com*release*
     urgency = "critical"
-    background = "#E53935"
+    background = "#CC654C"
     foreground = "#FDF3F2"
     timeout = 99999
     script = scripts/open_naver_notify.sh

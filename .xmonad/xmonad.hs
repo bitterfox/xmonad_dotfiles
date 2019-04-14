@@ -13,6 +13,7 @@ import XMonad.Hooks.DynamicLog
 import XMonad.Hooks.ManageDocks
 import XMonad.Layout.Fullscreen
 import XMonad.Layout.Gaps
+import XMonad.Layout.MultiColumns
 import XMonad.Layout.MultiToggle
 import XMonad.Layout.MultiToggle.Instances
 import XMonad.Layout.NoFrillsDecoration
@@ -64,7 +65,7 @@ terminalScratchpad name execMaybe manageHook =
 myScratchpads :: [NamedScratchpad]
 myScratchpads = [
     terminalScratchpad "mainterm" Nothing
-           (customFloating $ W.RationalRect 0 0.02 1 0.98)
+           (customFloating $ W.RationalRect 0.01 0.03 0.98 0.96)
   , terminalScratchpad "term1" Nothing
            (customFloating $ W.RationalRect 0 0.02 1 0.48)
   , terminalScratchpad "term2" Nothing
@@ -396,7 +397,7 @@ main = do
                        <+> namedScratchpadManageHook myScratchpads
         , layoutHook =  avoidStruts $
                        toggleLayouts (renamed [Replace "■"] $ noBorders Full)
- $                       ((renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout) ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
+ $                       ((renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout) ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout) ||| (renamed [Replace "田"] $ noFrillsDeco shrinkText mySDConfig $ multiCol [1] 4 0.01 0.5)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
         , logHook = withWindowSet (\s -> L.foldl (>>) def (map (\(i, xmproc) -> dynamicLogWithPP (multiScreenXMobarPP s i xmproc)) (L.zip [0..(L.length xmprocs)] xmprocs)))
 --                    >> withWindowSet(\s -> spawn ("xdotool getmouselocation >> /tmp/xmonad/mouse/" ++ (tail (tail (show (W.screen (W.current s)))))))
 --                    >> logCurrentMouseLocation
@@ -411,6 +412,7 @@ main = do
         , handleEventHook = (\e -> do
             logCurrentMouseLocation
             return (All True))
+        , XMonad.Core.workspaces = myWorkspaces
         } `additionalKeys`
         [
           ((mod4Mask .|. shiftMask, xK_l), spawn "gnome-screensaver-command --lock") -- Lock
@@ -420,7 +422,7 @@ main = do
 
         , ((controlMask, xK_Print), spawn "gnome-screenshot -c")
         , ((0, xK_Print), spawn "gnome-screenshot")
-        , ((mod4Mask, xK_r), refresh)
+        , ((mod4Mask, xK_r), refresh >> rescreen)
 
         , ((mod4Mask .|. shiftMask, xK_e), spawn "nautilus")
 
@@ -493,8 +495,8 @@ main = do
         , ((mod4Mask, xK_space), moveMouseToLastPosition >> nextScreen)
         , ((mod4Mask .|. shiftMask, xK_space), prevScreen)
 
-        , ((mod4Mask, xK_w), goToSelected hidpiGSConfig)
-        , ((mod4Mask .|. shiftMask, xK_w), gridselectWorkspace hidpiGSConfig W.view)
+        , ((mod4Mask, xK_w), goToSelected' hidpiGSConfig)
+        , ((mod4Mask .|. shiftMask, xK_w), gridselectWorkspace (hidpiGSConfig {gs_cellwidth = 80}) W.view)
 
         , ((mod4Mask, xK_p), spawn "dmenu_run -nb '#DAD4BB' -nf '#4E4B42' -sb '#4E4B42' -p '❖'")
         , ((mod4Mask .|. shiftMask, xK_p), spawn "gmrun")
@@ -520,10 +522,18 @@ main = do
         ] `removeKeys`
         [
           (mod4Mask .|. shiftMask, xK_q)
+--        , (mod4Mask, xK_q)
         ] `additionalMouseBindings`
         [
           ((mod4Mask .|. controlMask, button1), \w -> focus w >> mouseResizeWindow w
                                                               >> windows W.shiftMaster)
+        ] `additionalKeys` [
+          ((mod4Mask .|. m, k), f i)
+            | (i, k) <- zip originalWorkspaces [xK_1 .. xK_9]
+            , (f, m) <- [(greedyViewOfCurrentScreen, 0), (shiftOfCurrentScreen, shiftMask)]
+        ] `additionalKeys` [
+          ((mod4Mask .|. controlMask, k), shiftToAnotherScreen i)
+            | (i, k) <- zip [0 .. maxScreen - 1] [xK_1 .. xK_9]
         ]
 
 myLayout = (ResizableTall 1 (3/100) (1/2) [])
@@ -533,8 +543,36 @@ hidpiGSConfig = defaultGSConfig {
                   gs_cellheight = 80
                 , gs_cellwidth = 800
                 , gs_font = "xft:Sans-9"
-                , gs_navigate   = navNSearch
+                , gs_navigate   = myNavNSearch
 }
+
+myNavNSearch :: TwoD a (Maybe a)
+myNavNSearch = makeXEventhandler $ shadowWithKeymap navNSearchKeyMap navNSearchDefaultHandler
+  where navNSearchKeyMap = M.fromList [
+           ((0,xK_Escape)     , cancel)
+          ,((controlMask,xK_g), cancel)
+          ,((0,xK_Return)     , select)
+          ,((0,xK_Left)       , move (-1,0) >> myNavNSearch)
+          ,((controlMask, xK_b)       , move (-1,0) >> myNavNSearch)
+          ,((0,xK_Right)      , move (1,0) >> myNavNSearch)
+          ,((controlMask, xK_f)       , move (1,0) >> myNavNSearch)
+          ,((0,xK_Down)       , move (0,1) >> myNavNSearch)
+          ,((controlMask, xK_n)       , move (0,1) >> myNavNSearch)
+          ,((0,xK_Up)         , move (0,-1) >> myNavNSearch)
+          ,((controlMask, xK_p)       , move (0,-1) >> myNavNSearch)
+          ,((controlMask, xK_a)       , move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> myNavNSearch)
+          ,((controlMask, xK_e)       , move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> myNavNSearch)
+          ,((0,xK_Tab)        , moveNext >> myNavNSearch)
+          ,((shiftMask,xK_Tab), movePrev >> myNavNSearch)
+          ,((0,xK_BackSpace), transformSearchString (\s -> if (s == "") then "" else init s) >> myNavNSearch)
+          ]
+        -- The navigation handler ignores unknown key symbols, therefore we const
+        navNSearchDefaultHandler (_,s,mask) = do
+          if mask == 0 then
+            transformSearchString (++ s)
+            >> myNavNSearch
+          else
+            myNavNSearch
 
 applications = [
  "google-chrome",
@@ -543,8 +581,10 @@ applications = [
  "wine '/home/bitterfox/.wine/drive_c/users/bitterfox/Local Settings/Application Data/LINE/bin/LineLauncher.exe'",
  "XDG_CURRENT_DESKTOP=GNOME gnome-control-center",
  "libreoffice",
+ "~/bin/jetbrains-toolbox-1.14.5037/jetbrains-toolbox",
  "~/bin/idea-IU-183.5912.21/bin/idea.sh",
- "/usr/local/pulse/pulseUi"]
+ "/usr/local/pulse/pulseUi",
+ "slack"]
 
 scratchpadSelected :: GSConfig NamedScratchpad -> [NamedScratchpad] -> X()
 scratchpadSelected config scratchpads = do
@@ -552,12 +592,13 @@ scratchpadSelected config scratchpads = do
     myNamedScratchpadActionMaybe scratchpadMaybe
 
 multiScreenXMobarPP windowSet screenId xmproc = xmobarPP
-                        { ppOutput = hPutStrLn xmproc
+                        { ppOutput = \t -> hPutStrLn xmproc $ (fallbackIfNoScreen (\ws -> \sid -> show $ sid + 1) windowSet screenId) ++ " | " ++ t
                         , ppTitle = \t -> ""
                         , ppSep             = " | "
                         , ppExtras = [ titleOfScreenId windowSet screenId ]
-                        , ppCurrent = fallbackIfNoScreen currentOfScreenId windowSet screenId
-                        , ppVisible = fallbackIfNoScreen visibleOfScreenId windowSet screenId
+                        , ppCurrent = fallbackIfNoScreen (showOnlyWorkspaceFor currentOfScreenId) windowSet screenId
+                        , ppVisible = fallbackIfNoScreen (showOnlyWorkspaceFor visibleOfScreenId) windowSet screenId
+                        , ppHidden = fallbackIfNoScreen (showOnlyWorkspaceFor $ \ws -> \sid -> ppHidden xmobarPP) windowSet screenId
                         , ppLayout = \t -> fallbackIfNoScreen layoutOfScreenId windowSet screenId
                         , ppSort = fmap (. namedScratchpadFilterOutWorkspace) $ ppSort xmobarPP
                         }
@@ -574,18 +615,36 @@ layoutOfScreenId windowSet screenId =
       Just sc -> description . W.layout . W.workspace $ sc
       Nothing -> layoutOfScreenId windowSet 0 -- optimize
 
+--currentOfScreenId windowSet screenId = if (W.screen(W.current windowSet) == S screenId) then xmobarColor "#4E4B42" "#D9D3BA" . wrap " " " " else wrap "" ""
+
+--visibleOfScreenId windowSet screenId wid =
+--    case L.find (\sc -> (W.screen sc) == S screenId) (W.visible windowSet) of
+--      Just sc -> if (W.tag (W.workspace sc) == wid) then wrap "[" "]" wid else wrap "" "" wid
+--      Nothing -> wrap "" "" wid
+
 currentOfScreenId windowSet screenId = if (W.screen(W.current windowSet) == S screenId) then xmobarColor "#4E4B42" "#D9D3BA" . wrap " " " " else wrap "" ""
 
 visibleOfScreenId windowSet screenId wid =
     case L.find (\sc -> (W.screen sc) == S screenId) (W.visible windowSet) of
-      Just sc -> if (W.tag (W.workspace sc) == wid) then wrap "[" "]" wid else wrap "" "" wid
+      Just sc -> if (W.tag (W.workspace sc) == wid) then xmobarColor "#4E4B42" "#D9D3BA" (wrap " " " " wid) else wrap "" "" wid
       Nothing -> wrap "" "" wid
+
+
+showOnlyWorkspaceFor f windowSet screenId = \w ->
+                                  case L.elemIndex '_' w of
+                                    Just i ->
+                                        let
+                                            (wid, sid) = splitAt i w
+                                        in
+                                          if sid == ("_" ++ show screenId) then
+                                            f windowSet screenId wid
+                                          else ""
+                                    Nothing -> f windowSet screenId w
 
 fallbackIfNoScreen f windowSet screenId =
     case (L.find (\sc -> (W.screen sc) == S screenId) (W.screens windowSet)) of
       Just sc -> f windowSet screenId
       Nothing -> f windowSet 0
-
 
 nextOf e l@(x:_) = case dropWhile (/= e) l of
                           (_:y:_) -> y
@@ -639,7 +698,7 @@ moveMouseToLastPosition =
 --        spawn ("echo 'moveMouseToLastPosition: " ++ (show lastMousePositions) ++ " " ++ (show s ) ++ "' >> /tmp/xmonad.debug")
 --        spawn ("echo 'moveMouseToLastPosition: " ++ (show lastMousePositions) ++ "' >> /tmp/xmonad.debug")
         case M.lookup s lastMousePositions of
-          Just (x, y) -> runProcessWithInputAndWait "sh" ["-c", ("xdotool mousemove " ++ (show (x+10)) ++ " " ++ (show y))] "" (seconds 1) -- Can we move mouse within XMonad?
+          Just (x, y) -> runProcessWithInputAndWait "sh" ["-c", ("xdotool mousemove " ++ (show (x)) ++ " " ++ (show y))] "" (seconds 1) -- Can we move mouse within XMonad?
           Nothing -> def
 --          Nothing -> runProcessWithInputAndWait "sh" ["-c", "xdotool mousemove 0 0"] "" (seconds 1) -- Can we move mouse within XMonad?
     )
@@ -661,3 +720,51 @@ mySDConfig = def {
              , decoHeight = 32
              , fontName = "xft:monospace-9:bold,Symbola-9:bold"
 }
+
+maxScreen = 2
+
+originalWorkspaces = map show [1 .. 9 :: Int]
+myWorkspaces = expandWorkspace maxScreen originalWorkspaces
+expandWorkspace :: Int -> [WorkspaceId] -> [WorkspaceId]
+expandWorkspace nscr ws = concat $ map expandId ws
+  where expandId wsId = let t = wsId ++ "_"
+                        in map ((++) t . show ) [0..nscr-1]
+
+greedyViewOfCurrentScreen workspaceId =
+    withWindowSet(\s -> do
+      let S sid = W.screen $ W.current s
+      io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ (show sid)
+      windows (W.greedyView (workspaceId ++ "_" ++ (show sid)))
+    )
+shiftOfCurrentScreen workspaceId =
+    withWindowSet(\s -> do
+      let S sid = W.screen $ W.current s
+      io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ (show sid)
+      windows (W.shift (workspaceId ++ "_" ++ (show sid)))
+    )
+shiftToAnotherScreen screenId =
+    withWindowSet(\s -> do
+      case (L.find (\sc -> (W.screen sc) == S screenId) (W.screens s)) of
+        Just sc -> do
+                     io $ appendFile "/tmp/xmonad.debug" $ W.tag $ W.workspace sc
+                     windows (W.shift $ W.tag $ W.workspace sc)
+        Nothing -> return ()
+    )
+
+goToSelected' =
+    withSelectedWindow (\w ->
+      windows (\ws ->
+        case W.findTag w ws of
+          Just workspaceId -> 
+            case L.elemIndex '_' workspaceId of
+              Just i ->
+                let
+                  (wid, sid) = splitAt (i+1) workspaceId
+                in
+                  case (L.find (\sc -> (W.screen sc) == (S $ read sid)) (W.screens ws)) of
+                    Just sc -> W.focusWindow w ( (W.view $ W.tag $ W.workspace sc) ws )
+                    Nothing -> W.focusWindow w ws
+              Nothing -> W.focusWindow w ws
+          Nothing -> W.focusWindow w ws
+      )
+    )
