@@ -733,20 +733,20 @@ expandWorkspace nscr ws = concat $ map expandId ws
 greedyViewOfCurrentScreen workspaceId =
     withWindowSet(\s -> do
       let S sid = W.screen $ W.current s
-      io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ (show sid)
+--      io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ (show sid)
       windows (W.greedyView (workspaceId ++ "_" ++ (show sid)))
     )
 shiftOfCurrentScreen workspaceId =
     withWindowSet(\s -> do
       let S sid = W.screen $ W.current s
-      io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ (show sid)
+--      io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ (show sid)
       windows (W.shift (workspaceId ++ "_" ++ (show sid)))
     )
 shiftToAnotherScreen screenId =
     withWindowSet(\s -> do
       case (L.find (\sc -> (W.screen sc) == S screenId) (W.screens s)) of
         Just sc -> do
-                     io $ appendFile "/tmp/xmonad.debug" $ W.tag $ W.workspace sc
+--                     io $ appendFile "/tmp/xmonad.debug" $ W.tag $ W.workspace sc
                      windows (W.shift $ W.tag $ W.workspace sc)
         Nothing -> return ()
     )
