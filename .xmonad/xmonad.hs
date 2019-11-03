@@ -6,6 +6,7 @@ import XMonad.Actions.CycleWS
 import XMonad.Actions.Volume
 import XMonad.Actions.GridSelect
 import XMonad.Actions.Search (selectSearchBrowser, google)
+import XMonad.Actions.WindowGo
 --import XMonad.Config.Desktop (desktopLayoutModifiers)
 import XMonad.Config.Desktop
 import XMonad.Config.Gnome
@@ -151,8 +152,8 @@ showOrHideScratchpads scratchpads show =
 --      toMoveActions s filtered
     )
   where
-    acceleration = 0.0001
-    delay = 10
+    acceleration = 0.001
+    delay = 5
     toShowActions = \s ws -> do
                       MaybeWindowLocationMap evacuateds <- XS.get
                       let
@@ -162,8 +163,8 @@ showOrHideScratchpads scratchpads show =
                           (W.RationalRect x y width height, (_x, _y))  <- M.lookup w evacuateds
                           Just (w, current, (x, y))
                           ) ws
-                      io $ appendFile "/tmp/xmonad.debug" "show\n"
-                      io $ appendFile "/tmp/xmonad.debug" $ TS.show toBeShowns
+--                      io $ appendFile "/tmp/xmonad.debug" "show\n"
+--                      io $ appendFile "/tmp/xmonad.debug" $ TS.show toBeShowns
                       dynamicMoving toBeShowns acceleration delay
                       XS.put $ MaybeWindowLocationMap $ L.foldl (\m (w, c, t) -> M.delete w m) evacuateds toBeShowns
     toHideActions = \s ws -> do
@@ -179,8 +180,8 @@ showOrHideScratchpads scratchpads show =
                               | ((x, y) == e) -> Nothing -- (r == original) || 
                               | otherwise -> Just (w, r)
                           ) ws
-                      io $ appendFile "/tmp/xmonad.debug" "hide\n"
-                      io $ appendFile "/tmp/xmonad.debug" $ TS.show toBeEvacuateds
+--                      io $ appendFile "/tmp/xmonad.debug" "hide\n"
+--                      io $ appendFile "/tmp/xmonad.debug" $ TS.show toBeEvacuateds
                       newLocationMap <- evacuateWindowsLikeMac toBeEvacuateds acceleration delay
                       let
                         evacuatedWindowLocations = mapMaybe (\(w, c) -> do
@@ -360,6 +361,7 @@ main = do
     spawn $ "mkdir -p " ++ mouseLogDir
 
 --    watch "xmodmap ~/.xmodmap" "0.3"
+    spawn "xhost +SI:localuser:root; sleep 1; sudo xkeysnail ~/config.py & sleep 1; xset r rate 250 50"
 
     spawn "ginn .wishes.xml" -- for Mac mouse
 
@@ -376,10 +378,12 @@ main = do
     spawn "fcitx"
 
     -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
-    spawn "sleep 1; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0;dropbox start"
+    spawn "sleep 5; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 0; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 1 ;dropbox start"
     -- dropboxを起動させて同期できるようにする
 
     spawn "wmname LG3D"
+
+    spawn "/home/bitterfox/xmonad_dotfiles/.xmonad/always_dunst_on_top.sh"
 
 --    spawn "compton -b --config ~/.comptonrc"
 
@@ -395,6 +399,7 @@ main = do
         { manageHook = manageHook gnomeConfig -- defaultConfig
                        <+> manageDocks
                        <+> namedScratchpadManageHook myScratchpads
+                       <+> (className =? "Dunst" --> doFloat)
         , layoutHook =  avoidStruts $
                        toggleLayouts (renamed [Replace "■"] $ noBorders Full)
  $                       ((renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout) ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout) ||| (renamed [Replace "田"] $ noFrillsDeco shrinkText mySDConfig $ multiCol [1] 4 0.01 0.5)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
@@ -416,7 +421,7 @@ main = do
         } `additionalKeys`
         [
           ((mod4Mask .|. shiftMask, xK_l), spawn "gnome-screensaver-command --lock") -- Lock
-        , ((mod4Mask .|. shiftMask, xK_s), spawn "gnome-screensaver-command --lock ; dbus-send --print-reply --system --dest=org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower.Suspend") -- Lock & Suspend
+        , ((mod4Mask .|. shiftMask, xK_s), spawn "systemctl suspend") -- Lock & Suspend
         , ((mod4Mask .|. controlMask .|. shiftMask, xK_l), io (exitWith ExitSuccess)) -- Logout
         , ((mod4Mask .|. controlMask .|. shiftMask, xK_s), spawn "/usr/lib/indicator-session/gtk-logout-helper --shutdown") -- Shutdown
 
@@ -444,7 +449,7 @@ main = do
         , ((mod4Mask .|. controlMask .|. shiftMask, xK_F8), showOrHideScratchpads myScratchpads False)
         , ((mod4Mask .|. controlMask, xK_F9), toggleScrachpadAction myScratchpads)
 
-        , ((mod4Mask, xK_g), selectSearchBrowser "/usr/bin/google-chrome-stable" google)
+        , ((mod4Mask, xK_g), selectSearchBrowser "/usr/bin/vivaldi" google)
 
         , ((mod4Mask, xK_d), sendMessage NextLayout)
         -- Full screen
@@ -501,11 +506,15 @@ main = do
         , ((mod4Mask, xK_p), spawn "dmenu_run -nb '#DAD4BB' -nf '#4E4B42' -sb '#4E4B42' -p '❖'")
         , ((mod4Mask .|. shiftMask, xK_p), spawn "gmrun")
         , ((mod4Mask, xK_e), spawnSelected hidpiGSConfig applications)
-        , ((mod4Mask, xK_s), scratchpadSelected hidpiGSConfig myScratchpads)
+--        , ((mod4Mask, xK_s), scratchpadSelected hidpiGSConfig myScratchpads)
 
         -- CopyWindow
         , ((mod4Mask, xK_a), windows copyToAll)
         , ((mod4Mask .|. shiftMask, xK_a), killAllOtherCopies)
+
+        -- Screenshot
+        , ((mod4Mask, xK_s), spawn "sh ~/.xmonad/screenshot.sh")
+        , ((mod4Mask .|. controlMask, xK_s), spawn "sh ~/.xmonad/screenshot.sh -a")
         ] `additionalKeysP`
         [
         -- 輝度・ボリューム周り
@@ -519,6 +528,8 @@ main = do
 --        , ("<XF86AudioLowerVolume>", setMute(False) >> lowerVolume 3 >> return ())
 --        , ("<XF86AudioRaiseVolume>", setMute(False) >> raiseVolume 3 >> return ())
 --        , ("<XF86AudioMute>",        setMute(False) >> setVolume 50   >> return ()) -- toggleMuteで問題がなければそうすると良いです。
+        , ("<XF86LaunchA>", showOrHideScratchpads myScratchpads False)
+        , ("<XF86LaunchB>", showOrHideScratchpads myScratchpads True)
         ] `removeKeys`
         [
           (mod4Mask .|. shiftMask, xK_q)
@@ -575,14 +586,14 @@ myNavNSearch = makeXEventhandler $ shadowWithKeymap navNSearchKeyMap navNSearchD
             myNavNSearch
 
 applications = [
- "google-chrome",
+ "vivaldi",
  "nautilus",
  "emacs",
  "wine '/home/bitterfox/.wine/drive_c/users/bitterfox/Local Settings/Application Data/LINE/bin/LineLauncher.exe'",
  "XDG_CURRENT_DESKTOP=GNOME gnome-control-center",
  "libreoffice",
- "~/bin/jetbrains-toolbox-1.14.5037/jetbrains-toolbox",
- "~/bin/idea-IU-183.5912.21/bin/idea.sh",
+ "~/bin/jetbrains-toolbox-1.14.5179/jetbrains-toolbox",
+ "~/bin/idea",
  "/usr/local/pulse/pulseUi",
  "slack"]
 
@@ -768,3 +779,8 @@ goToSelected' =
           Nothing -> W.focusWindow w ws
       )
     )
+
+--myManageHook = composeAll
+--   [ className =? "Dunst" --> doIgnore
+--   , manageDocks
+--   ]
