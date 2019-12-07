@@ -42,6 +42,10 @@ import Data.Monoid
 import Control.Monad (foldM, filterM, mapM, forever)
 import Control.Concurrent
 import qualified Text.Show as TS
+import Text.Parsec
+import Text.Parsec.String (Parser)
+
+onBottom = (customFloating $ W.RationalRect 0 0.5 1 0.5)
 
 onTop = (customFloating $ W.RationalRect 0 0.02 1 0.48)
 
@@ -74,7 +78,7 @@ myScratchpads = [
   , terminalScratchpad "jshell1"
            (Just jshellPath)
            (customFloating $ W.RationalRect 0 0.02 1 0.48)
-  , terminalScratchpad "jshell1"
+  , terminalScratchpad "jshell2"
            (Just jshellPath)
            (customFloating $ W.RationalRect 0 0.5 1 0.5)
   , NS "bunnaru"
@@ -91,13 +95,26 @@ myScratchpads = [
            (customFloating $ W.RationalRect 0 0.02 1 0.98)
  ]
 
+intelliJScrachpad :: String -> String -> ManageHook -> NamedScratchpad
+intelliJScrachpad name workingDir manageHook =
+    NS name
+       ("/usr/lib/gnome-terminal/gnome-terminal-server" ++
+           " --app-id bitter_fox.xmonad.intellij." ++ name ++
+           " --name=bitter_fox.xmonad.intellij." ++ name ++ " --class=" ++ name ++
+           " & gnome-terminal --app-id bitter_fox.xmonad.intellij." ++ name ++
+           " --working-directory=" ++ workingDir
+       )
+       (appName =? ("bitter_fox.xmonad.intellij." ++ name))
+       manageHook
 
 myScratchpadsManageHook = namedScratchpadManageHook myScratchpads
 
-myNamedScratchpadAction n =
-    namedScratchpadAction myScratchpads n
+myNamedScratchpadAction = myNamedScratchpadActionInternal myScratchpads
+
+myNamedScratchpadActionInternal scratchpads n =
+    namedScratchpadAction scratchpads n
     >> withWindowSet (\s ->
-         case (W.peek s, L.find isSameName myScratchpads) of
+         case (W.peek s, L.find isSameName scratchpads) of
            (Just w, Just ns) -> do
              hook <- runQuery (hook ns) w
              isTarget <- runQuery (query ns) w
@@ -112,6 +129,8 @@ myNamedScratchpadAction n =
 myNamedScratchpadActionMaybe mns = case mns of
     Just ns -> myNamedScratchpadAction $ name ns
     _ -> return ()
+
+runScratchpadAction scratchpad = myNamedScratchpadActionInternal [scratchpad] $ name scratchpad
 
 toggleScrachpadAction scratchpads =
     withWindowSet (\s ->
@@ -361,7 +380,7 @@ main = do
     spawn $ "mkdir -p " ++ mouseLogDir
 
 --    watch "xmodmap ~/.xmodmap" "0.3"
-    spawn "xhost +SI:localuser:root; sleep 1; sudo xkeysnail ~/config.py & sleep 1; xset r rate 250 50"
+    spawn "xhost +SI:localuser:root; sleep 1; sudo xkeysnail -q ~/config.py & sleep 1; xset r rate 250 50"
 
     spawn "ginn .wishes.xml" -- for Mac mouse
 
@@ -398,8 +417,9 @@ main = do
     xmonad $ gnomeConfig -- defaultConfig
         { manageHook = manageHook gnomeConfig -- defaultConfig
                        <+> manageDocks
-                       <+> namedScratchpadManageHook myScratchpads
+                       <+> myScratchpadsManageHook
                        <+> (className =? "Dunst" --> doFloat)
+                       <+> ((fmap (L.isSuffixOf ".onBottom") appName) --> onBottom)
         , layoutHook =  avoidStruts $
                        toggleLayouts (renamed [Replace "■"] $ noBorders Full)
  $                       ((renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout) ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout) ||| (renamed [Replace "田"] $ noFrillsDeco shrinkText mySDConfig $ multiCol [1] 4 0.01 0.5)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
@@ -448,6 +468,8 @@ main = do
         , ((mod4Mask .|. controlMask, xK_F8), showOrHideScratchpads myScratchpads True)
         , ((mod4Mask .|. controlMask .|. shiftMask, xK_F8), showOrHideScratchpads myScratchpads False)
         , ((mod4Mask .|. controlMask, xK_F9), toggleScrachpadAction myScratchpads)
+
+        , ((mod4Mask, xK_backslash), launchIntelliJTerminal)
 
         , ((mod4Mask, xK_g), selectSearchBrowser "/usr/bin/vivaldi" google)
 
@@ -540,7 +562,7 @@ main = do
                                                               >> windows W.shiftMaster)
         ] `additionalKeys` [
           ((mod4Mask .|. m, k), f i)
-            | (i, k) <- zip originalWorkspaces [xK_1 .. xK_9]
+            | (i, k) <- zip originalWorkspaces $ [xK_1 .. xK_9] ++ [xK_0]
             , (f, m) <- [(greedyViewOfCurrentScreen, 0), (shiftOfCurrentScreen, shiftMask)]
         ] `additionalKeys` [
           ((mod4Mask .|. controlMask, k), shiftToAnotherScreen i)
@@ -734,8 +756,8 @@ mySDConfig = def {
 
 maxScreen = 2
 
-originalWorkspaces = map show [1 .. 9 :: Int]
-myWorkspaces = expandWorkspace maxScreen originalWorkspaces
+originalWorkspaces = map show ([1 .. 9 :: Int] ++ [0])
+myWorkspaces = expandWorkspace 9 originalWorkspaces
 expandWorkspace :: Int -> [WorkspaceId] -> [WorkspaceId]
 expandWorkspace nscr ws = concat $ map expandId ws
   where expandId wsId = let t = wsId ++ "_"
@@ -766,7 +788,7 @@ goToSelected' =
     withSelectedWindow (\w ->
       windows (\ws ->
         case W.findTag w ws of
-          Just workspaceId -> 
+          Just workspaceId ->
             case L.elemIndex '_' workspaceId of
               Just i ->
                 let
@@ -784,3 +806,35 @@ goToSelected' =
 --   [ className =? "Dunst" --> doIgnore
 --   , manageDocks
 --   ]
+
+launchIntelliJTerminal :: X ()
+launchIntelliJTerminal =
+    withFocused (\w -> do
+      cname <- runQuery className w
+      if cname == "jetbrains-idea" then do
+          t <- runQuery title w
+          case (parse intelliJInfo "/tmp/hoge" t) of
+            Left e -> return ()
+            Right [project, dir] -> runScratchpadAction $ intelliJScrachpad (project ++ ".onBottom") (extractHomeDirectory dir) onBottom
+      else do
+          aname <- runQuery appName w
+          if L.isPrefixOf "bitter_fox.xmonad.intellij." aname then do
+             let name = L.drop (L.length "bitter_fox.xmonad.intellij.") aname
+             runScratchpadAction $ intelliJScrachpad name homeDirectory onBottom
+          else return ()
+    )
+
+intelliJInfo :: Parser [String]
+intelliJInfo = do
+  project <- many (noneOf [' '])
+  char ' '
+  char '['
+  dir <- many (noneOf [']'])
+  char ']'
+  return [project, dir]
+
+homeDirectory = "/home/bitterfox"
+extractHomeDirectory path =
+    if L.head path == '~' then
+        homeDirectory ++ L.tail path
+    else path
