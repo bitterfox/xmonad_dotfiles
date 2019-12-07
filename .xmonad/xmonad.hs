@@ -64,9 +64,11 @@ myManageHookAll = manageHook gnomeConfig -- defaultConfig
                        <+> ((fmap (L.isSuffixOf ".onBottom") appName) --> onBottom)
 myLayout = (ResizableTall 1 (3/100) (1/2) [])
 myLayoutHookAll = avoidStruts $
-                       toggleLayouts (renamed [Replace "■"] $ noBorders Full)
+                       toggleLayouts (renamed [Replace "■"] $ noBorders Full) $
 -- $                       ((renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout) ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout) ||| (renamed [Replace "田"] $ noFrillsDeco shrinkText mySDConfig $ multiCol [1] 4 0.01 0.5)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
- $                       ((renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout) ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout) ||| (renamed [Replace "田"] $ multiCol [1] 4 0.01 0.5)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
+                       (   (renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout)
+                       ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout)
+                       ||| (renamed [Replace "田"] $ multiCol [1] 4 0.01 0.5)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
 
 tall = Tall 1 (3/100) (1/2)
 
@@ -114,8 +116,9 @@ main = do
         { manageHook = myManageHookAll
         , layoutHook =  myLayoutHookAll
         , logHook = withWindowSet (\s -> L.foldl (>>) def (map (\(i, xmproc) -> dynamicLogWithPP (multiScreenXMobarPP s i xmproc)) (L.zip [0..(L.length xmprocs)] xmprocs)))
---                    >> withWindowSet(\s -> spawn ("xdotool getmouselocation >> /tmp/xmonad/mouse/" ++ (tail (tail (show (W.screen (W.current s)))))))
---                    >> logCurrentMouseLocation
+        , handleEventHook = (\e -> do
+            logCurrentMouseLocation
+            return (All True))
         , modMask = mod4Mask     -- Rebind Mod to the Windows key
         , borderWidth = 4
 --        , normalBorderColor  = "#587993" -- Java blue
@@ -124,9 +127,6 @@ main = do
         , focusedBorderColor = "#cd664d" -- NieR Automata forcused
         , focusFollowsMouse = False -- マウスの移動でフォーカスが映らないように
         , clickJustFocuses = False
-        , handleEventHook = (\e -> do
-            logCurrentMouseLocation
-            return (All True))
         , XMonad.Core.workspaces = myWorkspaces
         } `additionalKeys`
         [
@@ -826,7 +826,7 @@ intelliJScrachpad name workingDir manageHook =
     NS name
        ("/usr/lib/gnome-terminal/gnome-terminal-server" ++
            " --app-id bitter_fox.xmonad.intellij." ++ name ++
-           " --name=bitter_fox.xmonad.intellij." ++ name ++ " --class=" ++ name ++
+           " --name=bitter_fox.xmonad.intellij." ++ name ++ " --class=" ++ "intellij-terminal" ++
            " & gnome-terminal --app-id bitter_fox.xmonad.intellij." ++ name ++
            " --working-directory=" ++ workingDir
        )

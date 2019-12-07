@@ -7,7 +7,7 @@ define_modmap({
     Key.CAPSLOCK: Key.LEFT_CTRL
 })
 
-define_keymap(lambda wm_class: wm_class not in ("Emacs", "Gnome-terminal", "jetbrains-idea", "term1", "term2", "mainterm"), {
+define_keymap(lambda wm_class: wm_class not in ("Emacs", "Gnome-terminal", "jetbrains-idea", "term1", "term2", "mainterm", "intellij-terminal"), {
     # Cursor
     K("C-b"): with_mark(K("left")),
     K("C-f"): with_mark(K("right")),
