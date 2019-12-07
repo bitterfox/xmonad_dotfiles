@@ -3,7 +3,9 @@
 current=`pkexec /usr/lib/gnome-settings-daemon/gsd-backlight-helper --get-brightness`
 max=`pkexec /usr/lib/gnome-settings-daemon/gsd-backlight-helper --get-max-brightness`
 new=$(( current - max / 20 ))
-if [ $new -lt 1 ]; then
-    new=1
+fifth_percentile=$(( max / 20 ))
+if [ $new -lt $fifth_percentile ]; then
+  new=$(( current - max / 100 ))
 fi
+#echo $new >> /tmp/debug
 pkexec /usr/lib/gnome-settings-daemon/gsd-backlight-helper --set-brightness $new
