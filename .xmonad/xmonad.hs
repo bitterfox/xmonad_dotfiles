@@ -45,331 +45,28 @@ import qualified Text.Show as TS
 import Text.Parsec
 import Text.Parsec.String (Parser)
 
-onBottom = (customFloating $ W.RationalRect 0 0.5 1 0.5)
+applications = [
+ "vivaldi",
+ "nautilus",
+ "emacs",
+ "wine '/home/bitterfox/.wine/drive_c/users/bitterfox/Local Settings/Application Data/LINE/bin/LineLauncher.exe'",
+ "XDG_CURRENT_DESKTOP=GNOME gnome-control-center",
+ "libreoffice",
+ "~/bin/jetbrains-toolbox-1.14.5179/jetbrains-toolbox",
+ "~/bin/idea",
+ "/usr/local/pulse/pulseUi",
+ "slack"]
 
-onTop = (customFloating $ W.RationalRect 0 0.02 1 0.48)
-
-javaHome = "~/bin/jdk-10.0.1/"
-jshellPath = javaHome ++ "/bin/jshell"
-
-terminalScratchpad :: String -> Maybe String -> ManageHook -> NamedScratchpad
-terminalScratchpad name execMaybe manageHook =
-    NS name
-       ("/usr/lib/gnome-terminal/gnome-terminal-server" ++
-           " --app-id bitter_fox.xmonad." ++ name ++
-           " --name=" ++ name ++ " --class=" ++ name ++
-           " & gnome-terminal --app-id bitter_fox.xmonad." ++ name ++
-           (case execMaybe of
-              Just exec -> " -e " ++ exec
-              Nothing -> ""
-           )
-       )
-       (appName =? name)
-       manageHook
-
-myScratchpads :: [NamedScratchpad]
-myScratchpads = [
-    terminalScratchpad "mainterm" Nothing
-           (customFloating $ W.RationalRect 0.01 0.03 0.98 0.96)
-  , terminalScratchpad "term1" Nothing
-           (customFloating $ W.RationalRect 0 0.02 1 0.48)
-  , terminalScratchpad "term2" Nothing
-           (customFloating $ W.RationalRect 0 0.5 1 0.5)
-  , terminalScratchpad "jshell1"
-           (Just jshellPath)
-           (customFloating $ W.RationalRect 0 0.02 1 0.48)
-  , terminalScratchpad "jshell2"
-           (Just jshellPath)
-           (customFloating $ W.RationalRect 0 0.5 1 0.5)
-  , NS "bunnaru"
-           "google-chrome --renderer-process-limit=1 --new-window --app=http://www.dmm.com/netgame/social/-/gadgets/=/app_id=798209/"
-           (appName =? "www.dmm.com__netgame_social_-_gadgets_=_app_id=798209")
-           (customFloating $ W.RationalRect 0 0.4 0.55 0.6)
-  , NS "艦これ"
-           "google-chrome --renderer-process-limit=1 --new-window --app=http://www.dmm.com/netgame/social/-/gadgets/=/app_id=854854/"
-           (appName =? "www.dmm.com__netgame_social_-_gadgets_=_app_id=854854")
-           (customFloating $ W.RationalRect 0.55 0.4 0.45 0.6)
-  , NS "rhythmbox"
-           "rhythmbox"
-           (className =? "Rhythmbox")
-           (customFloating $ W.RationalRect 0 0.02 1 0.98)
- ]
-
-intelliJScrachpad :: String -> String -> ManageHook -> NamedScratchpad
-intelliJScrachpad name workingDir manageHook =
-    NS name
-       ("/usr/lib/gnome-terminal/gnome-terminal-server" ++
-           " --app-id bitter_fox.xmonad.intellij." ++ name ++
-           " --name=bitter_fox.xmonad.intellij." ++ name ++ " --class=" ++ name ++
-           " & gnome-terminal --app-id bitter_fox.xmonad.intellij." ++ name ++
-           " --working-directory=" ++ workingDir
-       )
-       (appName =? ("bitter_fox.xmonad.intellij." ++ name))
-       manageHook
-
-myScratchpadsManageHook = namedScratchpadManageHook myScratchpads
-
-myNamedScratchpadAction = myNamedScratchpadActionInternal myScratchpads
-
-myNamedScratchpadActionInternal scratchpads n =
-    namedScratchpadAction scratchpads n
-    >> withWindowSet (\s ->
-         case (W.peek s, L.find isSameName scratchpads) of
-           (Just w, Just ns) -> do
-             hook <- runQuery (hook ns) w
-             isTarget <- runQuery (query ns) w
-             case isTarget of
-               True -> windows(\ws -> appEndo hook ws)
-               _ -> return ()
-           _ -> return ()
-       )
-  where
-    isSameName = \ns -> n == (name ns)
-
-myNamedScratchpadActionMaybe mns = case mns of
-    Just ns -> myNamedScratchpadAction $ name ns
-    _ -> return ()
-
-runScratchpadAction scratchpad = myNamedScratchpadActionInternal [scratchpad] $ name scratchpad
-
-toggleScrachpadAction scratchpads =
-    withWindowSet (\s ->
-      case W.peek s of
-        Just w -> do
-          (cur, next) <- findCurrentAndNextScrachpadOf scratchpads w
-          myNamedScratchpadActionMaybe cur >> myNamedScratchpadActionMaybe next
-        _ -> myNamedScratchpadAction $ name (head scratchpads)
-    )
-
-findCurrentAndNextScrachpadOf nss w =
-    findIt (cycle ((asMaybe nss) ++ [Nothing]))
-  where
-    asMaybe = \l -> map Just l
-    findIt = \l ->
-               let
-                   h = head l
-                   t = tail l
-               in
-                 case h of
-                   Just ns -> do
-                          matched <- runQuery (query ns) w
-                          if matched then
-                              return (h, head t)
-                          else
-                              findIt t
-                   _ -> return (h, head t)
-
-
-data MaybeWindowLocationMap = MaybeWindowLocationMap (M.Map Window (W.RationalRect, (Rational, Rational))) deriving Typeable
-instance ExtensionClass MaybeWindowLocationMap where
-  initialValue = MaybeWindowLocationMap M.empty
-
-showOrHideScratchpads scratchpads show =
-    withWindowSet(\s -> do
---      filtered <- windowsMatchScratchpads s
-      toMoveActions s (currentWindows s)
---      toMoveActions s filtered
-    )
-  where
-    acceleration = 0.001
-    delay = 5
-    toShowActions = \s ws -> do
-                      MaybeWindowLocationMap evacuateds <- XS.get
-                      let
-                        currents = W.floating s;
-                        toBeShowns = mapMaybe (\w -> do
-                          current <- M.lookup w currents
-                          (W.RationalRect x y width height, (_x, _y))  <- M.lookup w evacuateds
-                          Just (w, current, (x, y))
-                          ) ws
---                      io $ appendFile "/tmp/xmonad.debug" "show\n"
---                      io $ appendFile "/tmp/xmonad.debug" $ TS.show toBeShowns
-                      dynamicMoving toBeShowns acceleration delay
-                      XS.put $ MaybeWindowLocationMap $ L.foldl (\m (w, c, t) -> M.delete w m) evacuateds toBeShowns
-    toHideActions = \s ws -> do
-                      MaybeWindowLocationMap evacuateds <- XS.get
-                      let
-                        currents = W.floating s
-                        toBeEvacuateds = mapMaybe (\w -> do
-                          r <- M.lookup w currents
-                          let W.RationalRect x y width height = r
-                          case M.lookup w evacuateds of
-                            Nothing -> Just (w, r)
-                            Just (original, e)
-                              | ((x, y) == e) -> Nothing -- (r == original) || 
-                              | otherwise -> Just (w, r)
-                          ) ws
---                      io $ appendFile "/tmp/xmonad.debug" "hide\n"
---                      io $ appendFile "/tmp/xmonad.debug" $ TS.show toBeEvacuateds
-                      newLocationMap <- evacuateWindowsLikeMac toBeEvacuateds acceleration delay
-                      let
-                        evacuatedWindowLocations = mapMaybe (\(w, c) -> do
-                          newLocation <- M.lookup w newLocationMap
-                          Just (w, c, newLocation)
-                          ) toBeEvacuateds
-                      evacuatedLocations <- return (mapMaybe (\(w, c) -> do
-                        W.RationalRect x y width height <- M.lookup w $ W.floating s
-                        Just (w, c, (x, y))
-                        ) toBeEvacuateds)
-                      XS.put $ MaybeWindowLocationMap $ L.foldl (\m (w, c, t) -> M.insert w (c, t) m) evacuateds evacuatedWindowLocations
-    toMoveActions = if show then toShowActions else toHideActions
-    currentWindows = maybe [] W.integrate . W.stack . W.workspace . W.current -- ws -> [Window]
-    queries = map query scratchpads
-    isMatchScratchpads = \w ->
-        L.foldl (<||>) (return False) (L.map (\ns -> runQuery (query ns) w) scratchpads)
-    windowsMatchScratchpads = \s -> filterM isMatchScratchpads $ currentWindows s -- WindowSet -> X [Window]
---    hideHook = \w -> return (customFloating $ W.RationalRect (-1000) (-1000) 0 0)
---    toHideActions = \s ws -> dynamicMoving (mapMaybe (\(f, w) ->
---                      do
---                        fromRect <- M.lookup w (W.floating s)
---                        let W.RationalRect x y width height = fromRect
---                        Just (f w fromRect)
---                      ) (L.zip hideActionFactories ws)) 0.001 10
---    hideActionFactories = cycle [toLeft, toCenter, toRight]
---    toCenter = \w rect -> let W.RationalRect x y width height = rect in (w, rect, (x, 0.03-height))
---    toLeft = \w rect -> let W.RationalRect x y width height = rect in (w, rect, (0.03-width, 0.03-height))
---    toRight = \w rect -> let W.RationalRect x y width height = rect in (w, rect, (0.97, (0.03-height)))
---    toCenter = \w rect -> let W.RationalRect x y width height = rect in (w, rect, (x, 0.99))
---    toLeft = \w rect -> let W.RationalRect x y width height = rect in (w, rect, ((0.01-width), 0.99))
---    toRight = \w rect -> let W.RationalRect x y width height = rect in (w, rect, (0.99, 0.99))
-
--- toggleFloatingWindowsEvacuation :: X ()
--- toggleFloatingWindowsEvacuation = 
-
-evacuateWindowsLikeMac :: [(Window, W.RationalRect)] -> Rational -> Int-> X (M.Map Window (Rational, Rational))
-evacuateWindowsLikeMac l acceleration delay = do
-    let withTo = L.map computeTo l
-    dynamicMoving withTo acceleration delay
-    return $ L.foldl (\m (w, c, t) -> M.insert w t m) M.empty withTo
-  where
-    computeTo = \(w, r) -> (w, r, to r)
-    delta = 0.02
-    topX = \(W.RationalRect x y w h) -> delta-w
-    topY = \(W.RationalRect x y w h) -> delta+0.02-h
-    bottomX = \(W.RationalRect x y w h) -> 1-delta
-    bottomY = \(W.RationalRect x y w h) -> 1-delta
-    dx = \(W.RationalRect x y w h) -> x + (w/2)
-    dy = \(W.RationalRect x y w h) -> y + (h/2)
-    fx = \r x -> if (dx r) == 0.5 then let W.RationalRect _x _y w h = r in _y else
-          let
-            a = ((dy r)-0.5)/((dx r)-0.5)
-            W.RationalRect _x _y w h = r
-          in
-            a*(x+(w/2))+0.5*(1-a)-(h/2)
-    fy = \r y -> if (dy r) == 0.5 then let W.RationalRect _x _y w h = r in _x else
-          let
-            a = ((dx r)-0.5)/((dy r)-0.5)
-            W.RationalRect _x _y w h = r
-          in
-            a*(y+(h/2))+0.5*(1-a)-(w/2)
-    leftTop     = 0
-    rightTop    = 1
-    leftBottom  = 2
-    rightBottom = 3
-    whereIs = \r ->
-                if (dy r) <= 0.5 then -- Top
-                  if (dx r) <= 0.5 then leftTop else rightTop
-                else
-                  if (dx r) <= 0.5 then leftBottom else rightBottom
-    to = \r -> let W.RationalRect x y w h = r in
---                 l = whereIs r
---               in
---                 if l == leftTop then
---                   let _y = fx r $ topX r in
---                     if _y+h >= 0 then (topX r, _y) else (fy r $ topY r, topY r)
---                 else if l == rightTop then
---                   let _y = fx r $ bottomX r in
---                     if _y+h >= 0 then (bottomX r, _y) else (fy r $ topY r, topY r)
---                 else if l == leftBottom then
---                   let _y = fx r $ topX r in
---                     if (_y+h >= 0) && (_y < bottomY r) then (topX r, _y) else (fy r $ bottomY r, bottomY r)
---                 else
---                   let _y = fx r $ bottomX r in
---                     if (_y+h >= 0) && (_y < bottomY r) then (bottomX r, _y) else (fy r $ bottomY r, bottomY r)
-          if ((dx r) == 0.5) || (abs (((dy r) - 0.5) / ((dx r) - 0.5)) > 1) then
-            if (dx r) == 0.5 then (x, if (dy r) <= 0.5 then topY r else bottomY r) else
-            if (dy r) <= 0.5 then
-              (fy r $ topY r, topY r)
-            else
-              let _x = fy r $ bottomY r in
-                if (_x+w > 0) && (_x < 1) then
-                    (_x, bottomY r)
-                else
-                  if (dx r) <= 0.5 then (topX r, fx r $ topX r)
-                  else (bottomX r, fx r $ bottomX r)
-          else
-            if (dy r) == 0.5 then (if (dx r) <= 0.5 then topX r else bottomX r, y) else
-            if (dx r) <= 0.5 then
-              let _y = fx r $ topX r in
-                if (_y+h > 0) && (_y < 1) then
-                  (topX r, _y)
-              else
-                if (dy r) <= 0.5 then (fy r $ topY r, topY r)
-                else (fy r $ bottomY r, bottomY r)
-            else
-              (bottomX r, fx r $ bottomX r)
-
-dynamicMoving :: [(Window, W.RationalRect, (Rational, Rational))] -> Rational -> Int -> X ()
-dynamicMoving l acceleration delay =
-    moving (directionize l) 0
-  where
-    directionize = map directionizeMapper
-    directionizeMapper = \(w, r, (toX, toY)) ->
-                           let
-                             W.RationalRect x y width height = r
-                             dirX = if x <= toX then right else left
-                             dirY = if y <= toY then down else up
-                           in
-                             (w, r, (toX, toY), (dirX, dirY))
-    up = -1
-    down = 1
-    left = -1
-    right = 1
-    checkDoneAll = \l -> L.foldr (&&) True $ L.map checkDone l
-    checkDone = \t -> (&&) (doneX t) (doneY t)
-    doneX = \(w, W.RationalRect x y width height, (toX, toY), (dirX, dirY)) -> ((toX-x)*dirX)<=0
-    doneY = \(w, W.RationalRect x y width height, (toX, toY), (dirX, dirY)) -> ((toY-y)*dirY)<=0
-    moving = \l speed ->
-               if checkDoneAll l then
-                 moveAll (L.map forceToLocation l)
-               else
-                 let
-                   newList = L.map (\t ->
-                     let
-                       (w, W.RationalRect x y width height, (toX, toY), (dirX, dirY)) = t
-                       k = 1
-                       diffX = abs(x-toX)
-                       diffY = abs(y-toY)
-                       newX = if doneX t then toX else x+(speed*k*dirX)*(diffX/(diffX+diffY))
-                       newY = if doneY t then toY else y+(speed*k*dirY)*(diffY/(diffX+diffY))
-                     in
-                       (w, W.RationalRect newX newY width height, (toX, toY), (dirX, dirY))) l
-                 in
-                   io (if delay == 0 then return () else threadDelay delay)
-                   >> moveAll (L.map (
-                     \t -> if checkDone t then forceToLocation t else
-                       let (w, to, (toX, toY), (dirX, dirY)) = t in (w, to)
-                     ) newList
-                   )
-                   >> moving newList (speed+acceleration)
-    forceToLocation = \(w, W.RationalRect x y width height, (toX, toY), (dirX, dirY)) -> (w, W.RationalRect toX toY width height)
-    moveAll = \l -> windows (\s ->
-                L.foldl (\ss (w, r) -> W.float w r ss) s l
-              )
-    move = \(w, newRect) -> windows $ W.float w newRect
-
-notSP :: X (WindowSpace -> Bool)
-notSP = return $ ("NSP" /=) . W.tag
-
-nextWS' :: X ()
-nextWS' = moveTo Next (WSIs notSP)
-prevWS' :: X ()
-prevWS' = moveTo Prev (WSIs notSP)
-
-shiftToNextWS' :: X()
-shiftToNextWS' = shiftTo Next (WSIs notSP)
-shiftToPrevWS' :: X()
-shiftToPrevWS' = shiftTo Prev (WSIs notSP)
+myManageHookAll = manageHook gnomeConfig -- defaultConfig
+                       <+> manageDocks
+                       <+> myScratchpadsManageHook
+                       <+> (className =? "Dunst" --> doFloat)
+                       <+> ((fmap (L.isSuffixOf ".onBottom") appName) --> onBottom)
+myLayout = (ResizableTall 1 (3/100) (1/2) [])
+myLayoutHookAll = avoidStruts $
+                       toggleLayouts (renamed [Replace "■"] $ noBorders Full)
+-- $                       ((renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout) ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout) ||| (renamed [Replace "田"] $ noFrillsDeco shrinkText mySDConfig $ multiCol [1] 4 0.01 0.5)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
+ $                       ((renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout) ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout) ||| (renamed [Replace "田"] $ multiCol [1] 4 0.01 0.5)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
 
 tall = Tall 1 (3/100) (1/2)
 
@@ -398,7 +95,6 @@ main = do
 
     -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
     spawn "sleep 5; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 0; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 1 ;dropbox start"
-    -- dropboxを起動させて同期できるようにする
 
     spawn "wmname LG3D"
 
@@ -415,14 +111,8 @@ main = do
     spawn "killall dunst"
 
     xmonad $ gnomeConfig -- defaultConfig
-        { manageHook = manageHook gnomeConfig -- defaultConfig
-                       <+> manageDocks
-                       <+> myScratchpadsManageHook
-                       <+> (className =? "Dunst" --> doFloat)
-                       <+> ((fmap (L.isSuffixOf ".onBottom") appName) --> onBottom)
-        , layoutHook =  avoidStruts $
-                       toggleLayouts (renamed [Replace "■"] $ noBorders Full)
- $                       ((renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout) ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout) ||| (renamed [Replace "田"] $ noFrillsDeco shrinkText mySDConfig $ multiCol [1] 4 0.01 0.5)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
+        { manageHook = myManageHookAll
+        , layoutHook =  myLayoutHookAll
         , logHook = withWindowSet (\s -> L.foldl (>>) def (map (\(i, xmproc) -> dynamicLogWithPP (multiScreenXMobarPP s i xmproc)) (L.zip [0..(L.length xmprocs)] xmprocs)))
 --                    >> withWindowSet(\s -> spawn ("xdotool getmouselocation >> /tmp/xmonad/mouse/" ++ (tail (tail (show (W.screen (W.current s)))))))
 --                    >> logCurrentMouseLocation
@@ -569,60 +259,358 @@ main = do
             | (i, k) <- zip [0 .. maxScreen - 1] [xK_1 .. xK_9]
         ]
 
-myLayout = (ResizableTall 1 (3/100) (1/2) [])
 
-hidpiGSConfig :: HasColorizer a => GSConfig a
-hidpiGSConfig = defaultGSConfig {
-                  gs_cellheight = 80
-                , gs_cellwidth = 800
-                , gs_font = "xft:Sans-9"
-                , gs_navigate   = myNavNSearch
-}
 
-myNavNSearch :: TwoD a (Maybe a)
-myNavNSearch = makeXEventhandler $ shadowWithKeymap navNSearchKeyMap navNSearchDefaultHandler
-  where navNSearchKeyMap = M.fromList [
-           ((0,xK_Escape)     , cancel)
-          ,((controlMask,xK_g), cancel)
-          ,((0,xK_Return)     , select)
-          ,((0,xK_Left)       , move (-1,0) >> myNavNSearch)
-          ,((controlMask, xK_b)       , move (-1,0) >> myNavNSearch)
-          ,((0,xK_Right)      , move (1,0) >> myNavNSearch)
-          ,((controlMask, xK_f)       , move (1,0) >> myNavNSearch)
-          ,((0,xK_Down)       , move (0,1) >> myNavNSearch)
-          ,((controlMask, xK_n)       , move (0,1) >> myNavNSearch)
-          ,((0,xK_Up)         , move (0,-1) >> myNavNSearch)
-          ,((controlMask, xK_p)       , move (0,-1) >> myNavNSearch)
-          ,((controlMask, xK_a)       , move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> myNavNSearch)
-          ,((controlMask, xK_e)       , move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> myNavNSearch)
-          ,((0,xK_Tab)        , moveNext >> myNavNSearch)
-          ,((shiftMask,xK_Tab), movePrev >> myNavNSearch)
-          ,((0,xK_BackSpace), transformSearchString (\s -> if (s == "") then "" else init s) >> myNavNSearch)
-          ]
-        -- The navigation handler ignores unknown key symbols, therefore we const
-        navNSearchDefaultHandler (_,s,mask) = do
-          if mask == 0 then
-            transformSearchString (++ s)
-            >> myNavNSearch
+-- Libraries
+
+------------------------------------------------------------------------------------------
+-- Scratchpad
+------------------------------------------------------------------------------------------
+onTop = (customFloating $ W.RationalRect 0 0.02 1 0.48)
+onBottom = (customFloating $ W.RationalRect 0 0.5 1 0.5)
+
+javaHome = "~/bin/jdk-10.0.1/"
+jshellPath = javaHome ++ "/bin/jshell"
+
+terminalScratchpad :: String -> Maybe String -> ManageHook -> NamedScratchpad
+terminalScratchpad name execMaybe manageHook =
+    NS name
+       ("/usr/lib/gnome-terminal/gnome-terminal-server" ++
+           " --app-id bitter_fox.xmonad." ++ name ++
+           " --name=" ++ name ++ " --class=" ++ name ++
+           " & gnome-terminal --app-id bitter_fox.xmonad." ++ name ++
+           (case execMaybe of
+              Just exec -> " -e " ++ exec
+              Nothing -> ""
+           )
+       )
+       (appName =? name)
+       manageHook
+
+myScratchpads :: [NamedScratchpad]
+myScratchpads = [
+    terminalScratchpad "mainterm" Nothing
+           (customFloating $ W.RationalRect 0.01 0.03 0.98 0.96)
+  , terminalScratchpad "term1" Nothing onTop
+  , terminalScratchpad "term2" Nothing onBottom
+  , terminalScratchpad "jshell1" (Just jshellPath) onTop
+  , terminalScratchpad "jshell2" (Just jshellPath) onBottom
+  , NS "bunnaru"
+           "google-chrome --renderer-process-limit=1 --new-window --app=http://www.dmm.com/netgame/social/-/gadgets/=/app_id=798209/"
+           (appName =? "www.dmm.com__netgame_social_-_gadgets_=_app_id=798209")
+           (customFloating $ W.RationalRect 0 0.4 0.55 0.6)
+  , NS "艦これ"
+           "google-chrome --renderer-process-limit=1 --new-window --app=http://www.dmm.com/netgame/social/-/gadgets/=/app_id=854854/"
+           (appName =? "www.dmm.com__netgame_social_-_gadgets_=_app_id=854854")
+           (customFloating $ W.RationalRect 0.55 0.4 0.45 0.6)
+  , NS "rhythmbox"
+           "rhythmbox"
+           (className =? "Rhythmbox")
+           (customFloating $ W.RationalRect 0 0.02 1 0.98)
+ ]
+
+myScratchpadsManageHook = namedScratchpadManageHook myScratchpads
+
+myNamedScratchpadAction = myNamedScratchpadActionInternal myScratchpads
+
+myNamedScratchpadActionInternal scratchpads n =
+    namedScratchpadAction scratchpads n
+    >> withWindowSet (\s ->
+         case (W.peek s, L.find isSameName scratchpads) of
+           (Just w, Just ns) -> do
+             hook <- runQuery (hook ns) w
+             isTarget <- runQuery (query ns) w
+             case isTarget of
+               True -> windows(\ws -> appEndo hook ws)
+               _ -> return ()
+           _ -> return ()
+       )
+  where
+    isSameName = \ns -> n == (name ns)
+
+myNamedScratchpadActionMaybe mns = case mns of
+    Just ns -> myNamedScratchpadAction $ name ns
+    _ -> return ()
+
+runScratchpadAction scratchpad = myNamedScratchpadActionInternal [scratchpad] $ name scratchpad
+
+toggleScrachpadAction scratchpads =
+    withWindowSet (\s ->
+      case W.peek s of
+        Just w -> do
+          (cur, next) <- findCurrentAndNextScrachpadOf scratchpads w
+          myNamedScratchpadActionMaybe cur >> myNamedScratchpadActionMaybe next
+        _ -> myNamedScratchpadAction $ name (head scratchpads)
+    )
+
+findCurrentAndNextScrachpadOf nss w =
+    findIt (cycle ((asMaybe nss) ++ [Nothing]))
+  where
+    asMaybe = \l -> map Just l
+    findIt = \l ->
+               let
+                   h = head l
+                   t = tail l
+               in
+                 case h of
+                   Just ns -> do
+                          matched <- runQuery (query ns) w
+                          if matched then
+                              return (h, head t)
+                          else
+                              findIt t
+                   _ -> return (h, head t)
+------------------------------------------------------------------------------------------
+-- Scratchpad
+------------------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------------------
+-- Evacuation
+------------------------------------------------------------------------------------------
+data MaybeWindowLocationMap = MaybeWindowLocationMap (M.Map Window (W.RationalRect, (Rational, Rational))) deriving Typeable
+instance ExtensionClass MaybeWindowLocationMap where
+  initialValue = MaybeWindowLocationMap M.empty
+
+showOrHideScratchpads scratchpads show =
+    withWindowSet(\s -> do
+--      filtered <- windowsMatchScratchpads s
+      toMoveActions s (currentWindows s)
+--      toMoveActions s filtered
+    )
+  where
+    acceleration = 0.001
+    delay = 5
+    toShowActions = \s ws -> do
+                      MaybeWindowLocationMap evacuateds <- XS.get
+                      let
+                        currents = W.floating s;
+                        toBeShowns = mapMaybe (\w -> do
+                          current <- M.lookup w currents
+                          (W.RationalRect x y width height, (_x, _y))  <- M.lookup w evacuateds
+                          Just (w, current, (x, y))
+                          ) ws
+--                      io $ appendFile "/tmp/xmonad.debug" "show\n"
+--                      io $ appendFile "/tmp/xmonad.debug" $ TS.show toBeShowns
+                      dynamicMoving toBeShowns acceleration delay
+                      XS.put $ MaybeWindowLocationMap $ L.foldl (\m (w, c, t) -> M.delete w m) evacuateds toBeShowns
+    toHideActions = \s ws -> do
+                      MaybeWindowLocationMap evacuateds <- XS.get
+                      let
+                        currents = W.floating s
+                        toBeEvacuateds = mapMaybe (\w -> do
+                          r <- M.lookup w currents
+                          let W.RationalRect x y width height = r
+                          case M.lookup w evacuateds of
+                            Nothing -> Just (w, r)
+                            Just (original, e)
+                              | ((x, y) == e) -> Nothing -- (r == original) || 
+                              | otherwise -> Just (w, r)
+                          ) ws
+--                      io $ appendFile "/tmp/xmonad.debug" "hide\n"
+--                      io $ appendFile "/tmp/xmonad.debug" $ TS.show toBeEvacuateds
+                      newLocationMap <- evacuateWindowsLikeMac toBeEvacuateds acceleration delay
+                      let
+                        evacuatedWindowLocations = mapMaybe (\(w, c) -> do
+                          newLocation <- M.lookup w newLocationMap
+                          Just (w, c, newLocation)
+                          ) toBeEvacuateds
+                      evacuatedLocations <- return (mapMaybe (\(w, c) -> do
+                        W.RationalRect x y width height <- M.lookup w $ W.floating s
+                        Just (w, c, (x, y))
+                        ) toBeEvacuateds)
+                      XS.put $ MaybeWindowLocationMap $ L.foldl (\m (w, c, t) -> M.insert w (c, t) m) evacuateds evacuatedWindowLocations
+    toMoveActions = if show then toShowActions else toHideActions
+    currentWindows = maybe [] W.integrate . W.stack . W.workspace . W.current -- ws -> [Window]
+    queries = map query scratchpads
+    isMatchScratchpads = \w ->
+        L.foldl (<||>) (return False) (L.map (\ns -> runQuery (query ns) w) scratchpads)
+    windowsMatchScratchpads = \s -> filterM isMatchScratchpads $ currentWindows s -- WindowSet -> X [Window]
+--    hideHook = \w -> return (customFloating $ W.RationalRect (-1000) (-1000) 0 0)
+--    toHideActions = \s ws -> dynamicMoving (mapMaybe (\(f, w) ->
+--                      do
+--                        fromRect <- M.lookup w (W.floating s)
+--                        let W.RationalRect x y width height = fromRect
+--                        Just (f w fromRect)
+--                      ) (L.zip hideActionFactories ws)) 0.001 10
+--    hideActionFactories = cycle [toLeft, toCenter, toRight]
+--    toCenter = \w rect -> let W.RationalRect x y width height = rect in (w, rect, (x, 0.03-height))
+--    toLeft = \w rect -> let W.RationalRect x y width height = rect in (w, rect, (0.03-width, 0.03-height))
+--    toRight = \w rect -> let W.RationalRect x y width height = rect in (w, rect, (0.97, (0.03-height)))
+--    toCenter = \w rect -> let W.RationalRect x y width height = rect in (w, rect, (x, 0.99))
+--    toLeft = \w rect -> let W.RationalRect x y width height = rect in (w, rect, ((0.01-width), 0.99))
+--    toRight = \w rect -> let W.RationalRect x y width height = rect in (w, rect, (0.99, 0.99))
+
+-- toggleFloatingWindowsEvacuation :: X ()
+-- toggleFloatingWindowsEvacuation =
+
+evacuateWindowsLikeMac :: [(Window, W.RationalRect)] -> Rational -> Int-> X (M.Map Window (Rational, Rational))
+evacuateWindowsLikeMac l acceleration delay = do
+    let withTo = L.map computeTo l
+    dynamicMoving withTo acceleration delay
+    return $ L.foldl (\m (w, c, t) -> M.insert w t m) M.empty withTo
+  where
+    computeTo = \(w, r) -> (w, r, to r)
+    delta = 0.02
+    topX = \(W.RationalRect x y w h) -> delta-w
+    topY = \(W.RationalRect x y w h) -> delta+0.02-h
+    bottomX = \(W.RationalRect x y w h) -> 1-delta
+    bottomY = \(W.RationalRect x y w h) -> 1-delta
+    dx = \(W.RationalRect x y w h) -> x + (w/2)
+    dy = \(W.RationalRect x y w h) -> y + (h/2)
+    fx = \r x -> if (dx r) == 0.5 then let W.RationalRect _x _y w h = r in _y else
+          let
+            a = ((dy r)-0.5)/((dx r)-0.5)
+            W.RationalRect _x _y w h = r
+          in
+            a*(x+(w/2))+0.5*(1-a)-(h/2)
+    fy = \r y -> if (dy r) == 0.5 then let W.RationalRect _x _y w h = r in _x else
+          let
+            a = ((dx r)-0.5)/((dy r)-0.5)
+            W.RationalRect _x _y w h = r
+          in
+            a*(y+(h/2))+0.5*(1-a)-(w/2)
+    leftTop     = 0
+    rightTop    = 1
+    leftBottom  = 2
+    rightBottom = 3
+    whereIs = \r ->
+                if (dy r) <= 0.5 then -- Top
+                  if (dx r) <= 0.5 then leftTop else rightTop
+                else
+                  if (dx r) <= 0.5 then leftBottom else rightBottom
+    to = \r -> let W.RationalRect x y w h = r in
+--                 l = whereIs r
+--               in
+--                 if l == leftTop then
+--                   let _y = fx r $ topX r in
+--                     if _y+h >= 0 then (topX r, _y) else (fy r $ topY r, topY r)
+--                 else if l == rightTop then
+--                   let _y = fx r $ bottomX r in
+--                     if _y+h >= 0 then (bottomX r, _y) else (fy r $ topY r, topY r)
+--                 else if l == leftBottom then
+--                   let _y = fx r $ topX r in
+--                     if (_y+h >= 0) && (_y < bottomY r) then (topX r, _y) else (fy r $ bottomY r, bottomY r)
+--                 else
+--                   let _y = fx r $ bottomX r in
+--                     if (_y+h >= 0) && (_y < bottomY r) then (bottomX r, _y) else (fy r $ bottomY r, bottomY r)
+          if ((dx r) == 0.5) || (abs (((dy r) - 0.5) / ((dx r) - 0.5)) > 1) then
+            if (dx r) == 0.5 then (x, if (dy r) <= 0.5 then topY r else bottomY r) else
+            if (dy r) <= 0.5 then
+              (fy r $ topY r, topY r)
+            else
+              let _x = fy r $ bottomY r in
+                if (_x+w > 0) && (_x < 1) then
+                    (_x, bottomY r)
+                else
+                  if (dx r) <= 0.5 then (topX r, fx r $ topX r)
+                  else (bottomX r, fx r $ bottomX r)
           else
-            myNavNSearch
+            if (dy r) == 0.5 then (if (dx r) <= 0.5 then topX r else bottomX r, y) else
+            if (dx r) <= 0.5 then
+              let _y = fx r $ topX r in
+                if (_y+h > 0) && (_y < 1) then
+                  (topX r, _y)
+              else
+                if (dy r) <= 0.5 then (fy r $ topY r, topY r)
+                else (fy r $ bottomY r, bottomY r)
+            else
+              (bottomX r, fx r $ bottomX r)
 
-applications = [
- "vivaldi",
- "nautilus",
- "emacs",
- "wine '/home/bitterfox/.wine/drive_c/users/bitterfox/Local Settings/Application Data/LINE/bin/LineLauncher.exe'",
- "XDG_CURRENT_DESKTOP=GNOME gnome-control-center",
- "libreoffice",
- "~/bin/jetbrains-toolbox-1.14.5179/jetbrains-toolbox",
- "~/bin/idea",
- "/usr/local/pulse/pulseUi",
- "slack"]
+dynamicMoving :: [(Window, W.RationalRect, (Rational, Rational))] -> Rational -> Int -> X ()
+dynamicMoving l acceleration delay =
+    moving (directionize l) 0
+  where
+    directionize = map directionizeMapper
+    directionizeMapper = \(w, r, (toX, toY)) ->
+                           let
+                             W.RationalRect x y width height = r
+                             dirX = if x <= toX then right else left
+                             dirY = if y <= toY then down else up
+                           in
+                             (w, r, (toX, toY), (dirX, dirY))
+    up = -1
+    down = 1
+    left = -1
+    right = 1
+    checkDoneAll = \l -> L.foldr (&&) True $ L.map checkDone l
+    checkDone = \t -> (&&) (doneX t) (doneY t)
+    doneX = \(w, W.RationalRect x y width height, (toX, toY), (dirX, dirY)) -> ((toX-x)*dirX)<=0
+    doneY = \(w, W.RationalRect x y width height, (toX, toY), (dirX, dirY)) -> ((toY-y)*dirY)<=0
+    moving = \l speed ->
+               if checkDoneAll l then
+                 moveAll (L.map forceToLocation l)
+               else
+                 let
+                   newList = L.map (\t ->
+                     let
+                       (w, W.RationalRect x y width height, (toX, toY), (dirX, dirY)) = t
+                       k = 1
+                       diffX = abs(x-toX)
+                       diffY = abs(y-toY)
+                       newX = if doneX t then toX else x+(speed*k*dirX)*(diffX/(diffX+diffY))
+                       newY = if doneY t then toY else y+(speed*k*dirY)*(diffY/(diffX+diffY))
+                     in
+                       (w, W.RationalRect newX newY width height, (toX, toY), (dirX, dirY))) l
+                 in
+                   io (if delay == 0 then return () else threadDelay delay)
+                   >> moveAll (L.map (
+                     \t -> if checkDone t then forceToLocation t else
+                       let (w, to, (toX, toY), (dirX, dirY)) = t in (w, to)
+                     ) newList
+                   )
+                   >> moving newList (speed+acceleration)
+    forceToLocation = \(w, W.RationalRect x y width height, (toX, toY), (dirX, dirY)) -> (w, W.RationalRect toX toY width height)
+    moveAll = \l -> windows (\s ->
+                L.foldl (\ss (w, r) -> W.float w r ss) s l
+              )
+    move = \(w, newRect) -> windows $ W.float w newRect
+------------------------------------------------------------------------------------------
+-- Evacuation
+------------------------------------------------------------------------------------------
 
-scratchpadSelected :: GSConfig NamedScratchpad -> [NamedScratchpad] -> X()
-scratchpadSelected config scratchpads = do
-    scratchpadMaybe <- gridselect config (map (\s -> (name s, s)) scratchpads)
-    myNamedScratchpadActionMaybe scratchpadMaybe
+------------------------------------------------------------------------------------------
+-- Workspaces
+------------------------------------------------------------------------------------------
+notSP :: X (WindowSpace -> Bool)
+notSP = return $ ("NSP" /=) . W.tag
+
+nextWS' :: X ()
+nextWS' = moveTo Next (WSIs notSP)
+prevWS' :: X ()
+prevWS' = moveTo Prev (WSIs notSP)
+
+shiftToNextWS' :: X()
+shiftToNextWS' = shiftTo Next (WSIs notSP)
+shiftToPrevWS' :: X()
+shiftToPrevWS' = shiftTo Prev (WSIs notSP)
+
+originalWorkspaces = map show ([1 .. 9 :: Int] ++ [0])
+myWorkspaces = expandWorkspace 9 originalWorkspaces
+expandWorkspace :: Int -> [WorkspaceId] -> [WorkspaceId]
+expandWorkspace nscr ws = concat $ map expandId ws
+  where expandId wsId = let t = wsId ++ "_"
+                        in map ((++) t . show ) [0..nscr-1]
+
+greedyViewOfCurrentScreen workspaceId =
+    withWindowSet(\s -> do
+      let S sid = W.screen $ W.current s
+--      io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ (show sid)
+      windows (W.greedyView (workspaceId ++ "_" ++ (show sid)))
+    )
+shiftOfCurrentScreen workspaceId =
+    withWindowSet(\s -> do
+      let S sid = W.screen $ W.current s
+--      io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ (show sid)
+      windows (W.shift (workspaceId ++ "_" ++ (show sid)))
+    )
+shiftToAnotherScreen screenId =
+    withWindowSet(\s -> do
+      case (L.find (\sc -> (W.screen sc) == S screenId) (W.screens s)) of
+        Just sc -> do
+--                     io $ appendFile "/tmp/xmonad.debug" $ W.tag $ W.workspace sc
+                     windows (W.shift $ W.tag $ W.workspace sc)
+        Nothing -> return ()
+    )
 
 multiScreenXMobarPP windowSet screenId xmproc = xmobarPP
                         { ppOutput = \t -> hPutStrLn xmproc $ (fallbackIfNoScreen (\ws -> \sid -> show $ sid + 1) windowSet screenId) ++ " | " ++ t
@@ -636,6 +624,7 @@ multiScreenXMobarPP windowSet screenId xmproc = xmobarPP
                         , ppSort = fmap (. namedScratchpadFilterOutWorkspace) $ ppSort xmobarPP
                         }
 
+maxScreen = 2
 titleOfScreenId windowSet screenId =
     case (L.find (\sc -> (W.screen sc) == S screenId) (W.screens windowSet)) of
       Just sc -> case ((W.stack (W.workspace sc)) >>= (\st -> Just (W.focus st))) of
@@ -684,7 +673,13 @@ nextOf e l@(x:_) = case dropWhile (/= e) l of
                           _       -> x
 nextScreenObjectOf :: WindowSet -> ScreenId
 nextScreenObjectOf ws = nextOf (W.screen (W.current ws)) (L.map (W.screen) (W.visible ws))
+------------------------------------------------------------------------------------------
+-- Workspaces
+------------------------------------------------------------------------------------------
 
+------------------------------------------------------------------------------------------
+-- MousePosition
+------------------------------------------------------------------------------------------
 data MousePositionMap = MousePositionMap (M.Map ScreenId (Position, Position)) deriving Typeable
 instance ExtensionClass MousePositionMap where
   initialValue = MousePositionMap M.empty
@@ -737,6 +732,53 @@ moveMouseToLastPosition =
     )
 
 mouseLogDir = "/tmp/xmonad/mouse"
+------------------------------------------------------------------------------------------
+-- MousePosition
+------------------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------------------
+-- GridSelect
+------------------------------------------------------------------------------------------
+hidpiGSConfig :: HasColorizer a => GSConfig a
+hidpiGSConfig = defaultGSConfig {
+                  gs_cellheight = 80
+                , gs_cellwidth = 800
+                , gs_font = "xft:Sans-9"
+                , gs_navigate   = myNavNSearch
+}
+
+myNavNSearch :: TwoD a (Maybe a)
+myNavNSearch = makeXEventhandler $ shadowWithKeymap navNSearchKeyMap navNSearchDefaultHandler
+  where navNSearchKeyMap = M.fromList [
+           ((0,xK_Escape)     , cancel)
+          ,((controlMask,xK_g), cancel)
+          ,((0,xK_Return)     , select)
+          ,((0,xK_Left)       , move (-1,0) >> myNavNSearch)
+          ,((controlMask, xK_b)       , move (-1,0) >> myNavNSearch)
+          ,((0,xK_Right)      , move (1,0) >> myNavNSearch)
+          ,((controlMask, xK_f)       , move (1,0) >> myNavNSearch)
+          ,((0,xK_Down)       , move (0,1) >> myNavNSearch)
+          ,((controlMask, xK_n)       , move (0,1) >> myNavNSearch)
+          ,((0,xK_Up)         , move (0,-1) >> myNavNSearch)
+          ,((controlMask, xK_p)       , move (0,-1) >> myNavNSearch)
+          ,((controlMask, xK_a)       , move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> myNavNSearch)
+          ,((controlMask, xK_e)       , move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> myNavNSearch)
+          ,((0,xK_Tab)        , moveNext >> myNavNSearch)
+          ,((shiftMask,xK_Tab), movePrev >> myNavNSearch)
+          ,((0,xK_BackSpace), transformSearchString (\s -> if (s == "") then "" else init s) >> myNavNSearch)
+          ]
+        -- The navigation handler ignores unknown key symbols, therefore we const
+        navNSearchDefaultHandler (_,s,mask) = do
+          if mask == 0 then
+            transformSearchString (++ s)
+            >> myNavNSearch
+          else
+            myNavNSearch
+
+scratchpadSelected :: GSConfig NamedScratchpad -> [NamedScratchpad] -> X()
+scratchpadSelected config scratchpads = do
+    scratchpadMaybe <- gridselect config (map (\s -> (name s, s)) scratchpads)
+    myNamedScratchpadActionMaybe scratchpadMaybe
 
 mySDConfig = def {
 --               activeColor = "black"
@@ -753,36 +795,6 @@ mySDConfig = def {
              , decoHeight = 32
              , fontName = "xft:monospace-9:bold,Symbola-9:bold"
 }
-
-maxScreen = 2
-
-originalWorkspaces = map show ([1 .. 9 :: Int] ++ [0])
-myWorkspaces = expandWorkspace 9 originalWorkspaces
-expandWorkspace :: Int -> [WorkspaceId] -> [WorkspaceId]
-expandWorkspace nscr ws = concat $ map expandId ws
-  where expandId wsId = let t = wsId ++ "_"
-                        in map ((++) t . show ) [0..nscr-1]
-
-greedyViewOfCurrentScreen workspaceId =
-    withWindowSet(\s -> do
-      let S sid = W.screen $ W.current s
---      io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ (show sid)
-      windows (W.greedyView (workspaceId ++ "_" ++ (show sid)))
-    )
-shiftOfCurrentScreen workspaceId =
-    withWindowSet(\s -> do
-      let S sid = W.screen $ W.current s
---      io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ (show sid)
-      windows (W.shift (workspaceId ++ "_" ++ (show sid)))
-    )
-shiftToAnotherScreen screenId =
-    withWindowSet(\s -> do
-      case (L.find (\sc -> (W.screen sc) == S screenId) (W.screens s)) of
-        Just sc -> do
---                     io $ appendFile "/tmp/xmonad.debug" $ W.tag $ W.workspace sc
-                     windows (W.shift $ W.tag $ W.workspace sc)
-        Nothing -> return ()
-    )
 
 goToSelected' =
     withSelectedWindow (\w ->
@@ -801,11 +813,25 @@ goToSelected' =
           Nothing -> W.focusWindow w ws
       )
     )
+------------------------------------------------------------------------------------------
+-- GridSelect
+------------------------------------------------------------------------------------------
 
---myManageHook = composeAll
---   [ className =? "Dunst" --> doIgnore
---   , manageDocks
---   ]
+
+------------------------------------------------------------------------------------------
+-- IntelliJExternalTerminal
+------------------------------------------------------------------------------------------
+intelliJScrachpad :: String -> String -> ManageHook -> NamedScratchpad
+intelliJScrachpad name workingDir manageHook =
+    NS name
+       ("/usr/lib/gnome-terminal/gnome-terminal-server" ++
+           " --app-id bitter_fox.xmonad.intellij." ++ name ++
+           " --name=bitter_fox.xmonad.intellij." ++ name ++ " --class=" ++ name ++
+           " & gnome-terminal --app-id bitter_fox.xmonad.intellij." ++ name ++
+           " --working-directory=" ++ workingDir
+       )
+       (appName =? ("bitter_fox.xmonad.intellij." ++ name))
+       manageHook
 
 launchIntelliJTerminal :: X ()
 launchIntelliJTerminal =
@@ -838,3 +864,6 @@ extractHomeDirectory path =
     if L.head path == '~' then
         homeDirectory ++ L.tail path
     else path
+------------------------------------------------------------------------------------------
+-- IntelliJExternalTerminal
+------------------------------------------------------------------------------------------
