@@ -253,13 +253,12 @@ main = do
         ] `additionalKeys` [
           ((mod4Mask .|. m, k), f i)
             | (i, k) <- zip originalWorkspaces $ [xK_1 .. xK_9] ++ [xK_0]
-            , (f, m) <- [(greedyViewOfCurrentScreen, 0), (shiftOfCurrentScreen, shiftMask)]
+            , (f, m) <- [(greedyViewToWorkspace, 0), (shiftToWorkspace, shiftMask)]
         ] `additionalKeys` [
-          ((mod4Mask .|. controlMask, k), shiftToAnotherScreen i)
-            | (i, k) <- zip [0 .. maxScreen - 1] [xK_1 .. xK_9]
+          ((mod4Mask .|. mod1Mask .|. m, k), f i)
+            | (i, k) <- zip workspaceFamilies $ [xK_1 .. xK_9] ++ [xK_0]
+            , (f, m) <- [(greedyViewToFamily, 0), (shiftToFamily, shiftMask)]
         ]
-
-
 
 -- Libraries
 
@@ -569,15 +568,33 @@ dynamicMoving l acceleration delay =
 ------------------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------------------
--- Workspaces
+-- WorkspaceFamily
 ------------------------------------------------------------------------------------------
 notSP :: X (WindowSpace -> Bool)
 notSP = return $ ("NSP" /=) . W.tag
+currentWorkspaceFamily currentFamily = return (\ws -> L.isSuffixOf ("_" ++ currentFamily) $ W.tag ws)
 
+currentFamilyId ws = toFamilyId $ W.tag $ W.workspace $ W.current ws
+toFamilyId = drop 2
+currentWorkspaceId ws = toWorkspaceId $ W.tag $ W.workspace $ W.current ws
+toWorkspaceId id = [ head id ]
 nextWS' :: X ()
-nextWS' = moveTo Next (WSIs notSP)
+nextWS' = withWindowSet(\s -> do
+            let wsid = W.tag $ W.workspace $ W.current s
+            if (wsid == "NSP") then
+                return ()
+            else
+                moveTo Next $ WSIs $ currentWorkspaceFamily $ toFamilyId wsid
+          )
 prevWS' :: X ()
-prevWS' = moveTo Prev (WSIs notSP)
+
+prevWS' = withWindowSet(\s -> do
+            let wsid = W.tag $ W.workspace $ W.current s
+            if (wsid == "NSP") then
+                return ()
+            else
+                moveTo Prev $ WSIs $ currentWorkspaceFamily $ toFamilyId wsid
+          )
 
 shiftToNextWS' :: X()
 shiftToNextWS' = shiftTo Next (WSIs notSP)
@@ -585,46 +602,48 @@ shiftToPrevWS' :: X()
 shiftToPrevWS' = shiftTo Prev (WSIs notSP)
 
 originalWorkspaces = map show ([1 .. 9 :: Int] ++ [0])
-myWorkspaces = expandWorkspace 9 originalWorkspaces
-expandWorkspace :: Int -> [WorkspaceId] -> [WorkspaceId]
-expandWorkspace nscr ws = concat $ map expandId ws
-  where expandId wsId = let t = wsId ++ "_"
-                        in map ((++) t . show ) [0..nscr-1]
+workspaceFamilies = map show ([1 .. 9 :: Int] ++ [0])
+myWorkspaces = expandWorkspacesToFamily workspaceFamilies originalWorkspaces
+expandWorkspacesToFamily families ws = concat $ map toFamilies ws
+  where toFamilies wsid = map (\fid -> wsid ++ "_" ++ fid) families
 
-greedyViewOfCurrentScreen workspaceId =
+greedyViewToWorkspace workspaceId =
     withWindowSet(\s -> do
-      let S sid = W.screen $ W.current s
+      let familyId = currentFamilyId s
 --      io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ (show sid)
-      windows (W.greedyView (workspaceId ++ "_" ++ (show sid)))
+      windows (W.greedyView (workspaceId ++ "_" ++ familyId))
     )
-shiftOfCurrentScreen workspaceId =
+greedyViewToFamily familyId =
     withWindowSet(\s -> do
-      let S sid = W.screen $ W.current s
+      let workspaceId = currentWorkspaceId s
 --      io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ (show sid)
-      windows (W.shift (workspaceId ++ "_" ++ (show sid)))
+      windows (W.greedyView (workspaceId ++ "_" ++ familyId))
     )
-shiftToAnotherScreen screenId =
+shiftToWorkspace workspaceId =
     withWindowSet(\s -> do
-      case (L.find (\sc -> (W.screen sc) == S screenId) (W.screens s)) of
-        Just sc -> do
---                     io $ appendFile "/tmp/xmonad.debug" $ W.tag $ W.workspace sc
-                     windows (W.shift $ W.tag $ W.workspace sc)
-        Nothing -> return ()
+      let familyId = currentFamilyId s
+--      io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ (show sid)
+      windows (W.shift (workspaceId ++ "_" ++ familyId))
+    )
+shiftToFamily familyId =
+    withWindowSet(\s -> do
+      let workspaceId = currentWorkspaceId s
+      io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ familyId
+      windows (W.shift (workspaceId ++ "_" ++ familyId))
     )
 
 multiScreenXMobarPP windowSet screenId xmproc = xmobarPP
-                        { ppOutput = \t -> hPutStrLn xmproc $ (fallbackIfNoScreen (\ws -> \sid -> show $ sid + 1) windowSet screenId) ++ " | " ++ t
+                        { ppOutput = \t -> hPutStrLn xmproc $ (fallbackIfNoScreen (\ws -> \sid -> \fid -> fid) windowSet screenId) ++ " | " ++ t
                         , ppTitle = \t -> ""
                         , ppSep             = " | "
                         , ppExtras = [ titleOfScreenId windowSet screenId ]
                         , ppCurrent = fallbackIfNoScreen (showOnlyWorkspaceFor currentOfScreenId) windowSet screenId
                         , ppVisible = fallbackIfNoScreen (showOnlyWorkspaceFor visibleOfScreenId) windowSet screenId
                         , ppHidden = fallbackIfNoScreen (showOnlyWorkspaceFor $ \ws -> \sid -> ppHidden xmobarPP) windowSet screenId
-                        , ppLayout = \t -> fallbackIfNoScreen layoutOfScreenId windowSet screenId
+                        , ppLayout = \t -> layoutOfScreenId windowSet screenId
                         , ppSort = fmap (. namedScratchpadFilterOutWorkspace) $ ppSort xmobarPP
                         }
 
-maxScreen = 2
 titleOfScreenId windowSet screenId =
     case (L.find (\sc -> (W.screen sc) == S screenId) (W.screens windowSet)) of
       Just sc -> case ((W.stack (W.workspace sc)) >>= (\st -> Just (W.focus st))) of
@@ -651,28 +670,21 @@ visibleOfScreenId windowSet screenId wid =
       Just sc -> if (W.tag (W.workspace sc) == wid) then xmobarColor "#4E4B42" "#D9D3BA" (wrap " " " " wid) else wrap "" "" wid
       Nothing -> wrap "" "" wid
 
-
-showOnlyWorkspaceFor f windowSet screenId = \w ->
+showOnlyWorkspaceFor f windowSet screenId familyId = \w ->
                                   case L.elemIndex '_' w of
                                     Just i ->
                                         let
-                                            (wid, sid) = splitAt i w
+                                            (wsid, fid) = splitAt i w
                                         in
-                                          if sid == ("_" ++ show screenId) then
-                                            f windowSet screenId wid
+                                          if fid == ("_" ++ familyId) then
+                                            f windowSet screenId wsid
                                           else ""
                                     Nothing -> f windowSet screenId w
 
 fallbackIfNoScreen f windowSet screenId =
     case (L.find (\sc -> (W.screen sc) == S screenId) (W.screens windowSet)) of
-      Just sc -> f windowSet screenId
-      Nothing -> f windowSet 0
-
-nextOf e l@(x:_) = case dropWhile (/= e) l of
-                          (_:y:_) -> y
-                          _       -> x
-nextScreenObjectOf :: WindowSet -> ScreenId
-nextScreenObjectOf ws = nextOf (W.screen (W.current ws)) (L.map (W.screen) (W.visible ws))
+      Just sc -> f windowSet screenId $ toFamilyId $ W.tag $ W.workspace $ sc
+      Nothing -> f windowSet 0 (currentFamilyId windowSet)
 ------------------------------------------------------------------------------------------
 -- Workspaces
 ------------------------------------------------------------------------------------------
@@ -730,6 +742,12 @@ moveMouseToLastPosition =
           Nothing -> def
 --          Nothing -> runProcessWithInputAndWait "sh" ["-c", "xdotool mousemove 0 0"] "" (seconds 1) -- Can we move mouse within XMonad?
     )
+
+nextOf e l@(x:_) = case dropWhile (/= e) l of
+                          (_:y:_) -> y
+                          _       -> x
+nextScreenObjectOf :: WindowSet -> ScreenId
+nextScreenObjectOf ws = nextOf (W.screen (W.current ws)) (L.map (W.screen) (W.visible ws))
 
 mouseLogDir = "/tmp/xmonad/mouse"
 ------------------------------------------------------------------------------------------
