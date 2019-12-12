@@ -255,7 +255,7 @@ main = do
             | (i, k) <- zip originalWorkspaces $ [xK_1 .. xK_9] ++ [xK_0]
             , (f, m) <- [(greedyViewToWorkspace, 0), (shiftToWorkspace, shiftMask)]
         ] `additionalKeys` [
-          ((mod4Mask .|. mod1Mask .|. m, k), f i)
+          ((mod1Mask .|. m, k), f i)
             | (i, k) <- zip workspaceFamilies $ [xK_1 .. xK_9] ++ [xK_0]
             , (f, m) <- [(greedyViewToFamily, 0), (shiftToFamily, shiftMask)]
         ]
@@ -607,6 +607,11 @@ myWorkspaces = expandWorkspacesToFamily workspaceFamilies originalWorkspaces
 expandWorkspacesToFamily families ws = concat $ map toFamilies ws
   where toFamilies wsid = map (\fid -> wsid ++ "_" ++ fid) families
 
+
+data FamilyWorkspaceMap = FamilyWorkspaceMap (M.Map (ScreenId, String) String) deriving Typeable
+instance ExtensionClass FamilyWorkspaceMap where
+  initialValue = FamilyWorkspaceMap M.empty
+
 greedyViewToWorkspace workspaceId =
     withWindowSet(\s -> do
       let familyId = currentFamilyId s
@@ -615,10 +620,15 @@ greedyViewToWorkspace workspaceId =
     )
 greedyViewToFamily familyId =
     withWindowSet(\s -> do
-      let workspaceId = currentWorkspaceId s
---      io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ (show sid)
-      windows (W.greedyView (workspaceId ++ "_" ++ familyId))
+      FamilyWorkspaceMap familyToWorkspace <- XS.get
+      XS.put $ FamilyWorkspaceMap $ M.insert (W.screen $ W.current s, currentFamilyId s) (currentWorkspaceId s) familyToWorkspace
+      case M.lookup (W.screen $ W.current s, familyId) familyToWorkspace of
+        Just workspaceId -> greedyViewToFamilyWorkspace familyId workspaceId
+        Nothing -> greedyViewToFamilyWorkspace familyId $ currentWorkspaceId s
     )
+greedyViewToFamilyWorkspace familyId workspaceId = do
+    io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ familyId
+    windows $ W.greedyView $ workspaceId ++ "_" ++ familyId
 shiftToWorkspace workspaceId =
     withWindowSet(\s -> do
       let familyId = currentFamilyId s
@@ -626,11 +636,10 @@ shiftToWorkspace workspaceId =
       windows (W.shift (workspaceId ++ "_" ++ familyId))
     )
 shiftToFamily familyId =
-    withWindowSet(\s -> do
-      let workspaceId = currentWorkspaceId s
-      io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ familyId
-      windows (W.shift (workspaceId ++ "_" ++ familyId))
-    )
+    withWindowSet(\s -> shiftToFamilyWorkspace familyId $ currentWorkspaceId s)
+shiftToFamilyWorkspace familyId workspaceId = do
+    io $ appendFile "/tmp/xmonad.debug2" $ workspaceId ++ "_" ++ familyId
+    windows (W.shift (workspaceId ++ "_" ++ familyId))
 
 multiScreenXMobarPP windowSet screenId xmproc = xmobarPP
                         { ppOutput = \t -> hPutStrLn xmproc $ (fallbackIfNoScreen (\ws -> \sid -> \fid -> fid) windowSet screenId) ++ " | " ++ t
