@@ -39,6 +39,7 @@ import qualified Data.List as L
 import qualified Data.Map.Strict as M
 import Data.Maybe
 import Data.Monoid
+import Control.Exception.Extensible as E
 import Control.Monad (foldM, filterM, mapM, forever)
 import Control.Concurrent
 import qualified Text.Show as TS
@@ -120,11 +121,14 @@ main = do
             logCurrentMouseLocation
             return (All True))
         , modMask = mod4Mask     -- Rebind Mod to the Windows key
+--        , borderWidth = 4
         , borderWidth = 4
 --        , normalBorderColor  = "#587993" -- Java blue
 --        , focusedBorderColor = "#e76f00" -- Java orange
         , normalBorderColor  = "#3BA99F" -- NieR Automata normal
-        , focusedBorderColor = "#cd664d" -- NieR Automata forcused
+        , focusedBorderColor = "#CC654C" -- NieR Automata forcused
+--        , normalBorderColor  = "#b4af9a" -- NieR Automata normal
+--        , focusedBorderColor = "#686458" -- NieR Automata forcused
         , focusFollowsMouse = False -- マウスの移動でフォーカスが映らないように
         , clickJustFocuses = False
         , XMonad.Core.workspaces = myWorkspaces
@@ -223,6 +227,7 @@ main = do
         -- CopyWindow
         , ((mod4Mask, xK_a), windows copyToAll)
         , ((mod4Mask .|. shiftMask, xK_a), killAllOtherCopies)
+        , ((mod4Mask, xK_z), showAllWindow)
 
         -- Screenshot
         , ((mod4Mask, xK_s), spawn "sh ~/.xmonad/screenshot.sh")
@@ -616,7 +621,7 @@ greedyViewToWorkspace workspaceId =
     withWindowSet(\s -> do
       let familyId = currentFamilyId s
 --      io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ (show sid)
-      windows (W.greedyView (workspaceId ++ "_" ++ familyId))
+      windows $ W.greedyView $ workspaceId ++ "_" ++ familyId
     )
 greedyViewToFamily familyId =
     withWindowSet(\s -> do
@@ -656,7 +661,8 @@ multiScreenXMobarPP windowSet screenId xmproc = xmobarPP
 titleOfScreenId windowSet screenId =
     case (L.find (\sc -> (W.screen sc) == S screenId) (W.screens windowSet)) of
       Just sc -> case ((W.stack (W.workspace sc)) >>= (\st -> Just (W.focus st))) of
-                   Just w -> fmap (\nw -> Just (xmobarColor (if ((W.screen (W.current windowSet)) == (W.screen sc)) then "#4E4B42" else "#D9D3BA") (if ((W.screen (W.current windowSet)) == (W.screen sc)) then "#D9D3BA" else "#4E4B42") (" " ++ (show nw) ++ " "))) (getName w)
+                   Just w -> fmap (\nw -> Just (" " ++ (show nw) ++ " ")) $ getName w
+--                   Just w -> fmap (\nw -> Just (xmobarColor (if ((W.screen (W.current windowSet)) == (W.screen sc)) then "#4E4B42" else "#D9D3BA") (if ((W.screen (W.current windowSet)) == (W.screen sc)) then "#D9D3BA" else "#4E4B42") (" " ++ (show nw) ++ " "))) (getName w)
                    Nothing -> def
       Nothing -> titleOfScreenId windowSet 0 -- optimize
 
@@ -767,12 +773,21 @@ mouseLogDir = "/tmp/xmonad/mouse"
 -- GridSelect
 ------------------------------------------------------------------------------------------
 hidpiGSConfig :: HasColorizer a => GSConfig a
-hidpiGSConfig = defaultGSConfig {
+hidpiGSConfig = (buildDefaultGSConfig nierColorizer) {
                   gs_cellheight = 80
                 , gs_cellwidth = 800
-                , gs_font = "xft:Sans-9"
+                , gs_font = "xft:monospace-9:bold,Symbola-9:bold"
                 , gs_navigate   = myNavNSearch
 }
+
+nierColorizer :: a-> Bool -> X (String, String)
+nierColorizer a active =
+  if active then
+      return ("#686458", "#D9D3BA")
+--      return ("#686458", "#D9D3BA")
+  else
+      return ("#b4af9a", "#4E4B42")
+--      return ("#D9D3BA", "#4E4B42")
 
 myNavNSearch :: TwoD a (Maybe a)
 myNavNSearch = makeXEventhandler $ shadowWithKeymap navNSearchKeyMap navNSearchDefaultHandler
@@ -809,22 +824,22 @@ scratchpadSelected config scratchpads = do
 
 mySDConfig = def {
 --               activeColor = "black"
-               activeColor = "#D9D3BA"
-             , inactiveColor = "#4E4B42"
+               activeColor = "#4E4B42"
+             , inactiveColor = "#D9D3BA"
              , urgentColor = "white"
 --             , activeTextColor = "green"
-             , activeTextColor = "#4E4B42"
-             , inactiveTextColor = "#D9D3BA"
+             , activeTextColor = "#D9D3BA"
+             , inactiveTextColor = "#4E4B42"
              , urgentTextColor = "red"
-             , activeBorderColor = "#D9D3BA"
-             , inactiveBorderColor = "#4E4B42"
+             , activeBorderColor = "#4E4B42"
+             , inactiveBorderColor = "#D9D3BA"
              , urgentBorderColor = "pink"
              , decoHeight = 32
              , fontName = "xft:monospace-9:bold,Symbola-9:bold"
 }
 
 goToSelected' =
-    withSelectedWindow (\w ->
+    withSelectedWindow' (\w ->
       windows (\ws ->
         case W.findTag w ws of
           Just workspaceId ->
@@ -840,6 +855,57 @@ goToSelected' =
           Nothing -> W.focusWindow w ws
       )
     )
+
+-- | Like `gridSelect' but with the current windows and their titles as elements
+gridselectWindow' :: GSConfig Window -> X (Maybe Window)
+gridselectWindow' gsconf = windowMap' >>= gridselect gsconf
+
+-- | Brings up a 2D grid of windows in the center of the screen, and one can
+-- select a window with cursors keys. The selected window is then passed to
+-- a callback function.
+withSelectedWindow' :: (Window -> X ()) -> GSConfig Window -> X ()
+withSelectedWindow' callback conf = do
+    mbWindow <- gridselectWindow' conf
+    case mbWindow of
+        Just w -> callback w
+        Nothing -> return ()
+
+windowMap' :: X [(String,Window)]
+windowMap' = do
+    ws <- gets windowset
+    wins <- mapM keyValuePair (foldr (++) [] $ map (W.integrate' . W.stack) $ filter (\w -> "NSP" /= W.tag w) $ W.workspaces ws)
+    return wins
+ where keyValuePair w = flip (,) w `fmap` decorateName' w
+
+decorateName' :: Window -> X String
+decorateName' w = do
+  name <- getName' w
+  clazz <- getClass' w
+  workspace <- getWorkspace' w
+  return ("[" ++ workspace ++ "] " ++ clazz ++ " : " ++ name)
+
+getName' :: Window -> X String
+getName' w = withDisplay $ \d -> do
+    -- TODO, this code is ugly and convoluted -- clean it up
+    let getIt = bracket getProp (xFree . tp_value) (copy)
+        getProp = (internAtom d "_NET_WM_NAME" False >>= getTextProperty d w)
+                      `E.catch` \(SomeException _) -> getTextProperty d w wM_NAME
+        copy prop = fromMaybe "" . listToMaybe <$> wcTextPropertyToTextList d prop
+    io $ getIt `E.catch` \(SomeException _) ->  (resName) `fmap` getClassHint d w
+
+getClass' :: Window -> X String
+getClass' w = withDisplay $ \d -> do
+    -- TODO, this code is ugly and convoluted -- clean it up
+    let getIt = bracket getProp (xFree . tp_value) (copy)
+        getProp = getTextProperty d w wM_CLASS
+        copy prop = fromMaybe "" . listToMaybe <$> wcTextPropertyToTextList d prop
+    io $ getIt `E.catch` \(SomeException _) ->  (resName) `fmap` getClassHint d w
+
+getWorkspace' :: Window -> X String
+getWorkspace' w = withWindowSet $ \s -> do
+                    case W.findTag w s of
+                      Just tag -> return $ (toFamilyId tag) ++ "|" ++ (toWorkspaceId tag)
+                      Nothing -> return ""
 ------------------------------------------------------------------------------------------
 -- GridSelect
 ------------------------------------------------------------------------------------------
@@ -893,4 +959,16 @@ extractHomeDirectory path =
     else path
 ------------------------------------------------------------------------------------------
 -- IntelliJExternalTerminal
+------------------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------------------
+-- AllWindow
+------------------------------------------------------------------------------------------
+showAllWindow = windows $ \s -> W.greedyView "0_1" $ copyAllWindowTo "0_1" s
+
+copyAllWindowTo ws s = foldr (\w -> \s' -> copyWindow w ws s') s $ W.allWindows s
+
+-- selectWindow = windows $ \s
+------------------------------------------------------------------------------------------
+-- AllWindow
 ------------------------------------------------------------------------------------------

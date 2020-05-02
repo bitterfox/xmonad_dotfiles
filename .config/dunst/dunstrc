@@ -403,3 +403,6 @@
     background = "#3c3f41"
 #    urgency = normal
 
+[nowplaying]
+    appname = Rhythmbox
+    script = scripts/nowplaying.sh
