@@ -8,9 +8,9 @@ volume_left=`echo "$info" | grep volume | sed -r "s/.*(left[^,]+,).*/\1/" | sed 
 volume_right=`echo "$info" | grep volume | sed -r "s/.*(right.*)/\1/" | sed -r "s/.*[^0-9]([0-9]+%).*/\1/"`
 
 if [ "$volume_left" = "$volume_right" ]; then
-    volume_text="$volume_left"
+    volume_text=`printf "%4s" $volume_left`
 else
-    volume_text="$volume_left|$volume_right"
+    volume_text=`printf "%4s|%4s" $volume_left $ volume_right`
 fi
 
 case "$name" in
