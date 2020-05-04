@@ -118,10 +118,10 @@ main = do
         { manageHook = myManageHookAll
         , layoutHook =  myLayoutHookAll
         , logHook = withWindowSet (\s -> L.foldl (>>) def (map (\(i, xmproc) -> dynamicLogWithPP (multiScreenXMobarPP s i xmproc)) (L.zip [0..(L.length xmprocs)] xmprocs)))
-        , handleEventHook = docksEventHook <+> (\e -> do
+        , handleEventHook = handleEventHook gnomeConfig <+> docksEventHook <+> (\e -> do
             logCurrentMouseLocation
             return (All True))
-        , startupHook = docksStartupHook
+        , startupHook = startupHook gnomeConfig <+> docksStartupHook
         , modMask = mod4Mask     -- Rebind Mod to the Windows key
 --        , borderWidth = 4
         , borderWidth = 4
@@ -143,9 +143,10 @@ main = do
 
         , ((controlMask, xK_Print), spawn "gnome-screenshot -c")
         , ((0, xK_Print), spawn "gnome-screenshot")
-        , ((mod4Mask, xK_r), refresh >> rescreen >> docksStartupHook)
---        , ((mod4Mask, xK_r), refresh >> docksStartupHook)
---        , ((mod4Mask, xK_r), docksStartupHook)
+        , ((mod4Mask, xK_r), withWindowSet (\ws -> do
+                                                     let sid = W.screen $ W.current ws
+                                                     viewScreen 0 >> refresh >> rescreen >> docksStartupHook >> viewScreen sid))
+        , ((mod4Mask, xK_q), viewScreen 0 >> spawn "if type xmonad; then xmonad --recompile && xmonad --restart; else xmessage xmonad not in \\$PATH: \"$PATH\"; fi") -- %! Restart xmonad
 
         , ((mod4Mask .|. shiftMask, xK_e), spawn "nautilus")
 
@@ -214,11 +215,10 @@ main = do
         , ((mod4Mask .|. controlMask .|. shiftMask, xK_k), shiftToPrevWS' >> prevWS')
 
         -- スクリーンの移動
-        , ((mod4Mask .|. mod1Mask, xK_j), nextScreen)
-        , ((mod4Mask .|. mod1Mask, xK_k), prevScreen)
-
-        , ((mod4Mask, xK_space), moveMouseToLastPosition >> nextScreen)
-        , ((mod4Mask .|. shiftMask, xK_space), prevScreen)
+        , ((mod4Mask .|. mod1Mask, xK_j), nextScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. mod1Mask, xK_k), prevScreen >> moveMouseToLastPosition)
+        , ((mod4Mask, xK_space), nextScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. shiftMask, xK_space), prevScreen >> moveMouseToLastPosition)
 
         , ((mod4Mask, xK_w), goToSelected' hidpiGSConfig)
         , ((mod4Mask .|. shiftMask, xK_w), gridselectWorkspace (hidpiGSConfig {gs_cellwidth = 80}) W.view)
@@ -760,19 +760,19 @@ moveMouseToLastPosition =
     withWindowSet (\ws ->
       do
         MousePositionMap lastMousePositions <- XS.get
-        let s = nextScreenObjectOf ws
---        spawn ("echo 'moveMouseToLastPosition: " ++ (show lastMousePositions) ++ " " ++ (show s ) ++ "' >> /tmp/xmonad.debug")
---        spawn ("echo 'moveMouseToLastPosition: " ++ (show lastMousePositions) ++ "' >> /tmp/xmonad.debug")
+--        let s = nextScreenObjectOf ws
+        let s = W.current ws
         case M.lookup (W.screen s) lastMousePositions of
-          Just (x, y) -> runProcessWithInputAndWait "sh" ["-c", ("xdotool mousemove " ++ (show (x)) ++ " " ++ (show y))] "" (seconds 1) -- Can we move mouse within XMonad?
+          Just (x, y) -> moveMouseTo x y
           Nothing -> do
               let sd = W.screenDetail s
               let rect = screenRect sd
               let x = truncate $ (fromIntegral $ rect_x rect) + (fromIntegral $ rect_width rect) / 2
               let y = truncate $ (fromIntegral $ rect_y rect) + (fromIntegral $ rect_height rect) / 2
-              runProcessWithInputAndWait "sh" ["-c", ("xdotool mousemove " ++ (show (x)) ++ " " ++ (show y))] "" (seconds 1) -- Can we move mouse within XMonad?
---          Nothing -> runProcessWithInputAndWait "sh" ["-c", "xdotool mousemove 0 0"] "" (seconds 1) -- Can we move mouse within XMonad?
+              moveMouseTo x y
     )
+
+moveMouseTo x y = runProcessWithInputAndWait "sh" ["-c", ("xdotool mousemove " ++ (show x) ++ " " ++ (show y))] "" (seconds 1) -- Can we move mouse within XMonad?
 
 nextOf f e l@(x:_) = case dropWhile (\a -> f a /= f e) l of
                           (_:y:_) -> y
@@ -991,4 +991,9 @@ copyAllWindowTo ws s = foldr (\w -> \s' -> copyWindow w ws s') s $ W.allWindows 
 
 
 -----
---remember
+viewScreen :: ScreenId -> X ()
+viewScreen sid = do
+  mws <- screenWorkspace sid
+  case mws of
+    Nothing -> return ()
+    Just ws -> windows $ W.view ws

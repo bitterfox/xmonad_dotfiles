@@ -1,5 +1,11 @@
 #!/bin/sh
 
-active_sink_id=`pactl list sinks | grep -B1 RUNNING | head -n 1 | sed -r "s/.*#([0-9]+)/\1/"`
+info=`pacmd list-sinks | grep -e index -e muted | grep -A1 '\*'`
+index=`echo "$info" | grep index | sed -r "s/.*[^0-9]([0-9]+)/\1/"`
+isMute=`echo "$info" | grep muted | awk '{print $2}'`
 
-pactl set-sink-mute $active_sink_id toggle
+if [ "$isMute" = "yes" ]; then
+    pacmd set-sink-mute $index 0
+else
+    pacmd set-sink-mute $index 1
+fi
