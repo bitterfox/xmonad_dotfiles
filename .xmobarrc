@@ -19,5 +19,5 @@ Config { font = "xft:monospace-9:bold,Symbola-9:bold"
                     ]
        , sepChar = "%"
        , alignSep = "}{"
-       , template = "%StdinReader% }{ %bat% : %cpu% ∿%freq%MHz %temp% %fan% : %mem% %swap% : 📶%dynnetwork% : ☀%brightness% : %volume% <fc=#cc8c4c>%jadate%</fc>"
+       , template = "%StdinReader% }{ %bat% : %cpu% ∿%freq%MHz %temp% %fan% : %mem% %swap% : 📶%dynnetwork% : ☀%brightness% : %volume% %jadate%"
        }

@@ -6,6 +6,9 @@ now=`cat /sys/class/power_supply/$bat/charge_now`
 full=`cat /sys/class/power_supply/$bat/charge_full`
 
 left=`echo "scale=1\n100 * $now / $full" | bc`
+if [ `echo "100 < $left" | bc` = 1 ]; then
+    left="100.0"
+fi
 
 status=`cat /sys/class/power_supply/$bat/status`
 
@@ -28,6 +31,8 @@ if [ "$status" = "Charging" ]; then
     if [ `echo "$left >= 95" | bc` = 1 ]; then
         text="<fc=$white,$blue>$text</fc>"
     fi
+elif [ "$status" = "Full" ]; then
+    text="<fc=$white,$blue>$text</fc>"
 else
     if [ `echo "$left <= 15" | bc` = 1 ]; then
         text="<fc=$white,$red>$text</fc>"

@@ -97,7 +97,8 @@ main = do
     spawn "fcitx"
 
     -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
-    spawn "sleep 5; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 0; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 1 ;dropbox start"
+--    spawn "sleep 5; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 0; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 1 ;dropbox start"
+    spawn "sleep 5; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 1; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 0 ;dropbox start"
 
     spawn "wmname LG3D"
 
@@ -117,9 +118,10 @@ main = do
         { manageHook = myManageHookAll
         , layoutHook =  myLayoutHookAll
         , logHook = withWindowSet (\s -> L.foldl (>>) def (map (\(i, xmproc) -> dynamicLogWithPP (multiScreenXMobarPP s i xmproc)) (L.zip [0..(L.length xmprocs)] xmprocs)))
-        , handleEventHook = (\e -> do
+        , handleEventHook = docksEventHook <+> (\e -> do
             logCurrentMouseLocation
             return (All True))
+        , startupHook = docksStartupHook
         , modMask = mod4Mask     -- Rebind Mod to the Windows key
 --        , borderWidth = 4
         , borderWidth = 4
@@ -141,7 +143,9 @@ main = do
 
         , ((controlMask, xK_Print), spawn "gnome-screenshot -c")
         , ((0, xK_Print), spawn "gnome-screenshot")
-        , ((mod4Mask, xK_r), refresh >> rescreen)
+        , ((mod4Mask, xK_r), refresh >> rescreen >> docksStartupHook)
+--        , ((mod4Mask, xK_r), refresh >> docksStartupHook)
+--        , ((mod4Mask, xK_r), docksStartupHook)
 
         , ((mod4Mask .|. shiftMask, xK_e), spawn "nautilus")
 
@@ -647,11 +651,11 @@ shiftToFamilyWorkspace familyId workspaceId = do
     windows (W.shift (workspaceId ++ "_" ++ familyId))
 
 multiScreenXMobarPP windowSet screenId xmproc = xmobarPP
-                        { ppOutput = \t -> hPutStrLn xmproc $ (fallbackIfNoScreen (\ws -> \sid -> \fid -> fid) windowSet screenId) ++ " | " ++ t
+                        { ppOutput = \t -> hPutStrLn xmproc $ (fallbackIfNoScreen (currentOfScreenId True) windowSet screenId) ++ " | " ++ t
                         , ppTitle = \t -> ""
                         , ppSep             = " | "
                         , ppExtras = [ titleOfScreenId windowSet screenId ]
-                        , ppCurrent = fallbackIfNoScreen (showOnlyWorkspaceFor currentOfScreenId) windowSet screenId
+                        , ppCurrent = fallbackIfNoScreen (showOnlyWorkspaceFor $ currentOfScreenId False) windowSet screenId
                         , ppVisible = fallbackIfNoScreen (showOnlyWorkspaceFor visibleOfScreenId) windowSet screenId
                         , ppHidden = fallbackIfNoScreen (showOnlyWorkspaceFor $ \ws -> \sid -> ppHidden xmobarPP) windowSet screenId
                         , ppLayout = \t -> layoutOfScreenId windowSet screenId
@@ -678,11 +682,18 @@ layoutOfScreenId windowSet screenId =
 --      Just sc -> if (W.tag (W.workspace sc) == wid) then wrap "[" "]" wid else wrap "" "" wid
 --      Nothing -> wrap "" "" wid
 
-currentOfScreenId windowSet screenId = if (W.screen(W.current windowSet) == S screenId) then xmobarColor "#4E4B42" "#D9D3BA" . wrap " " " " else wrap "" ""
+currentOfScreenId spaceForOther windowSet screenId =
+    if W.screen(W.current windowSet) == S screenId then
+        xmobarColor "#4E4B42" "#D9D3BA" . wrap " " " "
+    else if spaceForOther then
+             wrap " " " "
+         else
+             wrap "" ""
 
 visibleOfScreenId windowSet screenId wid =
     case L.find (\sc -> (W.screen sc) == S screenId) (W.visible windowSet) of
-      Just sc -> if (W.tag (W.workspace sc) == wid) then xmobarColor "#4E4B42" "#D9D3BA" (wrap " " " " wid) else wrap "" "" wid
+--      Just sc -> if (W.tag (W.workspace sc) == wid) then xmobarColor "#4E4B42" "#D9D3BA" (wrap " " " " wid) else wrap "a" "a" wid
+      Just sc ->  xmobarColor "#4E4B42" "#D9D3BA" $ wrap " " " " wid
       Nothing -> wrap "" "" wid
 
 showOnlyWorkspaceFor f windowSet screenId familyId = \w ->
@@ -752,17 +763,22 @@ moveMouseToLastPosition =
         let s = nextScreenObjectOf ws
 --        spawn ("echo 'moveMouseToLastPosition: " ++ (show lastMousePositions) ++ " " ++ (show s ) ++ "' >> /tmp/xmonad.debug")
 --        spawn ("echo 'moveMouseToLastPosition: " ++ (show lastMousePositions) ++ "' >> /tmp/xmonad.debug")
-        case M.lookup s lastMousePositions of
+        case M.lookup (W.screen s) lastMousePositions of
           Just (x, y) -> runProcessWithInputAndWait "sh" ["-c", ("xdotool mousemove " ++ (show (x)) ++ " " ++ (show y))] "" (seconds 1) -- Can we move mouse within XMonad?
-          Nothing -> def
+          Nothing -> do
+              let sd = W.screenDetail s
+              let rect = screenRect sd
+              let x = truncate $ (fromIntegral $ rect_x rect) + (fromIntegral $ rect_width rect) / 2
+              let y = truncate $ (fromIntegral $ rect_y rect) + (fromIntegral $ rect_height rect) / 2
+              runProcessWithInputAndWait "sh" ["-c", ("xdotool mousemove " ++ (show (x)) ++ " " ++ (show y))] "" (seconds 1) -- Can we move mouse within XMonad?
 --          Nothing -> runProcessWithInputAndWait "sh" ["-c", "xdotool mousemove 0 0"] "" (seconds 1) -- Can we move mouse within XMonad?
     )
 
-nextOf e l@(x:_) = case dropWhile (/= e) l of
+nextOf f e l@(x:_) = case dropWhile (\a -> f a /= f e) l of
                           (_:y:_) -> y
                           _       -> x
-nextScreenObjectOf :: WindowSet -> ScreenId
-nextScreenObjectOf ws = nextOf (W.screen (W.current ws)) (L.map (W.screen) (W.visible ws))
+nextScreenObjectOf :: WindowSet -> (W.Screen WorkspaceId (Layout Window) Window ScreenId ScreenDetail)
+nextScreenObjectOf ws = nextOf W.screen (W.current ws) $ W.visible ws
 
 mouseLogDir = "/tmp/xmonad/mouse"
 ------------------------------------------------------------------------------------------
@@ -972,3 +988,7 @@ copyAllWindowTo ws s = foldr (\w -> \s' -> copyWindow w ws s') s $ W.allWindows 
 ------------------------------------------------------------------------------------------
 -- AllWindow
 ------------------------------------------------------------------------------------------
+
+
+-----
+--remember
