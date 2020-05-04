@@ -6,7 +6,7 @@ text="🌀$speed"
 if [ `echo "4000 <= $speed" | bc` = 1 ]; then
     echo -n "<fc=$white,$red>$text</fc>"
 elif [ `echo "2000 >= $speed" | bc` = 1 ]; then
-    echo -n "<fc=$white,$blue>$text</fc>"
+    echo -n "<fc=$brightBlue,$black>$text</fc>"
 else
     echo -n $text
 fi

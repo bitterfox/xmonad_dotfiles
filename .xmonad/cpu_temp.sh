@@ -7,7 +7,7 @@ text="🌡$temp℃"
 if [ `echo "70 <= $temp" | bc` = 1 ]; then
     echo -n "<fc=$white,$red>$text</fc>"
 elif [ `echo "50 >= $temp" | bc` = 1 ]; then
-    echo -n "<fc=$white,$blue>$text</fc>"
+    echo -n "<fc=$brightBlue,$black>$text</fc>"
 else
     echo -n $text
 fi

@@ -17,7 +17,7 @@ else
     percent=`echo "100 * ($cur_active - $last_active) / ($cur_sum - $last_sum)" | bc`
 fi
 
-text="CPU $percent%"
+text=`printf "❖%3d%%" $percent`
 if [ $percent -ge 90 ]; then
     echo "<fc=$white,$red>$text</fc>"
 else

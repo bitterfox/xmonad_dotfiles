@@ -29,10 +29,10 @@ text="🔋$left%($time_text)"
 
 if [ "$status" = "Charging" ]; then
     if [ `echo "$left >= 95" | bc` = 1 ]; then
-        text="<fc=$white,$blue>$text</fc>"
+        text="<fc=$brightBlue,$black>$text</fc>"
     fi
 elif [ "$status" = "Full" ]; then
-    text="<fc=$white,$blue>$text</fc>"
+    text="<fc=$brightBlue,$black>$text</fc>"
 else
     if [ `echo "$left <= 15" | bc` = 1 ]; then
         text="<fc=$white,$red>$text</fc>"
