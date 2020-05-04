@@ -14,6 +14,7 @@ import XMonad.Hooks.DynamicLog
 import XMonad.Hooks.ManageDocks
 import XMonad.Layout.Fullscreen
 import XMonad.Layout.Gaps
+import XMonad.Layout.LayoutScreens
 import XMonad.Layout.MultiColumns
 import XMonad.Layout.MultiToggle
 import XMonad.Layout.MultiToggle.Instances
@@ -245,6 +246,8 @@ main = do
         , ("<XF86KbdBrightnessUp>", spawn "sh ~/.xmonad/kbd_bright_up.sh")
         , ("<XF86AudioLowerVolume>", spawn "sh ~/.xmonad/audio_down.sh")
         , ("<XF86AudioRaiseVolume>", spawn "sh ~/.xmonad/audio_up.sh")
+        , ("M4-<XF86AudioLowerVolume>", spawn "sh ~/.xmonad/audio_prev.sh")
+        , ("M4-<XF86AudioRaiseVolume>", spawn "sh ~/.xmonad/audio_next.sh")
         , ("<XF86AudioMute>",        spawn "sh ~/.xmonad/audio_mute.sh")
 --        , ("<XF86AudioLowerVolume>", setMute(False) >> lowerVolume 3 >> return ())
 --        , ("<XF86AudioRaiseVolume>", setMute(False) >> raiseVolume 3 >> return ())
