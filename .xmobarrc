@@ -1,6 +1,6 @@
 Config { font = "xft:monospace-9:bold,Symbola-9:bold"
        , bgColor = "#4E4B42"
-       , fgColor = "#D9D3BA"
+       , fgColor = "#DAD4BB"
        , position = TopW L 95
        , lowerOnStart = False
        , commands = [

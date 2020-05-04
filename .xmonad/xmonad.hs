@@ -47,6 +47,14 @@ import qualified Text.Show as TS
 import Text.Parsec
 import Text.Parsec.String (Parser)
 
+black = "#4E4B42"
+brightBlack = "#635F54"
+gray = "#B4AF9A"
+darkWhite = "#CDC8B0"
+white = "#DAD4BB"
+red = "#CC654C"
+blue = "#3BA99F"
+
 applications = [
  "vivaldi",
  "nautilus",
@@ -128,8 +136,8 @@ main = do
         , borderWidth = 4
 --        , normalBorderColor  = "#587993" -- Java blue
 --        , focusedBorderColor = "#e76f00" -- Java orange
-        , normalBorderColor  = "#3BA99F" -- NieR Automata normal
-        , focusedBorderColor = "#CC654C" -- NieR Automata forcused
+        , normalBorderColor  = blue -- NieR Automata normal
+        , focusedBorderColor = red -- NieR Automata forcused
 --        , normalBorderColor  = "#b4af9a" -- NieR Automata normal
 --        , focusedBorderColor = "#686458" -- NieR Automata forcused
         , focusFollowsMouse = False -- マウスの移動でフォーカスが映らないように
@@ -224,7 +232,7 @@ main = do
         , ((mod4Mask, xK_w), goToSelected' hidpiGSConfig)
         , ((mod4Mask .|. shiftMask, xK_w), gridselectWorkspace (hidpiGSConfig {gs_cellwidth = 80}) W.view)
 
-        , ((mod4Mask, xK_p), spawn "dmenu_run -nb '#DAD4BB' -nf '#4E4B42' -sb '#4E4B42' -p '❖'")
+        , ((mod4Mask, xK_p), spawn $ "dmenu_run -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖'")
         , ((mod4Mask .|. shiftMask, xK_p), spawn "gmrun")
         , ((mod4Mask, xK_e), spawnSelected hidpiGSConfig applications)
 --        , ((mod4Mask, xK_s), scratchpadSelected hidpiGSConfig myScratchpads)
@@ -687,7 +695,7 @@ layoutOfScreenId windowSet screenId =
 
 currentOfScreenId spaceForOther windowSet screenId =
     if W.screen(W.current windowSet) == S screenId then
-        xmobarColor "#4E4B42" "#D9D3BA" . wrap " " " "
+        xmobarColor black white . wrap " " " "
     else if spaceForOther then
              wrap " " " "
          else
@@ -696,7 +704,7 @@ currentOfScreenId spaceForOther windowSet screenId =
 visibleOfScreenId windowSet screenId wid =
     case L.find (\sc -> (W.screen sc) == S screenId) (W.visible windowSet) of
 --      Just sc -> if (W.tag (W.workspace sc) == wid) then xmobarColor "#4E4B42" "#D9D3BA" (wrap " " " " wid) else wrap "a" "a" wid
-      Just sc ->  xmobarColor "#4E4B42" "#D9D3BA" $ wrap " " " " wid
+      Just sc ->  xmobarColor black white $ wrap " " " " wid
       Nothing -> wrap "" "" wid
 
 showOnlyWorkspaceFor f windowSet screenId familyId = \w ->
@@ -802,11 +810,9 @@ hidpiGSConfig = (buildDefaultGSConfig nierColorizer) {
 nierColorizer :: a-> Bool -> X (String, String)
 nierColorizer a active =
   if active then
-      return ("#686458", "#D9D3BA")
---      return ("#686458", "#D9D3BA")
+      return (black, white)
   else
-      return ("#b4af9a", "#4E4B42")
---      return ("#D9D3BA", "#4E4B42")
+      return (gray, black)
 
 myNavNSearch :: TwoD a (Maybe a)
 myNavNSearch = makeXEventhandler $ shadowWithKeymap navNSearchKeyMap navNSearchDefaultHandler
@@ -843,15 +849,15 @@ scratchpadSelected config scratchpads = do
 
 mySDConfig = def {
 --               activeColor = "black"
-               activeColor = "#4E4B42"
-             , inactiveColor = "#D9D3BA"
+               activeColor = black
+             , inactiveColor = white
              , urgentColor = "white"
 --             , activeTextColor = "green"
-             , activeTextColor = "#D9D3BA"
-             , inactiveTextColor = "#4E4B42"
+             , activeTextColor = white
+             , inactiveTextColor = black
              , urgentTextColor = "red"
-             , activeBorderColor = "#4E4B42"
-             , inactiveBorderColor = "#D9D3BA"
+             , activeBorderColor = black
+             , inactiveBorderColor = white
              , urgentBorderColor = "pink"
              , decoHeight = 32
              , fontName = "xft:monospace-9:bold,Symbola-9:bold"
