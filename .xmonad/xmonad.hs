@@ -6,6 +6,7 @@ import XMonad.Actions.CycleWS
 import XMonad.Actions.Volume
 import XMonad.Actions.GridSelect
 import XMonad.Actions.Search (selectSearchBrowser, google)
+import XMonad.Actions.Submap
 import XMonad.Actions.WindowGo
 --import XMonad.Config.Desktop (desktopLayoutModifiers)
 import XMonad.Config.Desktop
@@ -266,8 +267,7 @@ main = do
         [
           (mod4Mask .|. shiftMask, xK_q)
 --        , (mod4Mask, xK_q)
-        ] `additionalMouseBindings`
-        [
+        ] `additionalMouseBindings` [
           ((mod4Mask .|. controlMask, button1), \w -> focus w >> mouseResizeWindow w
                                                               >> windows W.shiftMaster)
         ] `additionalKeys` [
@@ -277,7 +277,16 @@ main = do
         ] `additionalKeys` [
           ((mod1Mask .|. m, k), f i)
             | (i, k) <- zip workspaceFamilies $ [xK_1 .. xK_9] ++ [xK_0]
-            , (f, m) <- [(greedyViewToFamily, 0), (shiftToFamily, shiftMask)]
+            , (f, m) <- [
+              (\family -> submap . M.fromList $
+                         [ ((0, subkey), greedyViewToFamilyWorkspace family workspace)
+                               | (workspace, subkey)  <- zip originalWorkspaces $ [xK_1 .. xK_9] ++ [xK_0]
+                         ], 0)
+            , (\family -> submap . M.fromList $
+                          [ ((0, subkey), shiftToFamilyWorkspace family workspace)
+                                | (workspace, subkey) <- zip originalWorkspaces $ [xK_1 .. xK_9] ++ [xK_0]
+                          ], shiftMask)
+            ]
         ]
 
 -- Libraries
