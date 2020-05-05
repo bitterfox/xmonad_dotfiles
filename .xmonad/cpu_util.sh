@@ -1,8 +1,8 @@
 . ~/.xmonad/color.sh
 
-last_info=`cat /tmp/cpu_util_last`
+last_info=`cat /tmp/xmobar_cpu_util_last.$PPID`
 cur_info=`cat /proc/stat | head -n 1`
-echo $cur_info > /tmp/cpu_util_last
+echo $cur_info > /tmp/xmobar_cpu_util_last.$PPID
 
 if [ -z "$last_info" ]; then
     percent="0"

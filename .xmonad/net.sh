@@ -1,9 +1,9 @@
 . ~/.xmonad/color.sh
 
-last_info=`cat /tmp/net_util_last`
+last_info=`cat /tmp/xmobar_net_util_last.$PPID`
 cur_rx_bytes=`cat /sys/class/net/wlp3s0/statistics/rx_bytes`
 cur_tx_bytes=`cat /sys/class/net/wlp3s0/statistics/tx_bytes`
-echo $cur_rx_bytes $cur_tx_bytes  > /tmp/net_util_last
+echo $cur_rx_bytes $cur_tx_bytes  > /tmp/xmobar_net_util_last.$PPID
 
 if [ -z "$last_info" ]; then
     rx_bytes=0
