@@ -15,6 +15,6 @@ while :; do
     break
   else
     echo "Wrong sink $next_index != $index"
-    next_index=`echo "$indices\n$indices" | grep -B1 "index: $next_index" | grep -v "index: $next_index" | head -n 1 | sed -r "s/[^0-9]+([0-9]+)/\1/"`
+    next_index=`echo "$indices\n$indices" | grep -B1 "index: $next_index" | grep -v "index: $next_index" | grep index | head -n 1 | sed -r "s/[^0-9]+([0-9]+)/\1/"`
   fi
 done

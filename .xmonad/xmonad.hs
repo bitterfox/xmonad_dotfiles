@@ -790,9 +790,13 @@ moveMouseToLastPosition =
               let x = truncate $ (fromIntegral $ rect_x rect) + (fromIntegral $ rect_width rect) / 2
               let y = truncate $ (fromIntegral $ rect_y rect) + (fromIntegral $ rect_height rect) / 2
               moveMouseTo x y
+        runProcessWithInputAndWait "sh" ["-c", "xset m " ++ (mouseSpeed (fromIntegral (W.screen s))) ++ " 4"] "" (seconds 1)
     )
 
 moveMouseTo x y = runProcessWithInputAndWait "sh" ["-c", ("xdotool mousemove " ++ (show x) ++ " " ++ (show y))] "" (seconds 1) -- Can we move mouse within XMonad?
+
+mouseSpeed :: Int -> String
+mouseSpeed n = ["2/1", "3/1"] !! n
 
 nextOf f e l@(x:_) = case dropWhile (\a -> f a /= f e) l of
                           (_:y:_) -> y
@@ -873,22 +877,7 @@ mySDConfig = def {
 }
 
 goToSelected' =
-    withSelectedWindow' (\w ->
-      windows (\ws ->
-        case W.findTag w ws of
-          Just workspaceId ->
-            case L.elemIndex '_' workspaceId of
-              Just i ->
-                let
-                  (wid, sid) = splitAt (i+1) workspaceId
-                in
-                  case (L.find (\sc -> (W.screen sc) == (S $ read sid)) (W.screens ws)) of
-                    Just sc -> W.focusWindow w ( (W.view $ W.tag $ W.workspace sc) ws )
-                    Nothing -> W.focusWindow w ws
-              Nothing -> W.focusWindow w ws
-          Nothing -> W.focusWindow w ws
-      )
-    )
+    withSelectedWindow' $ \w -> windows $ W.focusWindow w
 
 -- | Like `gridSelect' but with the current windows and their titles as elements
 gridselectWindow' :: GSConfig Window -> X (Maybe Window)
