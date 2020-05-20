@@ -108,7 +108,7 @@ main = do
 
     -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
 --    spawn "sleep 5; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 0; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 1 ;dropbox start"
-    spawn "sleep 5; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 1; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 0 ;dropbox start"
+    spawn "sleep 5; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 0"
 
     spawn "wmname LG3D"
 
@@ -117,8 +117,8 @@ main = do
 --    spawn "compton -b --config ~/.comptonrc"
 
     xmproc0 <- spawnPipe "/usr/bin/xmobar ~/.xmobarrc"
-    xmproc1 <- spawnPipe "/usr/bin/xmobar -x 1 ~/.xmobarrc"
-    xmproc2 <- spawnPipe "/usr/bin/xmobar -x 2 ~/.xmobarrc"
+    xmproc1 <- spawnPipe "/usr/bin/xmobar -p Top -x 1 ~/.xmobarrc"
+    xmproc2 <- spawnPipe "/usr/bin/xmobar -p Top -x 2 ~/.xmobarrc"
     let xmprocs = [xmproc0, xmproc1, xmproc2]
     io (threadDelay (1 * 1000 * 1000))
     spawn "xrandr  --verbose --output eDP-1 --off; xrandr  --verbose --output eDP-1 --auto"
