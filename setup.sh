@@ -13,9 +13,15 @@ do
 done
 
 # シンボリックリンクをはる
+mkdir -p .config/dunst
 for file in ${DOT_FILES[@]}
 do
     rm -rf $HOME/$file
     ln -s `pwd`/$file $HOME/$file
 done
 
+cat >> $HOME/.profile <<EOF
+if [ -f "$$HOME/.xmonad/xmonad.state" ] ; then
+    rm "$$HOME/.xmonad/xmonad.state"
+fi
+EOF

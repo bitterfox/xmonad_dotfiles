@@ -118,11 +118,13 @@ main = do
 
     xmproc0 <- spawnPipe "/usr/bin/xmobar ~/.xmobarrc"
     xmproc1 <- spawnPipe "/usr/bin/xmobar -x 1 ~/.xmobarrc"
-    let xmprocs = [xmproc0, xmproc1]
+    xmproc2 <- spawnPipe "/usr/bin/xmobar -x 2 ~/.xmobarrc"
+    let xmprocs = [xmproc0, xmproc1, xmproc2]
     io (threadDelay (1 * 1000 * 1000))
     spawn "xrandr  --verbose --output eDP-1 --off; xrandr  --verbose --output eDP-1 --auto"
     spawn "sleep 1; gnome-session;"
     spawn "killall dunst"
+--    spawn "xrandr --verbose --output DP-3 --rotate right"
 
     xmonad $ gnomeConfig -- defaultConfig
         { manageHook = myManageHookAll
@@ -155,7 +157,7 @@ main = do
         , ((0, xK_Print), spawn "gnome-screenshot")
         , ((mod4Mask, xK_r), withWindowSet (\ws -> do
                                                      let sid = W.screen $ W.current ws
-                                                     viewScreen 0 >> refresh >> rescreen >> docksStartupHook >> viewScreen sid))
+                                                     viewScreen 0 >> refresh >> docksStartupHook >> viewScreen sid)) -- rescreen >> 
         , ((mod4Mask, xK_q), viewScreen 0 >> spawn "if type xmonad; then xmonad --recompile && xmonad --restart; else xmessage xmonad not in \\$PATH: \"$PATH\"; fi") -- %! Restart xmonad
 
         , ((mod4Mask .|. shiftMask, xK_e), spawn "nautilus")
