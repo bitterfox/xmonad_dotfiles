@@ -15,8 +15,8 @@ fi
 
 case "$name" in
     "alsa_output.pci-0000_00_03.0.hdmi-stereo-extra1" ) name="HDMI" ;;
-    "alsa_output.pci-0000_00_1b.0.analog-stereo.equalizer" ) name="EQUA" ;;
-    "alsa_output.pci-0000_00_1b.0.analog-stereo" ) name="HEAD" ;;
+    "alsa_output.pci-0000_00_1f.3.analog-stereo.equalizer" ) name="EQUA" ;;
+    "alsa_output.pci-0000_00_1f.3.analog-stereo" ) name="HEAD" ;;
     * ) name="UNKW" ;;
 esac
 

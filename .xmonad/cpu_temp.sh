@@ -1,6 +1,6 @@
 . ~/.xmonad/color.sh
 
-temp=`cat /sys/devices/platform/applesmc.768/temp9_input | xargs -i% echo -e 'scale=1\n%/1000' | bc`
+temp=`cat /sys/devices/platform/coretemp.0/hwmon/hwmon3/temp1_input | xargs -i% echo -e 'scale=1\n%/1000' | bc`
 
 text="🌡$temp℃"
 
