@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DOT_FILES=(.xmobarrc .xmonad .wishes.xml .comptonrc .Xresources .config/dunst/dunstrc)
+DOT_FILES=(.xmobarrc .xmonad .wishes.xml .comptonrc .Xresources .config/dunst/dunstrc .config/libinput-gestures.conf)
 
 DISCARD_FILES= # 現状なし
 
@@ -13,9 +13,9 @@ do
 done
 
 # シンボリックリンクをはる
-mkdir -p .config/dunst
 for file in ${DOT_FILES[@]}
 do
+    mkdir -p `dirname $HOME/$file`
     rm -rf $HOME/$file
     ln -s `pwd`/$file $HOME/$file
 done

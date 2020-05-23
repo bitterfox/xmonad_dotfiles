@@ -2,7 +2,7 @@
   <global>
     <wish gesture="Drag" fingers="3">
       <action name="NextWorkspace" when="update">
-        <trigger prop="delta x" min="1400" max="4000"/>
+        <trigger prop="delta x" min="1" max="40000"/>
 	<key modifier1="Super_L" modifier2="Control_R">Right</key>
       </action>
     </wish>
