@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DOT_FILES=(.xmobarrc .xmonad .wishes.xml .comptonrc .Xresources .config/dunst/dunstrc .config/libinput-gestures.conf)
+DOT_FILES=(.xmobarrc .xmonad .wishes.xml .comptonrc .Xresources .config/dunst/dunstrc .config/libinput-gestures.conf config.py)
 
 DISCARD_FILES= # 現状なし
 
@@ -21,9 +21,9 @@ do
 done
 
 cat >> $HOME/.profile <<EOF
-if [ -f "$$HOME/.xmonad/xmonad.state" ] ; then
-    rm "$$HOME/.xmonad/xmonad.state"
+if [ -f "\$HOME/.xmonad/xmonad.state" ] ; then
+    rm "\$HOME/.xmonad/xmonad.state"
 fi
 EOF
 
-sudo cp xorg.conf/* /usr/share/X11/xorg.conf.d/
+sudo cp `pwd`/xorg.conf/* /usr/share/X11/xorg.conf.d/
