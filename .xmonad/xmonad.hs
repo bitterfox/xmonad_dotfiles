@@ -92,8 +92,6 @@ main = do
 --    watch "xmodmap ~/.xmodmap" "0.3"
     spawn "xhost +SI:localuser:root; sleep 1; sudo xkeysnail -q ~/config.py & sleep 1; xset r rate 250 50"
 
-    spawn "ginn .wishes.xml" -- for Mac mouse
-
     spawn "nautilus-desktop --force" -- デスクトップを読み込む
 
 --    spawn "killall trayer ; sleep 2 ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent false --tint 0x000000 --height 22" -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
