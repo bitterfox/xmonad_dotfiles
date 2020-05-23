@@ -91,6 +91,7 @@ main = do
 
 --    watch "xmodmap ~/.xmodmap" "0.3"
     spawn "xhost +SI:localuser:root; sleep 1; sudo xkeysnail -q ~/config.py & sleep 1; xset r rate 250 50"
+    spawn "sudo libinput-gestures"
 
     spawn "nautilus-desktop --force" -- デスクトップを読み込む
 
