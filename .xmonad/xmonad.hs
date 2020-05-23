@@ -128,6 +128,8 @@ main = do
     spawn "killall dunst"
 --    spawn "xrandr --verbose --output DP-3 --rotate right"
 
+    setMouseSpeedForScreen 0
+
     xmonad $ gnomeConfig -- defaultConfig
         { manageHook = myManageHookAll
         , layoutHook =  myLayoutHookAll
@@ -794,13 +796,14 @@ moveMouseToLastPosition =
               let x = truncate $ (fromIntegral $ rect_x rect) + (fromIntegral $ rect_width rect) / 2
               let y = truncate $ (fromIntegral $ rect_y rect) + (fromIntegral $ rect_height rect) / 2
               moveMouseTo x y
-        runProcessWithInputAndWait "sh" ["-c", "xset m " ++ (mouseSpeed (fromIntegral (W.screen s))) ++ " 4"] "" (seconds 1)
+        setMouseSpeedForScreen $ fromIntegral $ W.screen s
     )
 
 moveMouseTo x y = runProcessWithInputAndWait "sh" ["-c", ("xdotool mousemove " ++ (show x) ++ " " ++ (show y))] "" (seconds 1) -- Can we move mouse within XMonad?
 
+setMouseSpeedForScreen s = runProcessWithInputAndWait "sh" ["-c", "xset m " ++ (mouseSpeed s) ++ " 4"] "" (seconds 1)
 mouseSpeed :: Int -> String
-mouseSpeed n = ["2/1", "3/1"] !! n
+mouseSpeed n = ["9/4", "3/1", "3/1"] !! n
 
 nextOf f e l@(x:_) = case dropWhile (\a -> f a /= f e) l of
                           (_:y:_) -> y

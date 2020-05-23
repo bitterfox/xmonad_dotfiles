@@ -1,11 +1,12 @@
 . ~/.xmonad/color.sh
-speed=`cat /sys/devices/platform/applesmc.768/fan1_output`
+speed1=`cat /sys/devices/virtual/hwmon/hwmon2/fan1_input`
+speed2=`cat /sys/devices/virtual/hwmon/hwmon2/fan2_input`
 
-text="🌀$speed"
+text="🌀$speed1,$speed2"
 
-if [ `echo "4000 <= $speed" | bc` = 1 ]; then
+if [ `echo "4000 <= $speed1" | bc` = 1 ]; then
     echo -n "<fc=$white,$red>$text</fc>"
-elif [ `echo "2000 >= $speed" | bc` = 1 ]; then
+elif [ `echo "2000 >= $speed1" | bc` = 1 ]; then
     echo -n "<fc=$brightBlue,$black>$text</fc>"
 else
     echo -n $text

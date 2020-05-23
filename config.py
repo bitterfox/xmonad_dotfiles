@@ -5,7 +5,8 @@ from xkeysnail.transform import *
 # [Global modemap] Change modifier keys as in xmodmap
 define_modmap({
     Key.CAPSLOCK: Key.LEFT_CTRL,
-    Key.KATAKANAHIRAGANA: Key.RIGHT_META
+    Key.KATAKANAHIRAGANA: Key.RIGHT_META,
+    Key.HENKAN: Key.MUHENKAN
 })
 
 define_keymap(lambda wm_class: wm_class not in ("Emacs", "Gnome-terminal", "jetbrains-idea", "term1", "term2", "mainterm", "intellij-terminal"), {

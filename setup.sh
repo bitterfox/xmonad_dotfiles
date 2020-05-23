@@ -25,3 +25,5 @@ if [ -f "$$HOME/.xmonad/xmonad.state" ] ; then
     rm "$$HOME/.xmonad/xmonad.state"
 fi
 EOF
+
+sudo cp xorg.conf/* /usr/share/X11/xorg.conf.d/
