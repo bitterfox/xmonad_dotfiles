@@ -122,7 +122,7 @@ main = do
     spawn $ "xrandr --query | grep -c '\\bconnected\\b' >> /tmp/test"
     xmprocs <- mapM (\displayId -> spawnPipe $ "/usr/bin/xmobar " ++ (if displayId == 0 then "" else "-p Top -x " ++ (show displayId)) ++ " ~/.xmobarrc") [0..numDisplay-1]
     io (threadDelay (1 * 1000 * 1000))
-    spawn "xrandr  --verbose --output eDP-1 --off; xrandr  --verbose --output eDP-1 --auto"
+--    spawn "xrandr  --verbose --output eDP-1 --off; xrandr  --verbose --output eDP-1 --auto"
 --    spawn "sleep 1; gnome-session; xinput --set-prop 12 'libinput Accel Speed' 0.791367"
     spawn "gnome-screensaver"
     spawn "pulseaudio --start"
@@ -802,6 +802,7 @@ moveMouseToLastPosition =
 moveMouseTo x y = runProcessWithInputAndWait "sh" ["-c", ("xdotool mousemove " ++ (show x) ++ " " ++ (show y))] "" (seconds 1) -- Can we move mouse within XMonad?
 
 configureMouse = do
+  moveMouseToLastPosition
   setMouseSpeedForScreen 0
   runProcessWithInputAndWait "sh" ["-c", "xinput --set-prop " ++ mouseDeviceId ++ " 'libinput Natural Scrolling Enabled' 1"] "" (seconds 1) -- Enable Natural scrooling
   runProcessWithInputAndWait "sh" ["-c", "xinput --set-prop " ++ mouseDeviceId ++ " 'libinput Click Method Enabled' 0 1"] "" (seconds 1) -- Right click on 2 fingure click
