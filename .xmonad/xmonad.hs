@@ -135,7 +135,7 @@ main = do
         , handleEventHook = handleEventHook gnomeConfig <+> docksEventHook <+> (\e -> do
             logCurrentMouseLocation
             return (All True))
-        , startupHook = startupHook gnomeConfig <+> docksStartupHook <+> (setMouseSpeedForScreen 0)
+        , startupHook = startupHook gnomeConfig <+> docksStartupHook <+> configureMouse
         , modMask = mod4Mask     -- Rebind Mod to the Windows key
 --        , borderWidth = 4
         , borderWidth = 4
@@ -798,6 +798,11 @@ moveMouseToLastPosition =
     )
 
 moveMouseTo x y = runProcessWithInputAndWait "sh" ["-c", ("xdotool mousemove " ++ (show x) ++ " " ++ (show y))] "" (seconds 1) -- Can we move mouse within XMonad?
+
+configureMouse = do
+  setMouseSpeedForScreen 0
+  runProcessWithInputAndWait "sh" ["-c", "xinput --set-prop " ++ mouseDeviceId ++ " 'libinput Natural Scrolling Enabled' 1"] "" (seconds 1) -- Enable Natural scrooling
+  runProcessWithInputAndWait "sh" ["-c", "xinput --set-prop " ++ mouseDeviceId ++ " 'libinput Click Method Enabled' {0,1}"] "" (seconds 1) -- Right click on 2 fingure click
 
 setMouseSpeedForScreen s = runProcessWithInputAndWait "sh" ["-c", "xinput --set-prop " ++ mouseDeviceId ++ " 'libinput Accel Speed' " ++ (mouseSpeed s)] "" (seconds 1)
 mouseSpeed :: Int -> String
