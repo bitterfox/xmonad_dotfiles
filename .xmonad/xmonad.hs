@@ -124,6 +124,8 @@ main = do
     io (threadDelay (1 * 1000 * 1000))
     spawn "xrandr  --verbose --output eDP-1 --off; xrandr  --verbose --output eDP-1 --auto"
 --    spawn "sleep 1; gnome-session; xinput --set-prop 12 'libinput Accel Speed' 0.791367"
+    spawn "gnome-screensaver"
+    spawn "pulseaudio --start"
     spawn "killall dunst"
 --    spawn "xrandr --verbose --output DP-3 --rotate right"
 
@@ -802,7 +804,7 @@ moveMouseTo x y = runProcessWithInputAndWait "sh" ["-c", ("xdotool mousemove " +
 configureMouse = do
   setMouseSpeedForScreen 0
   runProcessWithInputAndWait "sh" ["-c", "xinput --set-prop " ++ mouseDeviceId ++ " 'libinput Natural Scrolling Enabled' 1"] "" (seconds 1) -- Enable Natural scrooling
-  runProcessWithInputAndWait "sh" ["-c", "xinput --set-prop " ++ mouseDeviceId ++ " 'libinput Click Method Enabled' {0,1}"] "" (seconds 1) -- Right click on 2 fingure click
+  runProcessWithInputAndWait "sh" ["-c", "xinput --set-prop " ++ mouseDeviceId ++ " 'libinput Click Method Enabled' 0 1"] "" (seconds 1) -- Right click on 2 fingure click
 
 setMouseSpeedForScreen s = runProcessWithInputAndWait "sh" ["-c", "xinput --set-prop " ++ mouseDeviceId ++ " 'libinput Accel Speed' " ++ (mouseSpeed s)] "" (seconds 1)
 mouseSpeed :: Int -> String
