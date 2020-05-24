@@ -123,11 +123,10 @@ main = do
     xmprocs <- mapM (\displayId -> spawnPipe $ "/usr/bin/xmobar " ++ (if displayId == 0 then "" else "-p Top -x " ++ (show displayId)) ++ " ~/.xmobarrc") [0..numDisplay-1]
     io (threadDelay (1 * 1000 * 1000))
     spawn "xrandr  --verbose --output eDP-1 --off; xrandr  --verbose --output eDP-1 --auto"
-    spawn "sleep 1; gnome-session;"
+--    spawn "sleep 1; gnome-session; xinput --set-prop 12 'libinput Accel Speed' 0.791367"
     spawn "killall dunst"
 --    spawn "xrandr --verbose --output DP-3 --rotate right"
 
-    setMouseSpeedForScreen 0
 
     xmonad $ gnomeConfig -- defaultConfig
         { manageHook = myManageHookAll
@@ -136,7 +135,7 @@ main = do
         , handleEventHook = handleEventHook gnomeConfig <+> docksEventHook <+> (\e -> do
             logCurrentMouseLocation
             return (All True))
-        , startupHook = startupHook gnomeConfig <+> docksStartupHook
+        , startupHook = startupHook gnomeConfig <+> docksStartupHook <+> (setMouseSpeedForScreen 0)
         , modMask = mod4Mask     -- Rebind Mod to the Windows key
 --        , borderWidth = 4
         , borderWidth = 4
@@ -800,9 +799,10 @@ moveMouseToLastPosition =
 
 moveMouseTo x y = runProcessWithInputAndWait "sh" ["-c", ("xdotool mousemove " ++ (show x) ++ " " ++ (show y))] "" (seconds 1) -- Can we move mouse within XMonad?
 
-setMouseSpeedForScreen s = runProcessWithInputAndWait "sh" ["-c", "xset m " ++ (mouseSpeed s) ++ " 4"] "" (seconds 1)
+setMouseSpeedForScreen s = runProcessWithInputAndWait "sh" ["-c", "xinput --set-prop " ++ mouseDeviceId ++ " 'libinput Accel Speed' " ++ (mouseSpeed s)] "" (seconds 1)
 mouseSpeed :: Int -> String
-mouseSpeed n = ["9/4", "3/1", "3/1"] !! n
+mouseSpeed n = ["0.791367", "1", "1"] !! n
+mouseDeviceId = "12"
 
 nextOf f e l@(x:_) = case dropWhile (\a -> f a /= f e) l of
                           (_:y:_) -> y
