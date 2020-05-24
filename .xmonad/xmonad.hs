@@ -116,12 +116,13 @@ main = do
 
 --    spawn "compton -b --config ~/.comptonrc"
 
+    runProcessWithInputAndWait "sh" ["/home/bitterfox/.xmonad/auto_detect_display.sh"] "" (seconds 1)
+    io (threadDelay (1 * 1000 * 1000))
     numDisplayStr <- runProcessWithInput "sh" ["-c", "xrandr --query | grep -c '\\bconnected\\b'"] ""
     let numDisplay = read numDisplayStr :: Int
     spawn $ "echo '" ++ (show numDisplay) ++ "' > /tmp/test"
     spawn $ "xrandr --query | grep -c '\\bconnected\\b' >> /tmp/test"
     xmprocs <- mapM (\displayId -> spawnPipe $ "/usr/bin/xmobar " ++ (if displayId == 0 then "" else "-p Top -x " ++ (show displayId)) ++ " ~/.xmobarrc") [0..numDisplay-1]
-    io (threadDelay (1 * 1000 * 1000))
 --    spawn "xrandr  --verbose --output eDP-1 --off; xrandr  --verbose --output eDP-1 --auto"
 --    spawn "sleep 1; gnome-session; xinput --set-prop 12 'libinput Accel Speed' 0.791367"
     spawn "gnome-screensaver"
@@ -137,7 +138,7 @@ main = do
         , handleEventHook = handleEventHook gnomeConfig <+> docksEventHook <+> (\e -> do
             logCurrentMouseLocation
             return (All True))
-        , startupHook = startupHook gnomeConfig <+> docksStartupHook <+> configureMouse
+        , startupHook = startupHook gnomeConfig <+> docksStartupHook <+> configureMouse <+> rescreen
         , modMask = mod4Mask     -- Rebind Mod to the Windows key
 --        , borderWidth = 4
         , borderWidth = 4
