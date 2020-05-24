@@ -163,7 +163,7 @@ main = do
         , ((mod4Mask, xK_r), withWindowSet (\ws -> do
                                                      let sid = W.screen $ W.current ws
                                                      viewScreen 0 >> refresh >> docksStartupHook >> viewScreen sid)) -- rescreen >> 
-        , ((mod4Mask, xK_q), viewScreen 0 >> spawn "if type xmonad; then xmonad --recompile && xmonad --restart; else xmessage xmonad not in \\$PATH: \"$PATH\"; fi") -- %! Restart xmonad
+        , ((mod4Mask, xK_q), myrestart)
 
         , ((mod4Mask .|. shiftMask, xK_e), spawn "nautilus")
 
@@ -1019,3 +1019,10 @@ viewScreen sid = do
   case mws of
     Nothing -> return ()
     Just ws -> windows $ W.view ws
+
+myrestart = withWindowSet $ \s -> myrestart' $ W.screen $ W.current s
+myrestart' sid = do
+  if sid == 0 then
+      spawn "if type xmonad; then xmonad --recompile && xmonad --restart; else xmessage xmonad not in \\$PATH: \"$PATH\"; fi"
+  else
+      (viewScreen $ sid - 1) >> (myrestart' $ sid - 1)
