@@ -239,10 +239,10 @@ main = do
         , ((mod4Mask, xK_space), nextScreen >> moveMouseToLastPosition)
         , ((mod4Mask .|. shiftMask, xK_space), prevScreen >> moveMouseToLastPosition)
 
-        , ((mod4Mask, xK_w),                               goToSelected'  anyWindowInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
-        , ((mod4Mask .|. controlMask, xK_w),               goToSelected'  anyWindowPredicate                         hidpiGSConfig)
-        , ((mod4Mask .|. shiftMask, xK_w),                 shiftSelected' anyWindowInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_w), shiftSelected' anyWindowPredicate                         hidpiGSConfig)
+        , ((mod4Mask, xK_w),                               goToSelected'  anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
+        , ((mod4Mask .|. controlMask, xK_w),               goToSelected'  anyWorkspacePredicate                         hidpiGSConfig)
+        , ((mod4Mask .|. shiftMask, xK_w),                 shiftSelected' anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
+        , ((mod4Mask .|. controlMask .|. shiftMask, xK_w), shiftSelected' anyWorkspacePredicate                         hidpiGSConfig)
 
         , ((mod4Mask, xK_p), spawn $ "dmenu_run -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖'")
         , ((mod4Mask .|. shiftMask, xK_p), spawn "gmrun")
@@ -903,36 +903,38 @@ mySDConfig = def {
              , fontName = "xft:monospace-9:bold,Symbola-9:bold"
 }
 
-anyWindowPredicate windowset window = "NSP" /= W.tag window
-anyWindowInCurrentWorkspaceFamilyPredicate windowset window = anyWindowPredicate windowset window && ((toFamilyId $ W.currentTag windowset) == (toFamilyId $ W.tag window))
-                                      
+anyWorkspacePredicate :: WindowSet -> WindowSpace -> Bool
+anyWorkspacePredicate windowset workspace = ("NSP" :: WorkspaceId) /= (W.tag workspace)
+anyWorkspaceInCurrentWorkspaceFamilyPredicate :: WindowSet -> WindowSpace -> Bool
+anyWorkspaceInCurrentWorkspaceFamilyPredicate windowset workspace = anyWorkspacePredicate windowset workspace && ((toFamilyId $ W.currentTag windowset) == (toFamilyId $ W.tag workspace))
+
+goToSelected' :: (WindowSet -> WindowSpace -> Bool) -> GSConfig Window -> X ()
 goToSelected' =
     withSelectedWindow' $ \w -> do
       s <- gets windowset
       case W.findTag w s of
         Just tag -> windows $ (W.focusWindow w) . (W.greedyView tag)
         Nothing -> windows $ W.focusWindow w
---      windows $ W.view $ W.findTag w s
---    withSelectedWindow' $ \w -> windows $ W.focusWindow w
 
+shiftSelected' :: (WindowSet -> WindowSpace -> Bool) -> GSConfig Window -> X ()
 shiftSelected' =
     withSelectedWindow' $ \w -> windows $ \s -> W.shiftWin (W.currentTag s) w s
 
 -- | Like `gridSelect' but with the current windows and their titles as elements
---gridselectWindow' :: GSConfig Window -> X (Maybe Window)
+gridselectWindow' :: (WindowSet -> WindowSpace -> Bool) -> GSConfig Window -> X (Maybe Window)
 gridselectWindow' predicate gsconf = windowMap' predicate >>= gridselect gsconf
 
 -- | Brings up a 2D grid of windows in the center of the screen, and one can
 -- select a window with cursors keys. The selected window is then passed to
 -- a callback function.
---withSelectedWindow' :: (Window -> X ()) -> GSConfig Window -> X ()
+withSelectedWindow' :: (Window -> X ()) -> (WindowSet -> WindowSpace -> Bool) -> GSConfig Window -> X ()
 withSelectedWindow' callback predicate conf = do
     mbWindow <- gridselectWindow' predicate conf
     case mbWindow of
         Just w -> callback w
         Nothing -> return ()
 
--- windowMap' :: X [(String,Window)]
+windowMap' :: (WindowSet -> WindowSpace -> Bool) -> X [(String,Window)]
 windowMap' predicate = do
     ws <- gets windowset
     wins <- mapM keyValuePair (foldr (++) [] $ map (W.integrate' . W.stack) $ filter (predicate ws) $ W.workspaces ws)
@@ -965,11 +967,6 @@ getClass' w = withDisplay $ \d -> do
 
 getWorkspace' :: Window -> X String
 getWorkspace' w = withWindowSet $ \s -> do
-                    case W.findTag w s of
-                      Just tag -> return $ (toFamilyId tag) ++ "|" ++ (toWorkspaceId tag)
-                      Nothing -> return ""
-getWorkspaceId' :: Window -> X String
-getWorkspaceId' w = withWindowSet $ \s -> do
                     case W.findTag w s of
                       Just tag -> return $ (toFamilyId tag) ++ "|" ++ (toWorkspaceId tag)
                       Nothing -> return ""
