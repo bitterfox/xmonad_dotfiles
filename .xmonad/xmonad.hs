@@ -68,6 +68,10 @@ applications = [
  "/usr/local/pulse/pulseUi",
  "slack"]
 
+webApplications = [
+    ("Tweetdeck", "https://tweetdeck.twitter.com/")
+  , ("YouTube", "https://youtube.com/")]
+
 myManageHookAll = manageHook gnomeConfig -- defaultConfig
                        <+> manageDocks
                        <+> myScratchpadsManageHook
@@ -165,8 +169,6 @@ main = do
                                                      viewScreen 0 >> refresh >> docksStartupHook >> viewScreen sid)) -- rescreen >> 
         , ((mod4Mask, xK_q), myrestart)
 
-        , ((mod4Mask .|. shiftMask, xK_e), spawn "nautilus")
-
         , ((mod4Mask, xK_Return), myNamedScratchpadAction "mainterm")
         , ((mod4Mask, xK_F8), myNamedScratchpadAction "rhythmbox")
         , ((mod4Mask, xK_F9), myNamedScratchpadAction "艦これ")
@@ -237,12 +239,16 @@ main = do
         , ((mod4Mask, xK_space), nextScreen >> moveMouseToLastPosition)
         , ((mod4Mask .|. shiftMask, xK_space), prevScreen >> moveMouseToLastPosition)
 
-        , ((mod4Mask, xK_w), goToSelected' hidpiGSConfig)
-        , ((mod4Mask .|. shiftMask, xK_w), gridselectWorkspace (hidpiGSConfig {gs_cellwidth = 80}) W.view)
+        , ((mod4Mask, xK_w),                               goToSelected'  anyWindowInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
+        , ((mod4Mask .|. controlMask, xK_w),               goToSelected'  anyWindowPredicate                         hidpiGSConfig)
+        , ((mod4Mask .|. shiftMask, xK_w),                 shiftSelected' anyWindowInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
+        , ((mod4Mask .|. controlMask .|. shiftMask, xK_w), shiftSelected' anyWindowPredicate                         hidpiGSConfig)
 
         , ((mod4Mask, xK_p), spawn $ "dmenu_run -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖'")
         , ((mod4Mask .|. shiftMask, xK_p), spawn "gmrun")
         , ((mod4Mask, xK_e), spawnSelected hidpiGSConfig applications)
+        , ((mod4Mask .|. shiftMask, xK_e), spawnWebAppSelected hidpiGSConfig webApplications)
+
 --        , ((mod4Mask, xK_s), scratchpadSelected hidpiGSConfig myScratchpads)
 
         -- CopyWindow
@@ -282,17 +288,17 @@ main = do
             | (i, k) <- zip originalWorkspaces $ [xK_1 .. xK_9] ++ [xK_0]
             , (f, m) <- [(greedyViewToWorkspace, 0), (shiftToWorkspace, shiftMask)]
         ] `additionalKeys` [
-          ((mod1Mask .|. m, k), f i)
+          ((mod4Mask .|. m, k), f i)
             | (i, k) <- zip workspaceFamilies $ [xK_1 .. xK_9] ++ [xK_0]
             , (f, m) <- [
               (\family -> submap . M.fromList $
                          [ ((0, subkey), greedyViewToFamilyWorkspace family workspace)
                                | (workspace, subkey)  <- zip originalWorkspaces $ [xK_1 .. xK_9] ++ [xK_0]
-                         ], 0)
+                         ], controlMask)
             , (\family -> submap . M.fromList $
                           [ ((0, subkey), shiftToFamilyWorkspace family workspace)
                                 | (workspace, subkey) <- zip originalWorkspaces $ [xK_1 .. xK_9] ++ [xK_0]
-                          ], shiftMask)
+                          ], (controlMask .|. shiftMask))
             ]
         ]
 
@@ -842,6 +848,12 @@ nierColorizer a active =
   else
       return (gray, black)
 
+spawnWebAppSelected conf webapps = do
+  maybeUrl <- gridselect conf webapps
+  case maybeUrl of
+    Just url -> spawn $ "vivaldi-stable --app=" ++ url
+    Nothing -> return ()
+
 myNavNSearch :: TwoD a (Maybe a)
 myNavNSearch = makeXEventhandler $ shadowWithKeymap navNSearchKeyMap navNSearchDefaultHandler
   where navNSearchKeyMap = M.fromList [
@@ -891,27 +903,39 @@ mySDConfig = def {
              , fontName = "xft:monospace-9:bold,Symbola-9:bold"
 }
 
+anyWindowPredicate windowset window = "NSP" /= W.tag window
+anyWindowInCurrentWorkspaceFamilyPredicate windowset window = anyWindowPredicate windowset window && ((toFamilyId $ W.currentTag windowset) == (toFamilyId $ W.tag window))
+                                      
 goToSelected' =
-    withSelectedWindow' $ \w -> windows $ W.focusWindow w
+    withSelectedWindow' $ \w -> do
+      s <- gets windowset
+      case W.findTag w s of
+        Just tag -> windows $ (W.focusWindow w) . (W.greedyView tag)
+        Nothing -> windows $ W.focusWindow w
+--      windows $ W.view $ W.findTag w s
+--    withSelectedWindow' $ \w -> windows $ W.focusWindow w
+
+shiftSelected' =
+    withSelectedWindow' $ \w -> windows $ \s -> W.shiftWin (W.currentTag s) w s
 
 -- | Like `gridSelect' but with the current windows and their titles as elements
-gridselectWindow' :: GSConfig Window -> X (Maybe Window)
-gridselectWindow' gsconf = windowMap' >>= gridselect gsconf
+--gridselectWindow' :: GSConfig Window -> X (Maybe Window)
+gridselectWindow' predicate gsconf = windowMap' predicate >>= gridselect gsconf
 
 -- | Brings up a 2D grid of windows in the center of the screen, and one can
 -- select a window with cursors keys. The selected window is then passed to
 -- a callback function.
-withSelectedWindow' :: (Window -> X ()) -> GSConfig Window -> X ()
-withSelectedWindow' callback conf = do
-    mbWindow <- gridselectWindow' conf
+--withSelectedWindow' :: (Window -> X ()) -> GSConfig Window -> X ()
+withSelectedWindow' callback predicate conf = do
+    mbWindow <- gridselectWindow' predicate conf
     case mbWindow of
         Just w -> callback w
         Nothing -> return ()
 
-windowMap' :: X [(String,Window)]
-windowMap' = do
+-- windowMap' :: X [(String,Window)]
+windowMap' predicate = do
     ws <- gets windowset
-    wins <- mapM keyValuePair (foldr (++) [] $ map (W.integrate' . W.stack) $ filter (\w -> "NSP" /= W.tag w) $ W.workspaces ws)
+    wins <- mapM keyValuePair (foldr (++) [] $ map (W.integrate' . W.stack) $ filter (predicate ws) $ W.workspaces ws)
     return wins
  where keyValuePair w = flip (,) w `fmap` decorateName' w
 
@@ -941,6 +965,11 @@ getClass' w = withDisplay $ \d -> do
 
 getWorkspace' :: Window -> X String
 getWorkspace' w = withWindowSet $ \s -> do
+                    case W.findTag w s of
+                      Just tag -> return $ (toFamilyId tag) ++ "|" ++ (toWorkspaceId tag)
+                      Nothing -> return ""
+getWorkspaceId' :: Window -> X String
+getWorkspaceId' w = withWindowSet $ \s -> do
                     case W.findTag w s of
                       Just tag -> return $ (toFamilyId tag) ++ "|" ++ (toWorkspaceId tag)
                       Nothing -> return ""

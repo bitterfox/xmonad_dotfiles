@@ -2,7 +2,9 @@
 
 temp=`cat /sys/devices/platform/coretemp.0/hwmon/hwmon*/temp1_input | xargs -i% echo -e 'scale=1\n%/1000' | bc`
 
-text="🌡$temp℃"
+throttle_count=`cat /sys/devices/system/cpu/cpu0/thermal_throttle/package_throttle_count`
+
+text="🌡$temp℃ ($throttle_count)"
 
 if [ `echo "70 <= $temp" | bc` = 1 ]; then
     echo -n "<fc=$white,$red>$text</fc>"
