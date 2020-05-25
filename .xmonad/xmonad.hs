@@ -57,20 +57,28 @@ red = "#CC654C"
 blue = "#3BA99F"
 
 applications = [
- "vivaldi",
- "nautilus",
- "emacs",
- "wine '/home/bitterfox/.wine/drive_c/users/bitterfox/Local Settings/Application Data/LINE/bin/LineLauncher.exe'",
- "XDG_CURRENT_DESKTOP=GNOME gnome-control-center",
- "libreoffice",
- "~/bin/jetbrains-toolbox-1.14.5179/jetbrains-toolbox",
- "~/bin/idea",
- "/usr/local/pulse/pulseUi",
- "slack"]
+ ("Vivaldi (Web browser)", "vivaldi"),
+ ("Nautilus (File browser)", "nautilus"),
+ ("Emacs (Editor)", "emacs"),
+ ("LINE", "wine '/home/bitterfox/.wine/drive_c/users/bitterfox/Local Settings/Application Data/LINE/bin/LineLauncher.exe'"),
+ ("Configuration", "XDG_CURRENT_DESKTOP=GNOME gnome-control-center"),
+ ("LibreOffice", "libreoffice"),
+ ("JetBrains ToolBox", "~/bin/jetbrains-toolbox-1.14.5179/jetbrains-toolbox"),
+ ("IntelliJ Idea", "~/bin/idea"),
+ ("PulseSecure", "/usr/local/pulse/pulseUi"),
+ ("Slcak", "slack")]
 
 webApplications = [
-    ("Tweetdeck", "https://tweetdeck.twitter.com/")
-  , ("YouTube", "https://youtube.com/")]
+ ("Tweetdeck", "https://tweetdeck.twitter.com/"),
+ ("YouTube", "https://youtube.com/")]
+
+systemActions = [
+ ("Reload", myrestart),
+ ("Lock", spawn "gnome-screensaver-command --lock"),
+ ("Suspend", spawn "systemctl suspend"),
+ ("Logout", io (exitWith ExitSuccess)),
+ ("Shutdown", spawn "systemctl poweroff"),
+ ("Reboot", spawn "systemctl reboot")]
 
 myManageHookAll = manageHook gnomeConfig -- defaultConfig
                        <+> manageDocks
@@ -134,7 +142,6 @@ main = do
     spawn "killall dunst"
 --    spawn "xrandr --verbose --output DP-3 --rotate right"
 
-
     xmonad $ gnomeConfig -- defaultConfig
         { manageHook = myManageHookAll
         , layoutHook =  myLayoutHookAll
@@ -167,7 +174,7 @@ main = do
         , ((mod4Mask, xK_r), withWindowSet (\ws -> do
                                                      let sid = W.screen $ W.current ws
                                                      viewScreen 0 >> refresh >> docksStartupHook >> viewScreen sid)) -- rescreen >> 
-        , ((mod4Mask, xK_q), myrestart)
+        , ((mod4Mask, xK_q), runActionSelected hidpiGSConfig systemActions)
 
         , ((mod4Mask, xK_Return), myNamedScratchpadAction "mainterm")
         , ((mod4Mask, xK_F8), myNamedScratchpadAction "rhythmbox")
@@ -246,7 +253,7 @@ main = do
 
         , ((mod4Mask, xK_p), spawn $ "dmenu_run -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖'")
         , ((mod4Mask .|. shiftMask, xK_p), spawn "gmrun")
-        , ((mod4Mask, xK_e), spawnSelected hidpiGSConfig applications)
+        , ((mod4Mask, xK_e), spawnAppSelected hidpiGSConfig applications)
         , ((mod4Mask .|. shiftMask, xK_e), spawnWebAppSelected hidpiGSConfig webApplications)
 
 --        , ((mod4Mask, xK_s), scratchpadSelected hidpiGSConfig myScratchpads)
@@ -848,10 +855,22 @@ nierColorizer a active =
   else
       return (gray, black)
 
+spawnAppSelected conf apps = do
+  maybeCommand <- gridselect conf apps
+  case maybeCommand of
+    Just command -> spawn $ command
+    Nothing -> return ()
+
 spawnWebAppSelected conf webapps = do
   maybeUrl <- gridselect conf webapps
   case maybeUrl of
     Just url -> spawn $ "vivaldi-stable --app=" ++ url
+    Nothing -> return ()
+
+runActionSelected conf actions = do
+  maybeAction <- gridselect conf actions
+  case maybeAction of
+    Just action -> action
     Nothing -> return ()
 
 myNavNSearch :: TwoD a (Maybe a)
