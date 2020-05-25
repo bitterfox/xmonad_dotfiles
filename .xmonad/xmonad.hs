@@ -164,18 +164,96 @@ main = do
         , XMonad.Core.workspaces = myWorkspaces
         } `additionalKeys`
         [
-          ((mod4Mask .|. shiftMask, xK_l), spawn "gnome-screensaver-command --lock") -- Lock
-        , ((mod4Mask .|. shiftMask, xK_s), spawn "systemctl suspend") -- Lock & Suspend
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_l), io (exitWith ExitSuccess)) -- Logout
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_s), spawn "/usr/lib/indicator-session/gtk-logout-helper --shutdown") -- Shutdown
-
-        , ((controlMask, xK_Print), spawn "gnome-screenshot -c")
-        , ((0, xK_Print), spawn "gnome-screenshot")
+        -- System actions
+          ((mod4Mask, xK_q), runActionSelected hidpiGSConfig systemActions)
         , ((mod4Mask, xK_r), withWindowSet (\ws -> do
                                                      let sid = W.screen $ W.current ws
                                                      viewScreen 0 >> refresh >> docksStartupHook >> viewScreen sid)) -- rescreen >> 
-        , ((mod4Mask, xK_q), runActionSelected hidpiGSConfig systemActions)
+--        , ((mod4Mask .|. shiftMask, xK_l), spawn "gnome-screensaver-command --lock") -- Lock
+--        , ((mod4Mask .|. shiftMask, xK_s), spawn "systemctl suspend") -- Lock & Suspend
+--        , ((mod4Mask .|. controlMask .|. shiftMask, xK_l), io (exitWith ExitSuccess)) -- Logout
+--        , ((mod4Mask .|. controlMask .|. shiftMask, xK_s), spawn "/usr/lib/indicator-session/gtk-logout-helper --shutdown") -- Shutdown
 
+        -- Screenshot
+        , ((0, xK_Print), spawn "sh ~/.xmonad/screenshot.sh")
+--         , ((controlMask, xK_Print), spawn "gnome-screenshot -c")
+        , ((mod4Mask, xK_s), spawn "sh ~/.xmonad/screenshot.sh")
+        , ((mod4Mask .|. shiftMask, xK_s), spawn "sh ~/.xmonad/screenshot.sh -a")
+        ------------------------------------------------------------------------------------------------------------------------------------
+
+        -- Layout
+        , ((mod4Mask, xK_d), sendMessage NextLayout)
+        -- Full screen
+        , ((mod4Mask, xK_f), sendMessage ToggleLayout)
+
+        -- 水平のサイズ変更
+        , ((mod4Mask, xK_i), sendMessage MirrorExpand)
+        , ((mod4Mask, xK_m), sendMessage MirrorShrink)
+        ------------------------------------------------------------------------------------------------------------------------------------
+
+        -- Window $ Workspace
+        -- Emacs binding
+        , ((mod4Mask, xK_p), windows W.focusUp)
+        , ((mod4Mask, xK_n), windows W.focusDown)
+        , ((mod4Mask .|. shiftMask, xK_p), windows W.swapUp)
+        , ((mod4Mask .|. shiftMask, xK_n), windows W.swapDown)
+        , ((mod4Mask .|. controlMask, xK_p), prevWS')
+        , ((mod4Mask .|. controlMask, xK_n), nextWS')
+--        , ((mod4Mask .|. controlMask .|. shiftMask, xK_p), shiftToPrevWS' >> prevWS') -- TODO Fix
+--        , ((mod4Mask .|. controlMask .|. shiftMask, xK_n), shiftToNextWS' >> nextWS') -- TODO Fix
+        , ((mod4Mask .|. mod1Mask, xK_p), prevScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. mod1Mask, xK_n), nextScreen >> moveMouseToLastPosition)
+
+        -- Vim binding
+        -- ワークスペースの移動
+        , ((mod4Mask .|. controlMask, xK_j), nextWS')
+        , ((mod4Mask .|. controlMask, xK_k), prevWS')
+        -- ワークスペース間のスワップ
+--        , ((mod4Mask .|. controlMask .|. shiftMask, xK_j), shiftToNextWS' >> nextWS')
+--        , ((mod4Mask .|. controlMask .|. shiftMask, xK_k), shiftToPrevWS' >> prevWS')
+        -- スクリーンの移動
+        , ((mod4Mask .|. mod1Mask, xK_j), nextScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. mod1Mask, xK_k), prevScreen >> moveMouseToLastPosition)
+
+        -- Arrow key
+        -- フォーカスの移動
+        , ((mod4Mask, xK_Up), windows W.focusUp)
+        , ((mod4Mask, xK_Left), prevWS')
+        , ((mod4Mask, xK_Down), windows W.focusDown)
+        , ((mod4Mask, xK_Right), nextWS')
+        -- スワップ
+        , ((mod4Mask .|. shiftMask, xK_Up), windows W.swapUp)
+        , ((mod4Mask .|. shiftMask, xK_Left), windows W.swapUp)
+        , ((mod4Mask .|. shiftMask, xK_Down), windows W.swapDown)
+        , ((mod4Mask .|. shiftMask, xK_Right), windows W.swapDown)
+        -- ワーススペースの移動
+        , ((mod4Mask .|. controlMask, xK_Up), prevWS')
+        , ((mod4Mask .|. controlMask, xK_Left), prevWS')
+        , ((mod4Mask .|. controlMask, xK_Down), nextWS')
+        , ((mod4Mask .|. controlMask, xK_Right), nextWS')
+        -- ワーススペース間のスワップ
+        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Up), shiftToPrevWS' >> prevWS')
+        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Left), shiftToPrevWS' >> prevWS')
+        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Down), shiftToNextWS' >> nextWS')
+        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Right), shiftToNextWS' >> nextWS')
+
+        , ((mod4Mask, xK_space),               nextScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. shiftMask, xK_space), prevScreen >> moveMouseToLastPosition)
+
+        -- GridSelected
+        , ((mod4Mask, xK_w),                               goToSelected'  anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
+        , ((mod4Mask .|. controlMask, xK_w),               goToSelected'  anyWorkspacePredicate                         hidpiGSConfig)
+        , ((mod4Mask .|. shiftMask, xK_w),                 shiftSelected' anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
+        , ((mod4Mask .|. controlMask .|. shiftMask, xK_w), shiftSelected' anyWorkspacePredicate                         hidpiGSConfig)
+
+        , ((mod4Mask, xK_e), spawnAppSelected hidpiGSConfig applications)
+        , ((mod4Mask .|. shiftMask, xK_e), spawnWebAppSelected hidpiGSConfig webApplications)
+        ------------------------------------------------------------------------------------------------------------------------------------
+
+        , ((mod4Mask, xK_at), spawn $ "dmenu_run -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖'")
+        , ((mod4Mask .|. shiftMask, xK_at), spawn "gmrun")
+
+        -- Scratchpad
         , ((mod4Mask, xK_Return), myNamedScratchpadAction "mainterm")
         , ((mod4Mask, xK_F8), myNamedScratchpadAction "rhythmbox")
         , ((mod4Mask, xK_F9), myNamedScratchpadAction "艦これ")
@@ -195,77 +273,15 @@ main = do
         , ((mod4Mask .|. controlMask, xK_F9), toggleScrachpadAction myScratchpads)
 
         , ((mod4Mask, xK_backslash), launchIntelliJTerminal)
+--        , ((mod4Mask, xK_s), scratchpadSelected hidpiGSConfig myScratchpads)
+        ------------------------------------------------------------------------------------------------------------------------------------
 
         , ((mod4Mask, xK_g), selectSearchBrowser "/usr/bin/vivaldi" google)
 
-        , ((mod4Mask, xK_d), sendMessage NextLayout)
-        -- Full screen
-        , ((mod4Mask, xK_f), sendMessage ToggleLayout)
-
-        -- 水平のサイズ変更
-        , ((mod4Mask, xK_i), sendMessage MirrorExpand)
-        , ((mod4Mask, xK_m), sendMessage MirrorShrink)
-
-        -- Arrow Keys
-        -- フォーカスの移動
-        , ((mod4Mask, xK_Up), windows W.focusUp)
-        , ((mod4Mask, xK_Left), prevWS')
-        , ((mod4Mask, xK_Down), windows W.focusDown)
-        , ((mod4Mask, xK_Right), nextWS')
-
-        -- スワップ
-        , ((mod4Mask .|. shiftMask, xK_Up), windows W.swapUp)
-        , ((mod4Mask .|. shiftMask, xK_Left), windows W.swapUp)
-        , ((mod4Mask .|. shiftMask, xK_Down), windows W.swapDown)
-        , ((mod4Mask .|. shiftMask, xK_Right), windows W.swapDown)
-
-        -- ワーススペースの移動
-        , ((mod4Mask .|. controlMask, xK_Up), prevWS')
-        , ((mod4Mask .|. controlMask, xK_Left), prevWS')
-        , ((mod4Mask .|. controlMask, xK_Down), nextWS')
-        , ((mod4Mask .|. controlMask, xK_Right), nextWS')
-
-        -- ワーススペース間のスワップ
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Up), shiftToPrevWS' >> prevWS')
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Left), shiftToPrevWS' >> prevWS')
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Down), shiftToNextWS' >> nextWS')
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Right), shiftToNextWS' >> nextWS')
-
-        -- j/k key
-        -- ワークスペースの移動
-        , ((mod4Mask .|. controlMask, xK_j), nextWS')
-        , ((mod4Mask .|. controlMask, xK_k), prevWS')
-
-        -- ワークスペース間のスワップ
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_j), shiftToNextWS' >> nextWS')
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_k), shiftToPrevWS' >> prevWS')
-
-        -- スクリーンの移動
-        , ((mod4Mask .|. mod1Mask, xK_j), nextScreen >> moveMouseToLastPosition)
-        , ((mod4Mask .|. mod1Mask, xK_k), prevScreen >> moveMouseToLastPosition)
-        , ((mod4Mask, xK_space), nextScreen >> moveMouseToLastPosition)
-        , ((mod4Mask .|. shiftMask, xK_space), prevScreen >> moveMouseToLastPosition)
-
-        , ((mod4Mask, xK_w),                               goToSelected'  anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
-        , ((mod4Mask .|. controlMask, xK_w),               goToSelected'  anyWorkspacePredicate                         hidpiGSConfig)
-        , ((mod4Mask .|. shiftMask, xK_w),                 shiftSelected' anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_w), shiftSelected' anyWorkspacePredicate                         hidpiGSConfig)
-
-        , ((mod4Mask, xK_p), spawn $ "dmenu_run -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖'")
-        , ((mod4Mask .|. shiftMask, xK_p), spawn "gmrun")
-        , ((mod4Mask, xK_e), spawnAppSelected hidpiGSConfig applications)
-        , ((mod4Mask .|. shiftMask, xK_e), spawnWebAppSelected hidpiGSConfig webApplications)
-
---        , ((mod4Mask, xK_s), scratchpadSelected hidpiGSConfig myScratchpads)
-
-        -- CopyWindow
+        -- CopyWindow WIP
         , ((mod4Mask, xK_a), windows copyToAll)
         , ((mod4Mask .|. shiftMask, xK_a), killAllOtherCopies)
         , ((mod4Mask, xK_z), showAllWindow)
-
-        -- Screenshot
-        , ((mod4Mask, xK_s), spawn "sh ~/.xmonad/screenshot.sh")
-        , ((mod4Mask .|. controlMask, xK_s), spawn "sh ~/.xmonad/screenshot.sh -a")
         ] `additionalKeysP`
         [
         -- 輝度・ボリューム周り
