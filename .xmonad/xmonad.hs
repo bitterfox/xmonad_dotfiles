@@ -66,7 +66,7 @@ applications = [
  ("JetBrains ToolBox", "~/bin/jetbrains-toolbox-1.14.5179/jetbrains-toolbox"),
  ("IntelliJ Idea", "~/bin/idea"),
  ("PulseSecure", "/usr/local/pulse/pulseUi"),
- ("Slcak", "slack")]
+ ("Slack", "slack")]
 
 webApplications = [
  ("Tweetdeck", "https://tweetdeck.twitter.com/"),
@@ -99,6 +99,7 @@ watch :: String -> String -> IO ()
 watch cmd interval = spawn $ "while :; do " ++ cmd ++ "; sleep " ++ interval ++ "; done"
 
 main = do
+    runProcessWithInputAndWait "sh" ["-c", "sh '/home/bitterfox/.xmonad/auto_detect_display.sh' >> /tmp/debug"] "" (seconds 1)
     spawn $ "mkdir -p " ++ mouseLogDir
 
 --    watch "xmodmap ~/.xmodmap" "0.3"
@@ -128,8 +129,7 @@ main = do
 
 --    spawn "compton -b --config ~/.comptonrc"
 
-    runProcessWithInputAndWait "sh" ["/home/bitterfox/.xmonad/auto_detect_display.sh"] "" (seconds 1)
-    io (threadDelay (1 * 1000 * 1000))
+    io (threadDelay (2 * 1000 * 1000))
     numDisplayStr <- runProcessWithInput "sh" ["-c", "xrandr --query | grep -c '\\bconnected\\b'"] ""
     let numDisplay = read numDisplayStr :: Int
     spawn $ "echo '" ++ (show numDisplay) ++ "' > /tmp/test"
@@ -149,7 +149,7 @@ main = do
         , handleEventHook = handleEventHook gnomeConfig <+> docksEventHook <+> (\e -> do
             logCurrentMouseLocation
             return (All True))
-        , startupHook = startupHook gnomeConfig <+> docksStartupHook <+> configureMouse <+> rescreen
+        , startupHook = startupHook gnomeConfig <+> docksStartupHook <+> configureMouse -- <+> rescreen
         , modMask = mod4Mask     -- Rebind Mod to the Windows key
 --        , borderWidth = 4
         , borderWidth = 4
@@ -168,7 +168,7 @@ main = do
           ((mod4Mask, xK_q), runActionSelected hidpiGSConfig systemActions)
         , ((mod4Mask, xK_r), withWindowSet (\ws -> do
                                                      let sid = W.screen $ W.current ws
-                                                     viewScreen 0 >> refresh >> docksStartupHook >> viewScreen sid)) -- rescreen >> 
+                                                     viewScreen 0 >> refresh >> rescreen >> docksStartupHook >> viewScreen sid)) -- rescreen >> 
 --        , ((mod4Mask .|. shiftMask, xK_l), spawn "gnome-screensaver-command --lock") -- Lock
 --        , ((mod4Mask .|. shiftMask, xK_s), spawn "systemctl suspend") -- Lock & Suspend
 --        , ((mod4Mask .|. controlMask .|. shiftMask, xK_l), io (exitWith ExitSuccess)) -- Logout
@@ -282,6 +282,9 @@ main = do
         , ((mod4Mask, xK_a), windows copyToAll)
         , ((mod4Mask .|. shiftMask, xK_a), killAllOtherCopies)
         , ((mod4Mask, xK_z), showAllWindow)
+
+        -- Testing
+--        , ((mod4Mask, xK_x), spawn "echo " ++ (show )
         ] `additionalKeysP`
         [
         -- 輝度・ボリューム周り
@@ -712,17 +715,21 @@ multiScreenXMobarPP windowSet screenId xmproc = xmobarPP
                         , ppSep             = " | "
                         , ppExtras = [ titleOfScreenId windowSet screenId ]
                         , ppCurrent = fallbackIfNoScreen (showOnlyWorkspaceFor $ currentOfScreenId False) windowSet screenId
-                        , ppVisible = fallbackIfNoScreen (showOnlyWorkspaceFor visibleOfScreenId) windowSet screenId
+                        , ppVisible = fallbackIfNoScreen visibleOfScreenId windowSet screenId
                         , ppHidden = fallbackIfNoScreen (showOnlyWorkspaceFor $ \ws -> \sid -> ppHidden xmobarPP) windowSet screenId
                         , ppLayout = \t -> layoutOfScreenId windowSet screenId
                         , ppSort = fmap (. namedScratchpadFilterOutWorkspace) $ ppSort xmobarPP
                         }
 
+xmobarColor' text foreground background bool =
+    xmobarColor (if bool then foreground else background) (if bool then background else foreground) text
+
 titleOfScreenId windowSet screenId =
-    case (L.find (\sc -> (W.screen sc) == S screenId) (W.screens windowSet)) of
-      Just sc -> case ((W.stack (W.workspace sc)) >>= (\st -> Just (W.focus st))) of
-                   Just w -> fmap (\nw -> Just (" " ++ (show nw) ++ " ")) $ getName w
---                   Just w -> fmap (\nw -> Just (xmobarColor (if ((W.screen (W.current windowSet)) == (W.screen sc)) then "#4E4B42" else "#D9D3BA") (if ((W.screen (W.current windowSet)) == (W.screen sc)) then "#D9D3BA" else "#4E4B42") (" " ++ (show nw) ++ " "))) (getName w)
+    case L.find (\sc -> W.screen sc == S screenId) $ W.screens windowSet of
+      Just sc -> case (W.stack $ W.workspace sc) >>= (\st -> Just $ W.focus st) of
+                   Just w -> do
+                       name <- getName w
+                       return $ Just $ xmobarColor' (wrap " " (replicate 300 ' ') $ show name) black white $ (W.screen $ W.current windowSet) == W.screen sc
                    Nothing -> def
       Nothing -> titleOfScreenId windowSet 0 -- optimize
 
@@ -746,11 +753,11 @@ currentOfScreenId spaceForOther windowSet screenId =
          else
              wrap "" ""
 
-visibleOfScreenId windowSet screenId wid =
-    case L.find (\sc -> (W.screen sc) == S screenId) (W.visible windowSet) of
---      Just sc -> if (W.tag (W.workspace sc) == wid) then xmobarColor "#4E4B42" "#D9D3BA" (wrap " " " " wid) else wrap "a" "a" wid
-      Just sc ->  xmobarColor black white $ wrap " " " " wid
-      Nothing -> wrap "" "" wid
+visibleOfScreenId windowSet screenId familyId tag =
+    showOnlyWorkspaceFor (\ws -> \sid -> \wid ->
+                                 case L.find (\sc -> (W.screen sc) == S screenId) (W.visible windowSet) of
+                                   Just sc -> if (W.tag $ W.workspace sc) == tag then xmobarColor black white $ wrap " " " " wid else wrap "" "" wid
+                                   Nothing -> wrap "" "" wid) windowSet screenId familyId tag
 
 showOnlyWorkspaceFor f windowSet screenId familyId = \w ->
                                   case L.elemIndex '_' w of
@@ -816,7 +823,6 @@ moveMouseToLastPosition =
     withWindowSet (\ws ->
       do
         MousePositionMap lastMousePositions <- XS.get
---        let s = nextScreenObjectOf ws
         let s = W.current ws
         case M.lookup (W.screen s) lastMousePositions of
           Just (x, y) -> moveMouseTo x y
@@ -841,12 +847,6 @@ setMouseSpeedForScreen s = runProcessWithInputAndWait "sh" ["-c", "xinput --set-
 mouseSpeed :: Int -> String
 mouseSpeed n = ["0.791367", "1", "1"] !! n
 mouseDeviceId = "12"
-
-nextOf f e l@(x:_) = case dropWhile (\a -> f a /= f e) l of
-                          (_:y:_) -> y
-                          _       -> x
-nextScreenObjectOf :: WindowSet -> (W.Screen WorkspaceId (Layout Window) Window ScreenId ScreenDetail)
-nextScreenObjectOf ws = nextOf W.screen (W.current ws) $ W.visible ws
 
 mouseLogDir = "/tmp/xmonad/mouse"
 ------------------------------------------------------------------------------------------
