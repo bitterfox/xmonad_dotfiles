@@ -44,8 +44,8 @@ for i in `seq 1 $num_connection`; do
     width=`echo "$result_verbose" | grep -A 9999 "$connector" | grep -A3 "$mode" | grep width | head -n 1 | sed -r "s/.*width[^0-9]+([0-9]+).*/\1/"`
     height=`echo "$result_verbose" | grep -A 9999 "$connector" | grep -A3 "$mode" | grep height | head -n 1 | sed -r "s/.*height[^0-9]+([0-9]+).*/\1/"`
 
-    echo "$result_verbose" | grep -A 9999 "$connector" | grep -A1 "EDID" | head -n 2 | tail -n 1
-    EDID=`echo "$result_verbose" | grep -A 9999 "$connector" | grep -A1 "EDID" | head -n 2 | tail -n 1 | awk '{print $1}'`
+    echo "$result_verbose" | grep -A 9999 "^$connector" | grep -A1 "EDID" | head -n 2 | tail -n 1
+    EDID=`echo "$result_verbose" | grep -A 9999 "^$connector" | grep -A1 "EDID" | head -n 2 | tail -n 1 | awk '{print $1}'`
     echo $EDID
     rotate=""
     if [ "`echo $right_EDID | grep $EDID`" ]; then
@@ -68,18 +68,18 @@ for i in `seq 1 $num_connection`; do
 	echo "secondary display found"
 	pos_y=$primary_height
 	if [ $height -lt $primary_height ]; then
-	    pos_y=$((pos_y + primary_height))
+	    pos_y=$((pos_y + primary_height / 2))
 	else
-	    pos_y=$((pos_y + height))
+	    pos_y=$((pos_y + height / 2))
 	fi
 	xrandr_param="$xrandr_param --pos 0x$pos_y"
     elif [ $num_connected_display -eq 3 ]; then
 	echo "third display found"
 	pos_x=$primary_width
 	if [ $width -lt $primary_width ]; then
-	    pos_x=$((pos_x + primary_width))
+	    pos_x=$((pos_x + primary_width / 2))
 	else
-	    pos_x=$((pos_x + width))
+	    pos_x=$((pos_x + width / 2))
 	fi
 	xrandr_param="$xrandr_param --pos ${pos_x}x0"
     fi

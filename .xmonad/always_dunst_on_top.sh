@@ -5,6 +5,9 @@
 
 while :; do
     #    xdotool windowraise $id
-    xdotool search --class Dunst | xargs xdotool windowraise
-    sleep 0.3
+    id=`xdotool search --class Dunst`
+    if [ "$id" ]; then
+        xargs xdotool windowraise $id
+    fi
+    sleep 1
 done

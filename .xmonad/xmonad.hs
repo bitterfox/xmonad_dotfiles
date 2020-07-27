@@ -48,6 +48,9 @@ import qualified Text.Show as TS
 import Text.Parsec
 import Text.Parsec.String (Parser)
 
+import System.Process (runInteractiveProcess, readProcess)
+import Codec.Binary.UTF8.String
+
 black = "#4E4B42"
 brightBlack = "#635F54"
 gray = "#B4AF9A"
@@ -80,6 +83,12 @@ systemActions = [
  ("Shutdown", spawn "systemctl poweroff"),
  ("Reboot", spawn "systemctl reboot")]
 
+priorityDisplayEDIDs :: [EDID]
+priorityDisplayEDIDs = [
+ "00ffffffffffff004d10cc1400000000",
+ "00ffffffffffff0010acb5414c323332",
+ "00ffffffffffff0010acb5414c333232"]
+
 myManageHookAll = manageHook gnomeConfig -- defaultConfig
                        <+> manageDocks
                        <+> myScratchpadsManageHook
@@ -91,7 +100,8 @@ myLayoutHookAll = avoidStruts $
 -- $                       ((renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout) ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout) ||| (renamed [Replace "田"] $ noFrillsDeco shrinkText mySDConfig $ multiCol [1] 4 0.01 0.5)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
                        (   (renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout)
                        ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout)
-                       ||| (renamed [Replace "田"] $ multiCol [1] 4 0.01 0.5)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
+                       ||| (renamed [Replace "田"] $ multiCol [1] 4 0.01 0.5)
+                       ||| (renamed [Replace "M田"] $ Mirror $ multiCol [1] 4 0.01 0.5)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
 
 tall = Tall 1 (3/100) (1/2)
 
@@ -104,7 +114,7 @@ main = do
 
 --    watch "xmodmap ~/.xmodmap" "0.3"
     spawn "xhost +SI:localuser:root; sleep 1; sudo xkeysnail -q ~/config.py & sleep 1; xset r rate 250 50"
-    spawn "sudo libinput-gestures"
+--    spawn "sudo libinput-gestures"
 
     spawn "nautilus-desktop --force" -- デスクトップを読み込む
 
@@ -145,11 +155,17 @@ main = do
     xmonad $ gnomeConfig -- defaultConfig
         { manageHook = myManageHookAll
         , layoutHook =  myLayoutHookAll
-        , logHook = withWindowSet (\s -> L.foldl (>>) def (map (\(i, xmproc) -> dynamicLogWithPP (multiScreenXMobarPP s i xmproc)) (L.zip [0..(L.length xmprocs)] xmprocs)))
+        , logHook = withWindowSet (\s -> L.foldl (>>) def (map (\(i, xmproc) -> do
+                                                                                  OriginalDisplayIdToCurrentScreenId idToId <- XS.get
+--                                                                                  originalScreenIdToCurrentScreenIdMap <- originalScreenIdToCurrentScreenId priorityDisplayEDIDs
+                                                                                  let j = case M.lookup i idToId of
+                                                                                            Just j -> j
+                                                                                            Nothing -> i
+                                                                                  dynamicLogWithPP (multiScreenXMobarPP s j xmproc)) (L.zip [0..(L.length xmprocs)] xmprocs)))
         , handleEventHook = handleEventHook gnomeConfig <+> docksEventHook <+> (\e -> do
             logCurrentMouseLocation
             return (All True))
-        , startupHook = startupHook gnomeConfig <+> docksStartupHook <+> configureMouse -- <+> rescreen
+        , startupHook = startupHook gnomeConfig <+> docksStartupHook <+> configureMouse <+>  myrescreen priorityDisplayEDIDs -- <+> rescreen
         , modMask = mod4Mask     -- Rebind Mod to the Windows key
 --        , borderWidth = 4
         , borderWidth = 4
@@ -162,13 +178,15 @@ main = do
         , focusFollowsMouse = False -- マウスの移動でフォーカスが映らないように
         , clickJustFocuses = False
         , XMonad.Core.workspaces = myWorkspaces
+--        , clientMask = 64
+--        , rootMask = 64
         } `additionalKeys`
         [
         -- System actions
           ((mod4Mask, xK_q), runActionSelected hidpiGSConfig systemActions)
         , ((mod4Mask, xK_r), withWindowSet (\ws -> do
                                                      let sid = W.screen $ W.current ws
-                                                     viewScreen 0 >> refresh >> rescreen >> docksStartupHook >> viewScreen sid)) -- rescreen >> 
+                                                     viewScreen 0 >> refresh >> myrescreen priorityDisplayEDIDs >> docksStartupHook >> viewScreen sid)) -- rescreen >> 
 --        , ((mod4Mask .|. shiftMask, xK_l), spawn "gnome-screensaver-command --lock") -- Lock
 --        , ((mod4Mask .|. shiftMask, xK_s), spawn "systemctl suspend") -- Lock & Suspend
 --        , ((mod4Mask .|. controlMask .|. shiftMask, xK_l), io (exitWith ExitSuccess)) -- Logout
@@ -255,6 +273,7 @@ main = do
 
         -- Scratchpad
         , ((mod4Mask, xK_Return), myNamedScratchpadAction "mainterm")
+        , ((mod4Mask, xK_F4), myNamedScratchpadAction "rhythmbox")
         , ((mod4Mask, xK_F8), myNamedScratchpadAction "rhythmbox")
         , ((mod4Mask, xK_F9), myNamedScratchpadAction "艦これ")
         , ((mod4Mask, xK_F10), myNamedScratchpadAction "bunnaru")
@@ -284,7 +303,7 @@ main = do
         , ((mod4Mask, xK_z), showAllWindow)
 
         -- Testing
---        , ((mod4Mask, xK_x), spawn "echo " ++ (show )
+        , ((mod4Mask, xK_x), debugEDID)
         ] `additionalKeysP`
         [
         -- 輝度・ボリューム周り
@@ -297,6 +316,7 @@ main = do
         , ("M4-<XF86AudioLowerVolume>", spawn "sh ~/.xmonad/audio_prev.sh")
         , ("M4-<XF86AudioRaiseVolume>", spawn "sh ~/.xmonad/audio_next.sh")
         , ("<XF86AudioMute>",        spawn "sh ~/.xmonad/audio_mute.sh")
+--        , ("M4-<XF86AudioPlay>", myNamedScratchpadAction "rhythmbox")
 --        , ("<XF86AudioLowerVolume>", setMute(False) >> lowerVolume 3 >> return ())
 --        , ("<XF86AudioRaiseVolume>", setMute(False) >> raiseVolume 3 >> return ())
 --        , ("<XF86AudioMute>",        setMute(False) >> setVolume 50   >> return ()) -- toggleMuteで問題がなければそうすると良いです。
@@ -326,6 +346,10 @@ main = do
                                 | (workspace, subkey) <- zip originalWorkspaces $ [xK_1 .. xK_9] ++ [xK_0]
                           ], (controlMask .|. shiftMask))
             ]
+        ] ` additionalKeys` [
+          ((mod4Mask .|. m, k), f i)
+            | (i, k) <- zip [1..9] [xK_1 .. xK_9]
+            , (f, m) <-[(viewToScreen, mod1Mask), (greedyViewToScreen, mod1Mask .|. controlMask), (shiftToScreen, mod1Mask .|. shiftMask)]
         ]
 
 -- Libraries
@@ -675,7 +699,6 @@ myWorkspaces = expandWorkspacesToFamily workspaceFamilies originalWorkspaces
 expandWorkspacesToFamily families ws = concat $ map toFamilies ws
   where toFamilies wsid = map (\fid -> wsid ++ "_" ++ fid) families
 
-
 data FamilyWorkspaceMap = FamilyWorkspaceMap (M.Map (ScreenId, String) String) deriving Typeable
 instance ExtensionClass FamilyWorkspaceMap where
   initialValue = FamilyWorkspaceMap M.empty
@@ -710,7 +733,7 @@ shiftToFamilyWorkspace familyId workspaceId = do
     windows (W.shift (workspaceId ++ "_" ++ familyId))
 
 multiScreenXMobarPP windowSet screenId xmproc = xmobarPP
-                        { ppOutput = \t -> hPutStrLn xmproc $ (fallbackIfNoScreen (currentOfScreenId True) windowSet screenId) ++ " | " ++ t
+                        { ppOutput = \t -> hPutStrLn xmproc $ (screenIds windowSet screenId) ++ " | " ++ (fallbackIfNoScreen (\ws -> \sid -> \fid -> fid) windowSet screenId) ++ " | " ++ t
                         , ppTitle = \t -> ""
                         , ppSep             = " | "
                         , ppExtras = [ titleOfScreenId windowSet screenId ]
@@ -770,10 +793,37 @@ showOnlyWorkspaceFor f windowSet screenId familyId = \w ->
                                           else ""
                                     Nothing -> f windowSet screenId w
 
+
+screenIds windowSet xmobarScreenId = L.foldr (\a -> \b -> a ++ b) "" $ L.map (\sid ->
+                                                                   xmobarColor' (wrap (if xmobarScreenId == sid then "[" else " ") (if xmobarScreenId == sid then "]" else " ") $ show $ sid + 1) black white $ (fromIntegral sid) == (W.screen $ W.current windowSet)) [0 .. L.length $ W.visible windowSet]
+--                                                                   xmobarColor' (wrap " " " " $ xmobarColor' (show sid) black white $ xmobarScreenId == sid) black white $ (fromIntegral sid) == (W.screen $ W.current windowSet)) [0 .. L.length $ W.visible windowSet]
+
 fallbackIfNoScreen f windowSet screenId =
     case (L.find (\sc -> (W.screen sc) == S screenId) (W.screens windowSet)) of
       Just sc -> f windowSet screenId $ toFamilyId $ W.tag $ W.workspace $ sc
       Nothing -> f windowSet 0 (currentFamilyId windowSet)
+
+viewToScreen screenId =
+    withWindowSet(\s -> do
+      case L.find (\sc -> (W.screen sc) == S (screenId - 1)) $ W.screens s of
+        Just sc -> windows $ W.view $ W.tag $ W.workspace sc
+        Nothing -> return ()
+    ) >> moveMouseToLastPosition
+
+greedyViewToScreen screenId =
+    withWindowSet(\s -> do
+      case L.find (\sc -> (W.screen sc) == S (screenId - 1)) $ W.screens s of
+        Just sc -> windows $ W.greedyView $ W.tag $ W.workspace sc
+        Nothing -> return ()
+    ) >> moveMouseToLastPosition
+
+shiftToScreen screenId =
+    withWindowSet(\s -> do
+      case L.find (\sc -> (W.screen sc) == S (screenId - 1)) $ W.screens s of
+        Just sc -> windows $ W.shift $ W.tag $ W.workspace sc
+        Nothing -> return ()
+    ) >> moveMouseToLastPosition
+
 ------------------------------------------------------------------------------------------
 -- Workspaces
 ------------------------------------------------------------------------------------------
@@ -814,6 +864,7 @@ logCurrentMouseLocation =
                                      (XS.put $ MousePosition $ maybeMousePos) -- >>
 --                                     (spawn ("echo '" ++ (show lastMousePositions) ++ "' >> /tmp/xmonad.debug"))
 --                                     (spawn ("echo '" ++ (show x) ++ " " ++ (show y) ++ "' >> " ++ mouseLogDir ++ "/" ++ s))
+--                                     >> (spawn ("echo '" ++ (show x) ++ " " ++ (show y) ++ "' >> " ++ "/tmp/xmonad.debug"))
                                  Nothing -> def
               Nothing -> def
       )
@@ -832,10 +883,12 @@ moveMouseToLastPosition =
               let x = truncate $ (fromIntegral $ rect_x rect) + (fromIntegral $ rect_width rect) / 2
               let y = truncate $ (fromIntegral $ rect_y rect) + (fromIntegral $ rect_height rect) / 2
               moveMouseTo x y
-        setMouseSpeedForScreen $ fromIntegral $ W.screen s
+--        setMouseSpeedForScreen $ fromIntegral $ W.screen s
     )
 
-moveMouseTo x y = runProcessWithInputAndWait "sh" ["-c", ("xdotool mousemove " ++ (show x) ++ " " ++ (show y))] "" (seconds 1) -- Can we move mouse within XMonad?
+moveMouseTo x y = do
+--  runProcessWithInputAndWait "sh" ["-c", "xdotool mousemove " ++ (show x) ++ " " ++ (show y) ++ "; find-cursor -c '" ++ red ++ "' -s 400 -d 30 -r 1 -g -l 8"] "" (seconds 1) -- Can we move mouse within XMonad?
+  runProcessWithInputAndWait "sh" ["-c", "xdotool mousemove " ++ (show x) ++ " " ++ (show y)] "" (seconds 1) -- Can we move mouse within XMonad?
 
 configureMouse = do
   moveMouseToLastPosition
@@ -845,7 +898,8 @@ configureMouse = do
 
 setMouseSpeedForScreen s = runProcessWithInputAndWait "sh" ["-c", "xinput --set-prop " ++ mouseDeviceId ++ " 'libinput Accel Speed' " ++ (mouseSpeed s)] "" (seconds 1)
 mouseSpeed :: Int -> String
-mouseSpeed n = ["0.791367", "1", "1"] !! n
+-- mouseSpeed n = ["0.791367", "1", "1"] !! n
+mouseSpeed n = ["0.791367", "0.791367", "0.791367"] !! n
 mouseDeviceId = "12"
 
 mouseLogDir = "/tmp/xmonad/mouse"
@@ -1087,3 +1141,107 @@ myrestart' sid = do
       spawn "if type xmonad; then xmonad --recompile && xmonad --restart; else xmessage xmonad not in \\$PATH: \"$PATH\"; fi"
   else
       (viewScreen $ sid - 1) >> (myrestart' $ sid - 1)
+------
+
+screenInfo screenDetail = (show $ rect_width $ screenDetail) ++ "x" ++ (show $ rect_height $ screenDetail) ++ "+" ++ (show $ rect_x $ screenDetail) ++ "+" ++ (show $ rect_y $ screenDetail)
+
+getEDID :: Rectangle -> X EDID
+getEDID screenDetail = do
+  edid <- runProcessWithInput "sh" ["-c", "xrandr --verbose | grep -A1000 ' connected .*" ++ screenInfo screenDetail ++ "' | grep -A1 EDID | head -n 2 | tail -n 1 | awk '{print $1}' | xargs echo -n"] ""
+  return (edid :: EDID)
+--getEDID screenDetail = runProcessWithInput "sh" ["-c", "xrandr --verbose | grep -A1000 ' connected " ++ (screenInfo screenDetail) ++ "' | grep -A1 EDID | head -n 2 | tail -n 1 | awk '{print $1}'"] ""
+--getEDID screenDetail = runProcessWithInput "sh" ["-c", "echo ' connected " ++ (screenInfo screenDetail) ++ "'"] ""
+
+-- debugEDID = withWindowSet $ \s -> do
+--        io $ appendFile "/tmp/debug" $ "debugEDID" ++ (screenInfo $ screenRect $ W.screenDetail $ W.current s)
+--        edid <- getEDID $ screenRect $ W.screenDetail $ W.current s
+--        io $ appendFile "/tmp/debug" $ edid
+
+debugEDID = getCurrentScreenEDIDMap
+
+getCurrentScreenEDIDMap = withWindowSet $ \s -> do
+                            screenEDIDList <- toScreenEDIDList ((W.current s) : (W.visible s))
+                            io $ appendFile "/tmp/debug" $ (show screenEDIDList)
+
+toScreenEDIDList [] = return []
+toScreenEDIDList (screen:rest) = do
+    let screenId = W.screen screen
+    edid <- getEDID $ screenRect $ W.screenDetail $ screen
+    screenEDIDList <- toScreenEDIDList rest
+    return $ (screenId, edid) : screenEDIDList
+
+type EDID = String
+data ScreenEDIDMap = ScreenEDIDMap (M.Map ScreenId EDID) deriving Typeable
+instance ExtensionClass ScreenEDIDMap where
+  initialValue = ScreenEDIDMap M.empty
+
+runProcessWithInput' :: MonadIO m => FilePath -> [String] -> String -> m String
+runProcessWithInput' cmd args input = io $ do
+    (pin, pout, perr, _) <- runInteractiveProcess (encodeString cmd)
+                                            (map encodeString args) Nothing Nothing
+    hPutStr pin input
+    hClose pin
+    output <- hGetContents pout
+--    when (output == output) $ return ()
+    hClose pout
+    hClose perr
+    -- no need to waitForProcess, we ignore SIGCHLD
+    return output
+
+--dunstEventHook e = return (All True) -- spawn "xdotool search --class Dunst | xargs xdotool windowraise" >> return (All True)
+
+myrescreen :: [EDID] -> X ()
+myrescreen priorityDisplayEDIDs = do
+    xinesc <- (withDisplay getCleanedScreenInfo) :: X [Rectangle]
+    spawn $ "echo 'xinesc: " ++ (show xinesc) ++ "' >> /tmp/xmonad.debug"
+
+    edidToScreenRectangles <- (mapM (\screenRectangle -> do
+        edid <- getEDID screenRectangle
+        return (edid, screenRectangle)) xinesc) :: X [(EDID, Rectangle)]
+    spawn $ "echo 'edidToScreenRectangles: " ++ (show edidToScreenRectangles) ++ "' >> /tmp/xmonad.debug"
+    let edidToScreenRectanglesMap = M.fromList edidToScreenRectangles
+    spawn $ "echo 'edidToScreenRectanglesMap: " ++ (show edidToScreenRectanglesMap) ++ "' >> /tmp/xmonad.debug"
+
+    let prioritiedEDIDToScreenRectangles = L.foldr (++) [] $ L.map (\edid -> case M.lookup edid edidToScreenRectanglesMap of
+                                                                       Just screenRectangle -> [(edid, screenRectangle)]
+                                                                       Nothing -> []) priorityDisplayEDIDs
+    spawn $ "echo 'prioritiedEDIDToScreenRectangles" ++ (show prioritiedEDIDToScreenRectangles) ++ "' >> /tmp/xmonad.debug"
+    let sortedEDIDToScreenRectangles = prioritiedEDIDToScreenRectangles ++ (L.filter (\(edid, screenRectangle) -> not $ edid `elem` priorityDisplayEDIDs) edidToScreenRectangles)
+
+    originalToCurrent <- originalScreenIdToCurrentScreenId priorityDisplayEDIDs
+    spawn $ "echo 'originalToCurrent" ++ (show originalToCurrent) ++ "' >> /tmp/xmonad.debug"
+    XS.put $ OriginalDisplayIdToCurrentScreenId $ originalToCurrent
+
+    spawn $ "echo '" ++ (show sortedEDIDToScreenRectangles) ++ "' >> /tmp/xmonad.debug"
+    windows $ \ws@(W.StackSet { W.current = v, W.visible = vs, W.hidden = hs }) ->
+        let (xs, ys) = splitAt (length xinesc) $ map W.workspace (v:vs) ++ hs
+            (a:as)   = zipWith3 W.Screen xs [0..] $ map SD $ map (snd) sortedEDIDToScreenRectangles
+        in  ws { W.current = a
+               , W.visible = as
+               , W.hidden  = ys }
+
+data OriginalDisplayIdToCurrentScreenId = OriginalDisplayIdToCurrentScreenId (M.Map Int Int) deriving Typeable
+instance ExtensionClass OriginalDisplayIdToCurrentScreenId where
+  initialValue = OriginalDisplayIdToCurrentScreenId M.empty
+
+originalScreenIdToCurrentScreenId priorityDisplayEDIDs = do
+    xinesc <- (withDisplay getCleanedScreenInfo) :: X [Rectangle]
+    
+    edidToOriginalScreenIds <- (mapM (\(i, screenRectangle) -> do
+        edid <- getEDID screenRectangle
+        return (edid, i)) $ indexed xinesc) :: X [(EDID, Int)]
+
+    let edidToOriginalScreenIdsMap = M.fromList edidToOriginalScreenIds
+
+    let prioritiedOriginalScreenIds = L.foldr (++) [] $ L.map (\edid -> case M.lookup edid edidToOriginalScreenIdsMap of
+                                                                       Just i -> [i]
+                                                                       Nothing -> []) priorityDisplayEDIDs
+    let originalScreenIds = prioritiedOriginalScreenIds ++ (L.map (snd) $ L.filter (\(edid, i) -> not $ edid `elem` priorityDisplayEDIDs) edidToOriginalScreenIds)
+
+    return $ M.fromList $ L.map (\(currentScreenId, originalScreenId) -> (originalScreenId, currentScreenId) ) $ indexed originalScreenIds
+
+
+--sortedEDIDToScreenRectangles (priorityDisplayEDID:rest) edidToScreenRectanglesMap =
+--    case M.lookup edid
+
+indexed l = L.zip [0..(L.length l)] l
