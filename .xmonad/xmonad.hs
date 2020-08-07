@@ -161,7 +161,7 @@ main = do
                                                                                   let j = case M.lookup i idToId of
                                                                                             Just j -> j
                                                                                             Nothing -> i
-                                                                                  dynamicLogWithPP (multiScreenXMobarPP s j xmproc)) (L.zip [0..(L.length xmprocs)] xmprocs)))
+                                                                                  dynamicLogWithPP (multiScreenXMobarPP s j xmproc)) (L.zip [0..(L.length xmprocs)] xmprocs))) >> (checkAndHandleDisplayChange moveMouseToLastPosition)
         , handleEventHook = handleEventHook gnomeConfig <+> docksEventHook <+> (\e -> do
             logCurrentMouseLocation
             return (All True))
@@ -1245,3 +1245,22 @@ originalScreenIdToCurrentScreenId priorityDisplayEDIDs = do
 --    case M.lookup edid
 
 indexed l = L.zip [0..(L.length l)] l
+
+data LastScreenId = LastScreenId (Maybe ScreenId) deriving Typeable
+instance ExtensionClass LastScreenId where
+  initialValue = LastScreenId Nothing
+
+checkAndHandleDisplayChange action =
+    withWindowSet (\s -> do
+      LastScreenId maybeScreenId <- XS.get
+      case maybeScreenId of
+        Just screenId ->
+          if (W.screen $ W.current s) == screenId then
+            return ()
+          else
+            (XS.put $ LastScreenId $ Just $ W.screen $ W.current s) >>
+            action
+        Nothing ->
+            (XS.put $ LastScreenId $ Just $ W.screen $ W.current s) >>
+            action
+    )
