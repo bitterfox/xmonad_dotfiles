@@ -27,4 +27,3 @@ fi
 EOF
 
 sudo cp `pwd`/xorg.conf/* /usr/share/X11/xorg.conf.d/
-sudo cp `pwd`/local-overrides.quirks /etc/libinput/
