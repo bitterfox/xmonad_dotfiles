@@ -73,7 +73,8 @@ applications = [
 
 webApplications = [
  ("Tweetdeck", "https://tweetdeck.twitter.com/"),
- ("YouTube", "https://youtube.com/")]
+ ("YouTube", "https://youtube.com/"),
+ ("DAZN", "https://dazn.com/")]
 
 systemActions = [
  ("Reload", myrestart),
@@ -87,6 +88,7 @@ priorityDisplayEDIDs :: [EDID]
 priorityDisplayEDIDs = [
  "00ffffffffffff004d10cc1400000000",
  "00ffffffffffff0010acb5414c323332",
+ "00ffffffffffff0010acb7414c323332",
  "00ffffffffffff0010acb5414c333232"]
 
 myManageHookAll = manageHook gnomeConfig -- defaultConfig
@@ -131,7 +133,7 @@ main = do
     -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
 --    spawn "sleep 5; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 0; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 1 ;dropbox start"
 --    spawn "sleep 5; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 0"
-    spawn "sleep 5; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 0"
+    spawn "sleep 5; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 30 --alpha 0 --monitor 0"
 
     spawn "wmname LG3D"
 
@@ -148,7 +150,9 @@ main = do
 --    spawn "xrandr  --verbose --output eDP-1 --off; xrandr  --verbose --output eDP-1 --auto"
 --    spawn "sleep 1; gnome-session; xinput --set-prop 12 'libinput Accel Speed' 0.791367"
     spawn "gnome-screensaver"
-    spawn "pulseaudio --start"
+--    spawn "pulseaudio --start"
+    spawn "pulseeffects --gapplication-service"
+
     spawn "killall dunst"
 --    spawn "xrandr --verbose --output DP-3 --rotate right"
 
@@ -268,8 +272,18 @@ main = do
         , ((mod4Mask .|. shiftMask, xK_e), spawnWebAppSelected hidpiGSConfig webApplications)
         ------------------------------------------------------------------------------------------------------------------------------------
 
-        , ((mod4Mask, xK_at), spawn $ "dmenu_run -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖'")
+        , ((mod4Mask, xK_at), withWindowSet (\s ->
+                                                 do
+                                                   let rect = screenRect $ W.screenDetail $ W.current s
+                                                   let lines = show $ truncate $ (fromIntegral $ rect_height rect) / 30 - 1
+                                                   spawn $ "dmenu_run -i -fn monospace-10:bold -l " ++ lines ++ " -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖'"))
+--                                                   spawn $ "dmenu_run -i -fn monospace-10:bold -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖'"))
         , ((mod4Mask .|. shiftMask, xK_at), spawn "gmrun")
+        , ((mod4Mask, xK_colon), withWindowSet (\s ->
+                                                 do
+                                                   let rect = screenRect $ W.screenDetail $ W.current s
+                                                   let lines = show $ truncate $ (fromIntegral $ rect_height rect) / 30 - 1
+                                                   spawn $ "~/.xmonad/list_intellij_projects.sh '2020.2' '" ++ lines ++ "' | sed -r 's/(.*\\/([^\\/]+)$)/\\2 \\1/' | sort  | dmenu -i -fn monospace-10:bold -l " ++ lines ++ " -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖ IntelliJ IDEA' | { read line; if [ -n \"$line\" ]; then echo \"$line\" | awk '{print $2}' | xargs ~/bin/idea; fi }"))
 
         -- Scratchpad
         , ((mod4Mask, xK_Return), myNamedScratchpadAction "mainterm")
@@ -302,8 +316,14 @@ main = do
         , ((mod4Mask .|. shiftMask, xK_a), killAllOtherCopies)
         , ((mod4Mask, xK_z), showAllWindow)
 
-        -- Testing
-        , ((mod4Mask, xK_x), debugEDID)
+        -- Functions
+        , ((mod4Mask, xK_F1),        spawn "sh ~/.xmonad/audio_mute.sh")
+        , ((mod4Mask, xK_F2), spawn "sh ~/.xmonad/audio_down.sh")
+        , ((mod4Mask, xK_F3), spawn "sh ~/.xmonad/audio_up.sh")
+        , ((mod4Mask .|. shiftMask, xK_F2), spawn "sh ~/.xmonad/audio_prev.sh")
+        , ((mod4Mask .|. shiftMask, xK_F3), spawn "sh ~/.xmonad/audio_next.sh")
+        , ((mod4Mask, xK_F6), spawn "sh ~/.xmonad/bright_down.sh")
+        , ((mod4Mask, xK_F7), spawn "sh ~/.xmonad/bright_up.sh")
         ] `additionalKeysP`
         [
         -- 輝度・ボリューム周り

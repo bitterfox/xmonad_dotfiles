@@ -6,7 +6,7 @@ throttle_count=`cat /sys/devices/system/cpu/cpu0/thermal_throttle/package_thrott
 
 text="🌡$temp℃ ($throttle_count)"
 
-if [ `echo "70 <= $temp" | bc` = 1 ]; then
+if [ `echo "80 <= $temp" | bc` = 1 ]; then
     echo -n "<fc=$white,$red>$text</fc>"
 elif [ `echo "50 >= $temp" | bc` = 1 ]; then
     echo -n "<fc=$brightBlue,$black>$text</fc>"

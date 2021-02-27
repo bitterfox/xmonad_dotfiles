@@ -14,9 +14,10 @@ else
 fi
 
 case "$name" in
-    "alsa_output.pci-0000_00_03.0.hdmi-stereo-extra1" ) name="HDMI" ;;
+    "alsa_output.pci-0000_00_1f.3.hdmi-stereo-extra1" ) name="HDMI" ;;
     "alsa_output.pci-0000_00_1f.3.analog-stereo.equalizer" ) name="EQUA" ;;
     "alsa_output.pci-0000_00_1f.3.analog-stereo" ) name="HEAD" ;;
+    "bluez_sink.94_DB_56_89_17_0A.a2dp_sink" ) name="SONY" ;;
     * ) name="UNKW" ;;
 esac
 

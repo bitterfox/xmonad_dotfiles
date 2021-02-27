@@ -1,4 +1,4 @@
-Config { font = "xft:monospace-9:bold,Symbola-9:bold"
+Config { font = "xft:monospace-10:bold,Symbola-10:bold"
        , bgColor = "#4E4B42"
        , fgColor = "#DAD4BB"
        , position = TopW L 95
@@ -11,7 +11,7 @@ Config { font = "xft:monospace-9:bold,Symbola-9:bold"
 		    , Run Com "sh" [".xmonad/fan_speed.sh"] "fan" 20
 		    , Run Com "sh" [".xmonad/memory.sh", "Mem", "🍫"] "mem" 20
 		    , Run Com "sh" [".xmonad/memory.sh", "Swap", "🔃"] "swap" 20
-		    , Run Com "sh" [".xmonad/net.sh"] "net" 20
+		    , Run Com "sh" [".xmonad/net_bps.sh"] "net" 10
 		    , Run Com "sh" [".xmonad/bright_get.sh"] "brightness" 6
 		    , Run Com "sh" [".xmonad/audio_get.sh"] "volume" 6
 		    , Run Com "date" ["+%_m/%_d(%a) %H:%M"] "jadate" 100

@@ -354,7 +354,7 @@
 #    foreground = "#FDF3F2"
     foreground = "#D9D3BA"
     timeout = 99999
-    script = scripts/google_mail.sh
+#    script = scripts/google_mail.sh
 
 [imon_stats]
     summary = "IMON"
@@ -365,7 +365,7 @@
 #    foreground = "#FDF3F2"
     foreground = "#D9D3BA"
     timeout = 99999
-    script = scripts/google_mail.sh
+#    script = scripts/google_mail.sh
 
 [nsa]
 #    summary = "IMON"
@@ -375,7 +375,7 @@
 #    foreground = "#FDF3F2"
     foreground = "#D9D3BA"
     timeout = 99999
-    script = scripts/nsa_otp_number.sh
+#    script = scripts/nsa_otp_number.sh
 
 [imon_release_naver_notify]
     summary = *IMON*
@@ -385,7 +385,7 @@
 #    foreground = "#FDF3F2"
     foreground = "#D9D3BA"
     timeout = 99999
-    script = scripts/open_naver_notify.sh
+#    script = scripts/open_naver_notify.sh
 
 [other_naver_notify]
     body = *notify.navercorp.com*
