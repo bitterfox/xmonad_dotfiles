@@ -114,12 +114,11 @@ priorityDisplayEDIDs = [
 myManageHookAll = manageHook gnomeConfig -- defaultConfig
                        <+> manageDocks
                        <+> myScratchpadsManageHook
-                       <+> (className =? "Dunst" --> doFloat)
                        <+> ((fmap (L.isSuffixOf ".onBottom") appName) --> onBottom)
                        <+> (stringProperty "WM_WINDOW_ROLE" =? "GtkFileChooserDialog" --> onCenter' 0.1)
 myLayout = (ResizableTall 1 (3/100) (1/2) [])
-myLayoutHookAll = avoidStruts $ WindowViewableLayout Normal (noBorders $ AndroidLikeWindowView (1/7) (3/100) (1/30) (1/100)) $ 
-                       toggleLayouts ((renamed [Replace "■"] $ noBorders Full) ||| (noBorders $ AndroidLikeWindowView (1/6) (3/100) (1/30) (1/100))) $
+myLayoutHookAll = avoidStruts $ WindowViewableLayout Normal (noBorders $ AndroidLikeWindowView (1/7) (3/100) (1/30) (1/100)) $
+                       toggleLayouts (renamed [Replace "■"] $ noBorders Full) $
 -- $                       ((renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout) ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout) ||| (renamed [Replace "田"] $ noFrillsDeco shrinkText mySDConfig $ multiCol [1] 4 0.01 0.5)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
                        (   (renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ MyModifiedLayout myLayout)
                        ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout)
@@ -139,6 +138,7 @@ myLogHook xmprocs = do
     xmobarLogHook xmprocs
     checkAndHandleDisplayChange moveMouseToLastPosition
     floatOnUp
+    aboveStateWindowsOnTop
 
 xmobarLogHook xmprocs = withWindowSet (\s ->
     L.foldl (>>) def (map (\(i, xmproc) -> do
@@ -199,8 +199,6 @@ main = do
     spawn "sleep 5; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 30 --alpha 0 --monitor 0"
 
     spawn "wmname LG3D"
-
-    spawn "/home/bitterfox/xmonad_dotfiles/.xmonad/always_dunst_on_top.sh"
 
 --    spawn "compton -b --config ~/.comptonrc"
 
@@ -466,6 +464,38 @@ main = do
         ]
 
 -- Libraries
+
+------------------------------------------------------------------------------------------
+-- Support for notification (_NET_WM_STATE = _NET_WM_STATE_ABOVE) to be always on top
+------------------------------------------------------------------------------------------
+aboveStateWindowsOnTop = do
+    rw <- asks theRoot
+    dpy <- asks display
+    (_, _, windows) <- io $ queryTree dpy rw
+    windowsWithWmState <- windowsWithWmState dpy windows
+    atom_NET_WM_STATE_ABOVE <- getAtom "_NET_WM_STATE_ABOVE"
+    let aboveStateWindows = L.filter (L.elem atom_NET_WM_STATE_ABOVE . snd) windowsWithWmState
+--    let aboveWindows = L.filter (L.elem  . snd) windowsWithWmState
+    io $ appendFile "/tmp/xmonad.debug.dunst" $ (show aboveStateWindows) ++ "\n"
+    io $ L.foldr (>>) (return ()) $ L.map (raiseWindow dpy . fst) aboveStateWindows
+
+windowsWithWmState dpy ws = do
+  atom <- getAtom "_NET_WM_STATE"
+  windowsWithWmState' atom dpy ws
+
+windowsWithWmState' atom dpy (w:ws) = do
+  mp <- io $ getWindowProperty32 dpy atom w
+  r <- windowsWithWmState' atom dpy ws
+  io $ case mp of
+    Just p -> do
+      return $ (w, L.map (\(CLong n) -> fromIntegral n :: Atom) p):r
+--            name <- getAtomNames dpy $ L.map (\(CLong n) -> fromIntegral n) p
+--            return $ (w, name):r
+    Nothing -> return r
+windowsWithWmState' atom dpy [] = return []
+------------------------------------------------------------------------------------------
+-- Support for notification (_NET_WM_STATE = _NET_WM_STATE_ABOVE) to be always on top
+------------------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------------------
 -- Scratchpad
