@@ -5,6 +5,7 @@ import XMonad
 import XMonad.Core
 import XMonad.Actions.CopyWindow
 import XMonad.Actions.CycleWS
+import qualified XMonad.Actions.FlexibleResize as Flex
 import XMonad.Actions.Volume
 import XMonad.Actions.GridSelect
 import XMonad.Actions.Search (selectSearchBrowser, google)
@@ -421,8 +422,26 @@ main = do
           (mod4Mask .|. shiftMask, xK_q)
 --        , (mod4Mask, xK_q)
         ] `additionalMouseBindings` [
-          ((mod4Mask .|. controlMask, button1), \w -> focus w >> mouseResizeWindow w
+          ((mod4Mask .|. controlMask, button1), \w -> focus w >> Flex.mouseResizeWindow w
                                                               >> windows W.shiftMaster)
+        , ((mod4Mask, button3), \w -> do
+            ws <- gets windowset
+            if isFloat ws w then do
+                before <- gets windowset
+                case W.stack $ W.workspace $ W.current before of
+                  Just (W.Stack t ls rs) -> spawn $ "echo 'Before: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
+                  Nothing -> return ()
+                windows $ W.modify' $ \stack@(W.Stack t ls rs) ->
+                    if t == w then
+                        case L.filter (isFloat ws) $ ls ++ rs of
+                        (nw:_) -> W.Stack nw (L.delete nw ls) $ (L.delete nw rs) ++ [w]
+                        _ -> stack
+                    else W.Stack t (L.delete w ls) $ (L.delete w rs) ++ [w]
+                before <- gets windowset
+                case W.stack $ W.workspace $ W.current before of
+                  Just (W.Stack t ls rs) -> spawn $ "echo 'After: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
+                  Nothing -> return ()
+            else return ())
         ] `additionalKeys` [
           ((mod4Mask .|. m, k), f i)
             | (i, k) <- zip originalWorkspaces $ [xK_1 .. xK_9] ++ [xK_0]
@@ -852,22 +871,55 @@ floatAvoidFocusUp' stackSet stack@(W.Stack t [] []) = stack
 floatAvoidFocusDown' stackSet = reverseStack . (floatAvoidFocusUp' stackSet) . reverseStack
 
 floatOnUp = withWindowSet(\s -> do
+--  before <- gets windowset
+--  case W.stack $ W.workspace $ W.current before of
+--    Just (W.Stack t ls rs) -> spawn $ "echo 'Current: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
+--    Nothing -> return ()
   case W.stack $ W.workspace $ W.current s of
     Just (W.Stack t ls rs)  -> do
-      if isFloat s t then return ()
+      if isFloat s t then
+          if (L.filter (isFloat s) ls) == [] then return ()
+          else focusedFloatOnUp
       else do
         let (rf, rs') = L.partition (isFloat s) rs
         let (lf, ls') = L.partition (isFloat s) $ L.dropWhile (isFloat s) ls
         if (rf ++ lf) == [] then return ()
         else floatOnUp'
+    Nothing -> return ()
+  before <- gets windowset
+  case W.stack $ W.workspace $ W.current before of
+    Just (W.Stack t ls rs) -> spawn $ "echo 'Current: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
     Nothing -> return ())
 
-floatOnUp' = windows (\s -> W.modify' (\stack@(W.Stack t ls rs) -> do
-    let (rf, rs') = L.partition (isFloat s) rs
+floatOnUp' = do
+--  before <- gets windowset
+--  case W.stack $ W.workspace $ W.current before of
+--    Just (W.Stack t ls rs) -> spawn $ "echo 'Before: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
+--    Nothing -> return ()
+  windows (\s -> W.modify' (\stack@(W.Stack t ls rs) -> do
+    let (rf, rs') = L.partition (isFloat s) $ L.reverse rs
     let lf' = L.takeWhile (isFloat s) ls
     let (lf, ls') = L.partition (isFloat s) $ L.dropWhile (isFloat s) ls
     if (rf ++ lf) == [] then stack
-    else W.Stack t (lf ++ lf' ++ rf ++ ls') rs') s)
+    else W.Stack t (rf ++ lf' ++ lf ++ ls') rs') s)
+--  before <- gets windowset
+--  case W.stack $ W.workspace $ W.current before of
+--    Just (W.Stack t ls rs) -> spawn $ "echo 'After: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
+--    Nothing -> return ()
+
+focusedFloatOnUp = do
+--  before <- gets windowset
+--  case W.stack $ W.workspace $ W.current before of
+--    Just (W.Stack t ls rs) -> spawn $ "echo 'Before: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
+--    Nothing -> return ()
+  windows (\s -> W.modify' (\stack@(W.Stack t ls rs) -> do
+    let (lf, ls') = L.partition (isFloat s) ls
+    if lf == [] then stack
+    else W.Stack t ls' $ (reverse lf) ++ rs) s)
+--  before <- gets windowset
+--  case W.stack $ W.workspace $ W.current before of
+--    Just (W.Stack t ls rs) -> spawn $ "echo 'After: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
+--    Nothing -> return ()
 
 isFloat stackSet window = M.member window $ W.floating stackSet
 
