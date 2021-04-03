@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 import XMonad
 import XMonad.Core
@@ -15,7 +17,9 @@ import XMonad.Hooks.DynamicLog
 import XMonad.Hooks.ManageDocks
 import XMonad.Layout.Fullscreen
 import XMonad.Layout.Gaps
+import qualified XMonad.Layout.LayoutModifier as LM
 import XMonad.Layout.LayoutScreens
+import XMonad.Layout.Mosaic
 import XMonad.Layout.MultiColumns
 import XMonad.Layout.MultiToggle
 import XMonad.Layout.MultiToggle.Instances
@@ -23,6 +27,7 @@ import XMonad.Layout.NoFrillsDecoration
 import XMonad.Layout.Renamed
 import XMonad.Layout.NoBorders
 import XMonad.Layout.ResizableTile
+import XMonad.Layout.TabBarDecoration
 import XMonad.Layout.TwoPane
 import XMonad.Layout.ThreeColumns
 import XMonad.Layout.SimpleDecoration
@@ -37,12 +42,14 @@ import XMonad.Util.NamedWindows
 import qualified XMonad.Util.ExtensibleState as XS
 import System.Exit
 import System.IO
+import Data.Bits
 import qualified Data.List as L
 import qualified Data.Map.Strict as M
 import Data.Maybe
+import qualified Data.Text as T
 import Data.Monoid
 import Control.Exception.Extensible as E
-import Control.Monad (foldM, filterM, mapM, forever)
+import Control.Monad (foldM, filterM, mapM, forever, mplus)
 import Control.Concurrent
 import qualified Text.Show as TS
 import Text.Parsec
@@ -50,6 +57,18 @@ import Text.Parsec.String (Parser)
 
 import System.Process (runInteractiveProcess, readProcess)
 import Codec.Binary.UTF8.String
+
+import XMonad.Layout.Circle
+import XMonad.Layout.OneBig
+import XMonad.Layout.GridVariants
+import XMonad.Layout.Roledex
+import XMonad.Layout.Accordion
+
+import Graphics.X11.Xlib
+import Graphics.X11.Xlib.Event
+import Graphics.X11.Xlib.Extras
+import Foreign
+import Foreign.C.Types
 
 black = "#4E4B42"
 brightBlack = "#635F54"
@@ -69,12 +88,12 @@ applications = [
  ("JetBrains ToolBox", "~/bin/jetbrains-toolbox-1.14.5179/jetbrains-toolbox"),
  ("IntelliJ Idea", "~/bin/idea"),
  ("PulseSecure", "/usr/local/pulse/pulseUi"),
- ("Slack", "slack")]
+ ("Slack", "slack"),
+ ("Tweetdeck", webApplication "https://tweetdeck.twitter.com/"),
+ ("YouTube", webApplication "https://youtube.com/"),
+ ("DAZN", webApplication "https://dazn.com/")]
 
-webApplications = [
- ("Tweetdeck", "https://tweetdeck.twitter.com/"),
- ("YouTube", "https://youtube.com/"),
- ("DAZN", "https://dazn.com/")]
+webApplication url = "vivaldi-stable --app=" ++ url
 
 systemActions = [
  ("Reload", myrestart),
@@ -96,16 +115,59 @@ myManageHookAll = manageHook gnomeConfig -- defaultConfig
                        <+> myScratchpadsManageHook
                        <+> (className =? "Dunst" --> doFloat)
                        <+> ((fmap (L.isSuffixOf ".onBottom") appName) --> onBottom)
+                       <+> (stringProperty "WM_WINDOW_ROLE" =? "GtkFileChooserDialog" --> onCenter' 0.1)
 myLayout = (ResizableTall 1 (3/100) (1/2) [])
-myLayoutHookAll = avoidStruts $
-                       toggleLayouts (renamed [Replace "■"] $ noBorders Full) $
+myLayoutHookAll = avoidStruts $ WindowViewableLayout Normal (noBorders $ AndroidLikeWindowView (1/7) (3/100) (1/30) (1/100)) $ 
+                       toggleLayouts ((renamed [Replace "■"] $ noBorders Full) ||| (noBorders $ AndroidLikeWindowView (1/6) (3/100) (1/30) (1/100))) $
 -- $                       ((renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout) ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout) ||| (renamed [Replace "田"] $ noFrillsDeco shrinkText mySDConfig $ multiCol [1] 4 0.01 0.5)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
-                       (   (renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout)
+                       (   (renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ MyModifiedLayout myLayout)
                        ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout)
-                       ||| (renamed [Replace "田"] $ multiCol [1] 4 0.01 0.5)
-                       ||| (renamed [Replace "M田"] $ Mirror $ multiCol [1] 4 0.01 0.5)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
+                       ||| (renamed [Replace "田"] $ MyModifiedLayout $ multiCol [1] 4 0.01 0.5)
+                       ||| (renamed [Replace "M田"] $ Mirror $ MyModifiedLayout $ multiCol [1] 4 0.01 0.5)
+                       ||| (Circle)
+                       ||| (OneBig (3/4) (3/4))
+                       ||| (SplitGrid XMonad.Layout.GridVariants.L 2 3 (2/3) (16/10) (5/100))
+                       ||| (ThreeColMid 1 (3/100) (1/2))
+                       ||| (Accordion)
+                       ||| (Roledex)
+                       ) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
 
 tall = Tall 1 (3/100) (1/2)
+
+myLogHook xmprocs = do
+    xmobarLogHook xmprocs
+    checkAndHandleDisplayChange moveMouseToLastPosition
+    floatOnUp
+
+xmobarLogHook xmprocs = withWindowSet (\s ->
+    L.foldl (>>) def (map (\(i, xmproc) -> do
+        OriginalDisplayIdToCurrentScreenId idToId <- XS.get
+--      originalScreenIdToCurrentScreenIdMap <- originalScreenIdToCurrentScreenId priorityDisplayEDIDs
+        let j = case M.lookup i idToId of
+                  Just j -> j
+                  Nothing -> i
+        dynamicLogWithPP (multiScreenXMobarPP s j xmproc)) (L.zip [0..(L.length xmprocs)] xmprocs)))
+
+--value_mask :: !CULong = (bit 2) (.|.) (bit 3)
+myHandleEventHook =
+    handleEventHook gnomeConfig <+>
+    docksEventHook <+>
+    myScratchpadsHandleEventHook <+>
+    (\e ->
+      case e of
+        (ConfigureRequestEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_x ev_y ev_width ev_height ev_border_width ev_above ev_detail ev_value_mask) -> do
+             spawn $ "echo '" ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
+             if testBit ev_value_mask 6 then
+                 windows (\s -> W.focusWindow ev_window s)
+             else return ()
+             return (All True)
+        _ -> return (All True)) <+>
+    (\e -> do
+             logCurrentMouseLocation
+             return (All True))
+
+myStartupHook =
+    startupHook gnomeConfig <+> docksStartupHook <+> configureMouse <+>  myrescreen priorityDisplayEDIDs
 
 watch :: String -> String -> IO ()
 watch cmd interval = spawn $ "while :; do " ++ cmd ++ "; sleep " ++ interval ++ "; done"
@@ -159,26 +221,13 @@ main = do
     xmonad $ gnomeConfig -- defaultConfig
         { manageHook = myManageHookAll
         , layoutHook =  myLayoutHookAll
-        , logHook = withWindowSet (\s -> L.foldl (>>) def (map (\(i, xmproc) -> do
-                                                                                  OriginalDisplayIdToCurrentScreenId idToId <- XS.get
---                                                                                  originalScreenIdToCurrentScreenIdMap <- originalScreenIdToCurrentScreenId priorityDisplayEDIDs
-                                                                                  let j = case M.lookup i idToId of
-                                                                                            Just j -> j
-                                                                                            Nothing -> i
-                                                                                  dynamicLogWithPP (multiScreenXMobarPP s j xmproc)) (L.zip [0..(L.length xmprocs)] xmprocs))) >> (checkAndHandleDisplayChange moveMouseToLastPosition)
-        , handleEventHook = handleEventHook gnomeConfig <+> docksEventHook <+> (\e -> do
-            logCurrentMouseLocation
-            return (All True))
-        , startupHook = startupHook gnomeConfig <+> docksStartupHook <+> configureMouse <+>  myrescreen priorityDisplayEDIDs -- <+> rescreen
+        , logHook = myLogHook xmprocs
+        , handleEventHook = myHandleEventHook
+        , startupHook = myStartupHook
         , modMask = mod4Mask     -- Rebind Mod to the Windows key
---        , borderWidth = 4
         , borderWidth = 4
---        , normalBorderColor  = "#587993" -- Java blue
---        , focusedBorderColor = "#e76f00" -- Java orange
-        , normalBorderColor  = blue -- NieR Automata normal
-        , focusedBorderColor = red -- NieR Automata forcused
---        , normalBorderColor  = "#b4af9a" -- NieR Automata normal
---        , focusedBorderColor = "#686458" -- NieR Automata forcused
+        , normalBorderColor  = blue
+        , focusedBorderColor = red
         , focusFollowsMouse = False -- マウスの移動でフォーカスが映らないように
         , clickJustFocuses = False
         , XMonad.Core.workspaces = myWorkspaces
@@ -208,6 +257,19 @@ main = do
         -- Full screen
         , ((mod4Mask, xK_f), sendMessage ToggleLayout)
 
+        -- Window view
+        , ((mod4Mask, xK_v), do
+                               broadcastMessage View
+                               XS.put WindowView
+                               refresh)
+        , ((mod4Mask .|. shiftMask, xK_v), do
+                               windowViewState <- XS.get
+                               XS.put Normal
+                               case windowViewState of
+                                 WindowView -> broadcastMessage Focus >> refresh
+                                 Normal -> sendMessage ToggleLayout)
+
+
         -- 水平のサイズ変更
         , ((mod4Mask, xK_i), sendMessage MirrorExpand)
         , ((mod4Mask, xK_m), sendMessage MirrorShrink)
@@ -215,8 +277,8 @@ main = do
 
         -- Window $ Workspace
         -- Emacs binding
-        , ((mod4Mask, xK_p), windows W.focusUp)
-        , ((mod4Mask, xK_n), windows W.focusDown)
+        , ((mod4Mask, xK_p), windows floatAvoidFocusUp)
+        , ((mod4Mask, xK_n), windows floatAvoidFocusDown)
         , ((mod4Mask .|. shiftMask, xK_p), windows W.swapUp)
         , ((mod4Mask .|. shiftMask, xK_n), windows W.swapDown)
         , ((mod4Mask .|. controlMask, xK_p), prevWS')
@@ -225,6 +287,11 @@ main = do
 --        , ((mod4Mask .|. controlMask .|. shiftMask, xK_n), shiftToNextWS' >> nextWS') -- TODO Fix
         , ((mod4Mask .|. mod1Mask, xK_p), prevScreen >> moveMouseToLastPosition)
         , ((mod4Mask .|. mod1Mask, xK_n), nextScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_p), shiftPrevScreen >> prevScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_n), shiftNextScreen >> nextScreen >> moveMouseToLastPosition)
+
+        , ((mod4Mask, xK_o), windows W.swapMaster)
+        , ((mod4Mask .|. shiftMask, xK_o), windows W.shiftMaster)
 
         -- Vim binding
         -- ワークスペースの移動
@@ -239,15 +306,23 @@ main = do
 
         -- Arrow key
         -- フォーカスの移動
-        , ((mod4Mask, xK_Up), windows W.focusUp)
-        , ((mod4Mask, xK_Left), prevWS')
-        , ((mod4Mask, xK_Down), windows W.focusDown)
-        , ((mod4Mask, xK_Right), nextWS')
+        , ((mod4Mask, xK_Up), windows floatAvoidFocusUp)
+        , ((mod4Mask, xK_Left), do
+                                  windowViewState <- XS.get
+                                  case windowViewState of
+                                    Normal -> prevWS'
+                                    WindowView -> windows floatAvoidFocusUp)
+        , ((mod4Mask, xK_Down), windows floatAvoidFocusDown)
+        , ((mod4Mask, xK_Right), do
+                                  windowViewState <- XS.get
+                                  case windowViewState of
+                                    Normal -> nextWS'
+                                    WindowView -> windows floatAvoidFocusDown)
         -- スワップ
         , ((mod4Mask .|. shiftMask, xK_Up), windows W.swapUp)
-        , ((mod4Mask .|. shiftMask, xK_Left), windows W.swapUp)
+        , ((mod4Mask .|. shiftMask, xK_Left), shiftToPrevWS' >> prevWS')
         , ((mod4Mask .|. shiftMask, xK_Down), windows W.swapDown)
-        , ((mod4Mask .|. shiftMask, xK_Right), windows W.swapDown)
+        , ((mod4Mask .|. shiftMask, xK_Right), shiftToNextWS' >> nextWS')
         -- ワーススペースの移動
         , ((mod4Mask .|. controlMask, xK_Up), prevWS')
         , ((mod4Mask .|. controlMask, xK_Left), prevWS')
@@ -269,7 +344,6 @@ main = do
         , ((mod4Mask .|. controlMask .|. shiftMask, xK_w), shiftSelected' anyWorkspacePredicate                         hidpiGSConfig)
 
         , ((mod4Mask, xK_e), spawnAppSelected hidpiGSConfig applications)
-        , ((mod4Mask .|. shiftMask, xK_e), spawnWebAppSelected hidpiGSConfig webApplications)
         ------------------------------------------------------------------------------------------------------------------------------------
 
         , ((mod4Mask, xK_at), withWindowSet (\s ->
@@ -377,8 +451,35 @@ main = do
 ------------------------------------------------------------------------------------------
 -- Scratchpad
 ------------------------------------------------------------------------------------------
-onTop = (customFloating $ W.RationalRect 0 0.02 1 0.48)
-onBottom = (customFloating $ W.RationalRect 0 0.5 1 0.5)
+
+strutsOffsetRatioTop = 0.02
+
+onTop = onTop' 0
+onTop' spaceRatio = onTop'' spaceRatio spaceRatio
+onTop'' spaceRatioV spaceRatioH = (customFloating $ W.RationalRect spaceRatioV (spaceRatioH + strutsOffsetRatioTop) (1-spaceRatioV*2) (0.5-spaceRatioH*2-strutsOffsetRatioTop))
+onBottom = onBottom' 0
+onBottom' spaceRatio = onBottom'' spaceRatio spaceRatio
+onBottom'' spaceRatioV spaceRatioH = (customFloating $ W.RationalRect spaceRatioV (0.5+spaceRatioH) (1-spaceRatioV*2) (0.5-spaceRatioH*2))
+onCenter = onCenter' 0
+onCenter' spaceRatio = onCenter'' spaceRatio spaceRatio
+onCenter'' spaceRatioV spaceRatioH = (customFloating $ W.RationalRect spaceRatioV (spaceRatioH + strutsOffsetRatioTop) (1-spaceRatioV*2) (1-spaceRatioH*2-strutsOffsetRatioTop))
+
+onTopTest = customFloating $ W.RationalRect 0 0 1 0.5
+
+avoidStrutsFloat = do
+  win <- ask
+  (sid, r) <- liftX $ floatLocation win
+  doF $ \ws ->
+      case L.find ((sid ==) . W.screen) $ W.screens ws of
+        Just sc ->
+          let Rectangle sx sy sw sh = screenRect $ W.screenDetail sc in
+          case M.lookup win $ W.floating ws of
+            Just (W.RationalRect x y w h) ->
+              W.float win (W.RationalRect x (y + (30/(fromIntegral sh))) w (h - (30/fromIntegral sh))) ws
+--              W.float win (W.RationalRect x (y + (strutsOffsetRatioTop)) w (h - strutsOffsetRatioTop)) ws
+--              ws
+            _ -> ws
+        _ -> ws
 
 javaHome = "~/bin/jdk-10.0.1/"
 jshellPath = javaHome ++ "/bin/jshell"
@@ -400,9 +501,8 @@ terminalScratchpad name execMaybe manageHook =
 
 myScratchpads :: [NamedScratchpad]
 myScratchpads = [
-    terminalScratchpad "mainterm" Nothing
-           (customFloating $ W.RationalRect 0.01 0.03 0.98 0.96)
-  , terminalScratchpad "term1" Nothing onTop
+    terminalScratchpad "mainterm" Nothing $ onCenter' 0.01
+  , terminalScratchpad "term1" Nothing (avoidStrutsFloat <+> onTopTest)
   , terminalScratchpad "term2" Nothing onBottom
   , terminalScratchpad "jshell1" (Just jshellPath) onTop
   , terminalScratchpad "jshell2" (Just jshellPath) onBottom
@@ -417,16 +517,56 @@ myScratchpads = [
   , NS "rhythmbox"
            "rhythmbox"
            (className =? "Rhythmbox")
-           (customFloating $ W.RationalRect 0 0.02 1 0.98)
+           onCenter
  ]
 
 myScratchpadsManageHook = namedScratchpadManageHook myScratchpads
+myScratchpadsHandleEventHook = namedScratchpadHandleEventHook myScratchpads
+
+data NamedScratchpadSendEventWindows = NamedScratchpadSendEventWindows [Window] deriving Typeable
+instance ExtensionClass NamedScratchpadSendEventWindows where
+  initialValue = NamedScratchpadSendEventWindows []
+
+namedScratchpadHandleEventHook scratchpads e@(ConfigureRequestEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_x ev_y ev_width ev_height ev_border_width ev_above ev_detail ev_value_mask) = do
+  isTarget <- isScratchpadWindow scratchpads ev_window
+  NamedScratchpadSendEventWindows ws <- XS.get
+  if ev_send_event then
+    XS.put $ NamedScratchpadSendEventWindows $ L.delete ev_window ws
+  else
+    if isTarget && (L.notElem ev_window ws) && (testBit ev_value_mask 2 || testBit ev_value_mask 3) then do
+      withWindowAttributes ev_event_display ev_window $ \WindowAttributes{wa_width = w, wa_height = h} ->
+        io $ allocaXEvent $ \ev -> do
+          setEventType ev configureRequest
+          setConfigureRequestEvent ev $ e {
+                                          ev_width = w,
+                                          ev_height = h
+                                        }
+          sendEvent ev_event_display ev_window False propertyChangeMask ev
+      XS.put $ NamedScratchpadSendEventWindows $ ev_window:ws
+    else return ()
+  return (All True)
+namedScratchpadHandleEventHook _ _ = return (All True)
+
+setConfigureRequestEvent ev (ConfigureRequestEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_x ev_y ev_width ev_height ev_border_width ev_above ev_detail ev_value_mask) = do
+    (\hsc_ptr -> pokeByteOff hsc_ptr 32) ev ev_parent
+    (\hsc_ptr -> pokeByteOff hsc_ptr 40) ev ev_window
+    (\hsc_ptr -> pokeByteOff hsc_ptr 48) ev ev_x
+    (\hsc_ptr -> pokeByteOff hsc_ptr 52) ev ev_y
+    (\hsc_ptr -> pokeByteOff hsc_ptr 56) ev ev_width
+    (\hsc_ptr -> pokeByteOff hsc_ptr 60) ev ev_height
+    (\hsc_ptr -> pokeByteOff hsc_ptr 64) ev ev_border_width
+    (\hsc_ptr -> pokeByteOff hsc_ptr 72) ev ev_above
+    (\hsc_ptr -> pokeByteOff hsc_ptr 80) ev ev_detail
+    (\hsc_ptr -> pokeByteOff hsc_ptr 88) ev ev_value_mask
 
 myNamedScratchpadAction = myNamedScratchpadActionInternal myScratchpads
 
-myNamedScratchpadActionInternal scratchpads n =
+myNamedScratchpadActionInternal scratchpads n = do
     namedScratchpadAction scratchpads n
-    >> withWindowSet (\s ->
+    myNamedScratchpadRelocationAction scratchpads n
+
+myNamedScratchpadRelocationAction scratchpads n = do
+      withWindowSet (\s ->
          case (W.peek s, L.find isSameName scratchpads) of
            (Just w, Just ns) -> do
              hook <- runQuery (hook ns) w
@@ -471,6 +611,13 @@ findCurrentAndNextScrachpadOf nss w =
                           else
                               findIt t
                    _ -> return (h, head t)
+
+isScratchpadWindow (s:ss) w = do
+  isTarget <- runQuery (query s) w
+  case isTarget of
+    True -> return True
+    False -> isScratchpadWindow ss w
+
 ------------------------------------------------------------------------------------------
 -- Scratchpad
 ------------------------------------------------------------------------------------------
@@ -680,6 +827,55 @@ dynamicMoving l acceleration delay =
 ------------------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------------------
+-- Float aware focus
+------------------------------------------------------------------------------------------
+
+floatAvoidFocusUp, floatAvoidFocusDown :: Ord a => W.StackSet i l a s sd -> W.StackSet i l a s sd
+floatAvoidFocusUp stackSet = W.modify' (floatAvoidFocusUp' stackSet) stackSet
+floatAvoidFocusDown stackSet = W.modify' (floatAvoidFocusDown' stackSet) stackSet
+
+floatAvoidFocusUp', floatAvoidFocusDown' :: Ord a => W.StackSet i l a s sd -> W.Stack a -> W.Stack a
+floatAvoidFocusUp' stackSet stack@(W.Stack t (l:ls) rs) =
+    if M.member l $ W.floating stackSet then
+        let W.Stack t' ls' rs' = floatAvoidFocusUp' stackSet (W.Stack t ls rs) in
+          W.Stack t' (l:ls') rs'
+    else W.Stack l ls (t:rs)
+floatAvoidFocusUp' stackSet stack@(W.Stack t [] rs) =
+    let (x:xs) = reverse rs in
+      if M.member x $ W.floating stackSet then
+          let W.Stack t' ls' rs' = floatAvoidFocusUp' stackSet (W.Stack t [] $ reverse xs) in
+            W.Stack t' (x:ls') rs'
+      else
+        W.Stack x (xs ++ [t]) []
+floatAvoidFocusUp' stackSet stack@(W.Stack t [] []) = stack
+
+floatAvoidFocusDown' stackSet = reverseStack . (floatAvoidFocusUp' stackSet) . reverseStack
+
+floatOnUp = withWindowSet(\s -> do
+  case W.stack $ W.workspace $ W.current s of
+    Just (W.Stack t ls rs)  -> do
+      if isFloat s t then return ()
+      else do
+        let (rf, rs') = L.partition (isFloat s) rs
+        let (lf, ls') = L.partition (isFloat s) $ L.dropWhile (isFloat s) ls
+        if (rf ++ lf) == [] then return ()
+        else floatOnUp'
+    Nothing -> return ())
+
+floatOnUp' = windows (\s -> W.modify' (\stack@(W.Stack t ls rs) -> do
+    let (rf, rs') = L.partition (isFloat s) rs
+    let lf' = L.takeWhile (isFloat s) ls
+    let (lf, ls') = L.partition (isFloat s) $ L.dropWhile (isFloat s) ls
+    if (rf ++ lf) == [] then stack
+    else W.Stack t (lf ++ lf' ++ rf ++ ls') rs') s)
+
+isFloat stackSet window = M.member window $ W.floating stackSet
+
+-- | reverse a stack: up becomes down and down becomes up.
+reverseStack :: W.Stack a -> W.Stack a
+reverseStack (W.Stack t ls rs) = W.Stack t rs ls
+
+------------------------------------------------------------------------------------------
 -- WorkspaceFamily
 ------------------------------------------------------------------------------------------
 notSP :: X (WindowSpace -> Bool)
@@ -709,9 +905,21 @@ prevWS' = withWindowSet(\s -> do
           )
 
 shiftToNextWS' :: X()
-shiftToNextWS' = shiftTo Next (WSIs notSP)
+shiftToNextWS' = withWindowSet(\s -> do
+            let wsid = W.tag $ W.workspace $ W.current s
+            if (wsid == "NSP") then
+                return ()
+            else
+                shiftTo Next $ WSIs $ currentWorkspaceFamily $ toFamilyId wsid
+          )
 shiftToPrevWS' :: X()
-shiftToPrevWS' = shiftTo Prev (WSIs notSP)
+shiftToPrevWS' = withWindowSet(\s -> do
+            let wsid = W.tag $ W.workspace $ W.current s
+            if (wsid == "NSP") then
+                return ()
+            else
+                shiftTo Prev $ WSIs $ currentWorkspaceFamily $ toFamilyId wsid
+          )
 
 originalWorkspaces = map show ([1 .. 9 :: Int] ++ [0])
 workspaceFamilies = map show ([1 .. 9 :: Int] ++ [0])
@@ -776,9 +984,24 @@ titleOfScreenId windowSet screenId =
                    Nothing -> def
       Nothing -> titleOfScreenId windowSet 0 -- optimize
 
+instance LM.LayoutModifier ResizableTall a where
+--    modifyDescription
+    modifyDescription (ResizableTall _nmaster _delta _frac _slaves) l = (show _nmaster) ++ "|" ++ (show _frac) ++ "|" ++ (show _slaves)
+
+instance LM.LayoutModifier MultiCol a where
+--    modifyDescription
+    modifyDescription m l = show m
+
 layoutOfScreenId windowSet screenId =
     case (L.find (\sc -> (W.screen sc) == S screenId) (W.screens windowSet)) of
-      Just sc -> description . W.layout . W.workspace $ sc
+      Just sc -> do
+        let layout = W.layout $ W.workspace sc
+        description layout
+--        case layout of
+--          Layout l -> case l of
+--                        ResizableTall _nmaster _delta _frac _slaves -> "yeah"
+--                        _ -> description layout
+--          _ -> description layout
       Nothing -> layoutOfScreenId windowSet 0 -- optimize
 
 --currentOfScreenId windowSet screenId = if (W.screen(W.current windowSet) == S screenId) then xmobarColor "#4E4B42" "#D9D3BA" . wrap " " " " else wrap "" ""
@@ -951,12 +1174,6 @@ spawnAppSelected conf apps = do
     Just command -> spawn $ command
     Nothing -> return ()
 
-spawnWebAppSelected conf webapps = do
-  maybeUrl <- gridselect conf webapps
-  case maybeUrl of
-    Just url -> spawn $ "vivaldi-stable --app=" ++ url
-    Nothing -> return ()
-
 runActionSelected conf actions = do
   maybeAction <- gridselect conf actions
   case maybeAction of
@@ -998,15 +1215,23 @@ scratchpadSelected config scratchpads = do
 
 mySDConfig = def {
 --               activeColor = "black"
-               activeColor = black
-             , inactiveColor = white
+--               activeColor = black
+--             , inactiveColor = white
+               activeColor = white
+             , inactiveColor = black
              , urgentColor = "white"
 --             , activeTextColor = "green"
-             , activeTextColor = white
-             , inactiveTextColor = black
+--             , activeTextColor = white
+--             , inactiveTextColor = black
+             , activeTextColor = black
+             , inactiveTextColor = white
              , urgentTextColor = "red"
-             , activeBorderColor = black
-             , inactiveBorderColor = white
+--             , activeBorderColor = black
+--             , inactiveBorderColor = white
+             , activeBorderColor = white
+--             , activeBorderWidth = 4
+             , inactiveBorderColor = black
+--             , inactiveBorderWidth = 4
              , urgentBorderColor = "pink"
              , decoHeight = 32
              , fontName = "xft:monospace-9:bold,Symbola-9:bold"
@@ -1027,7 +1252,7 @@ goToSelected' =
 
 shiftSelected' :: (WindowSet -> WindowSpace -> Bool) -> GSConfig Window -> X ()
 shiftSelected' =
-    withSelectedWindow' $ \w -> windows $ \s -> W.shiftWin (W.currentTag s) w s
+    withSelectedWindow' $ \w -> (windows $ \s -> W.shiftMaster $ W.focusWindow w $ W.shiftWin (W.currentTag s) w s)
 
 -- | Like `gridSelect' but with the current windows and their titles as elements
 gridselectWindow' :: (WindowSet -> WindowSpace -> Bool) -> GSConfig Window -> X (Maybe Window)
@@ -1107,14 +1332,20 @@ launchIntelliJTerminal =
           t <- runQuery title w
           case (parse intelliJInfo "/tmp/hoge" t) of
             Left e -> return ()
-            Right [project, dir] -> runScratchpadAction $ intelliJScrachpad (project ++ ".onBottom") (extractHomeDirectory dir) onBottom
-      else do
-          aname <- runQuery appName w
-          if L.isPrefixOf "bitter_fox.xmonad.intellij." aname then do
-             let name = L.drop (L.length "bitter_fox.xmonad.intellij.") aname
-             runScratchpadAction $ intelliJScrachpad name homeDirectory onBottom
-          else return ()
+            Right [project, dir] -> do
+                   let name = project ++ (T.unpack $ T.replace (T.pack "~") (T.pack "") $ T.replace (T.pack "/") (T.pack ".") $ T.pack dir) ++ ".onBottom"
+                   withWindowSet (\s -> L.foldr (>>) (return ()) $ L.map (hideIntelliJTerminal name) $ W.integrate' $ W.stack $ W.workspace $ W.current s)
+                   runScratchpadAction $ intelliJScrachpad name (extractHomeDirectory dir) onBottom
+      else withWindowSet (\s -> L.foldr (>>) (return ()) $ L.map (hideIntelliJTerminal "") $ W.integrate' $ W.stack $ W.workspace $ W.current s)
     )
+
+hideIntelliJTerminal exclude w = do
+  aname <- runQuery appName w
+  if L.isPrefixOf "bitter_fox.xmonad.intellij." aname then do
+    let name = L.drop (L.length "bitter_fox.xmonad.intellij.") aname
+    if name /= exclude then runScratchpadAction $ intelliJScrachpad name homeDirectory onBottom
+    else return ()
+  else return ()
 
 intelliJInfo :: Parser [String]
 intelliJInfo = do
@@ -1284,3 +1515,138 @@ checkAndHandleDisplayChange action =
             (XS.put $ LastScreenId $ Just $ W.screen $ W.current s) >>
             action
     )
+
+-- | The 'LayoutClass' instance for a 'ModifiedLayout' defines the
+--   semantics of a 'LayoutModifier' applied to an underlying layout.
+instance (LM.LayoutModifier l a, LayoutClass l a) => LayoutClass (MyModifiedLayout l) a where
+    runLayout (W.Workspace i (MyModifiedLayout l) ms) r =
+        do ((ws, ml'),mm')  <- LM.modifyLayoutWithUpdate l (W.Workspace i l ms) r
+           (ws', mm'') <- LM.redoLayout (maybe l id mm') r ms ws
+           let ml'' = case mm'' `mplus` mm' of
+                        Just m' -> Just $ MyModifiedLayout $ maybe l id ml'
+                        Nothing -> MyModifiedLayout `fmap` ml'
+           return (ws', ml'')
+
+    handleMessage (MyModifiedLayout l) mess =
+        do mm' <- LM.handleMessOrMaybeModifyIt l mess
+           ml' <- case mm' of
+                  Just (Right mess') -> handleMessage l mess'
+                  _ -> handleMessage l mess
+           return $ case mm' of
+                    Just (Left m') -> Just $ MyModifiedLayout $ maybe l id ml'
+                    _ -> MyModifiedLayout `fmap` ml'
+    description (MyModifiedLayout l) = LM.modifyDescription l l
+
+-- | A 'ModifiedLayout' is simply a container for a layout modifier
+--   combined with an underlying layout.  It is, of course, itself a
+--   layout (i.e. an instance of 'LayoutClass').
+data MyModifiedLayout l a = MyModifiedLayout (l a) deriving ( Read, Show )
+
+-- N.B. I think there is a Haddock bug here; the Haddock output for
+-- the above does not parenthesize (m a) and (l a), which is obviously
+-- incorrect.
+
+
+data AndroidLikeWindowView a = AndroidLikeWindowView {
+      spaceRatio :: !Rational
+    , spaceRatioInc :: !Rational
+    , gapRatioWindows :: !Rational
+    , deltaHeightRatio :: !Rational
+    } deriving ( Read, Show )
+
+instance LayoutClass AndroidLikeWindowView a where
+    pureLayout l rect (W.Stack focus up down) = (layoutFocus l rect focus) ++ (layoutUp l rect up) ++ (layoutDown l rect down)
+
+    pureMessage (AndroidLikeWindowView r i g d) m = case fromMessage m of
+                                                    Just Shrink -> Just $ AndroidLikeWindowView (r + i) i g d
+                                                    Just Expand -> Just $ AndroidLikeWindowView (r - i) i g d
+                                                    _ -> Nothing
+
+    description (AndroidLikeWindowView r i g d) = "AndroidLikeWindowView:" ++ (show r) ++ "," ++ (show g) ++ "," ++ (show d)
+
+spaceWidth (AndroidLikeWindowView spaceRatio _ _ _) (Rectangle _ _ w _) = floor $ fromIntegral w * spaceRatio
+spaceHeight (AndroidLikeWindowView spaceRatio _ _ _) (Rectangle _ _ _ h) = floor $ fromIntegral h * spaceRatio
+gapWidth (AndroidLikeWindowView _ _ gapRatio _) (Rectangle _ _ w _) = floor $ fromIntegral w * gapRatio
+deltaHeight (AndroidLikeWindowView _ _ _ deltaHeightRatio) (Rectangle _ _ _ h) = floor $ fromIntegral h * deltaHeightRatio
+
+layoutFocus l@(AndroidLikeWindowView frac _ spaceFrac spaceHeightFrac) r@(Rectangle x y w h) focus =
+    [(focus, Rectangle (x + fromIntegral sw) (y + fromIntegral sh) (w - sw * 2) (h - sh * 2))]
+    where sw = spaceWidth l r
+          sh = spaceHeight l r
+
+layoutUp l r@(Rectangle x y w h) (left:xs) =
+    [(left, Rectangle
+              (x + fromIntegral sw - fromIntegral width - fromIntegral gw)
+              (y + fromIntegral sh + fromIntegral dh)
+              (width)
+              (height))]
+    where sw = spaceWidth l r
+          sh = spaceHeight l r
+          gw = gapWidth l r
+          dh = deltaHeight l r
+          width = w - sw * 2
+          height = h - sh * 2 - (dh * 2)
+layoutUp l r [] = []
+
+layoutDown l r@(Rectangle x y w h) (right:xs) =
+    [(right, Rectangle
+               (x + fromIntegral sw + fromIntegral width + fromIntegral gw)
+               (y + fromIntegral sh + fromIntegral dh)
+               (width)
+               (height))]
+    where sw = spaceWidth l r
+          sh = spaceHeight l r
+          gw = gapWidth l r
+          dh = deltaHeight l r
+          width = w - sw * 2
+          height = h - sh * 2 - (dh * 2)
+layoutDown l r [] = []
+
+
+data WindowViewableLayout windowViewLayout layout a = WindowViewableLayout (WindowViewState) (windowViewLayout a) (layout a) deriving ( Read, Show )
+
+data WindowViewState = Normal | WindowView deriving ( Read, Show, Typeable )
+
+data WindowViewMessage = View | Focus deriving ( Typeable )
+instance Message WindowViewMessage
+
+instance (LayoutClass l1 a, LayoutClass l2 a) => LayoutClass (WindowViewableLayout l1 l2) a where
+    runLayout (W.Workspace i l@(WindowViewableLayout Normal l1' l2') ms) r = do
+      (ws, ml) <- runLayout (W.Workspace i l2' ms) r
+      case ml of
+        Just nl -> return (ws, Just (WindowViewableLayout Normal l1' nl))
+        Nothing -> return (ws, Just l)
+
+    runLayout (W.Workspace i l@(WindowViewableLayout WindowView l1' l2') ms) r = do
+      (ws, ml) <- runLayout (W.Workspace i l1' ms) r
+      case ml of
+        Just nl -> return (ws, Just (WindowViewableLayout WindowView nl l2'))
+        Nothing -> return (ws, Nothing)
+
+    handleMessage l@(WindowViewableLayout state l1 l2) mess = do
+      case fromMessage mess of
+        Just View -> do
+            handleMessage l2 $ SomeMessage Hide
+            return $ Just $ WindowViewableLayout WindowView l1 l2
+        Just Focus -> do
+            handleMessage l1 $ SomeMessage Hide
+            return $ Just $ WindowViewableLayout Normal l1 l2
+        other -> delegateHandleMessage l mess
+
+    description (WindowViewableLayout state l1 l2) = case state of
+                                         Normal -> "Normal" ++ (description l2)
+                                         WindowView -> "WindowView" ++ (description l1)
+
+delegateHandleMessage (WindowViewableLayout Normal l1 l2) mess = do
+  ml <- handleMessage l2 mess
+  case ml of
+    Just nl -> return $ Just (WindowViewableLayout Normal l1 nl)
+    Nothing -> return Nothing
+delegateHandleMessage (WindowViewableLayout WindowView l1 l2) mess = do
+  ml <- handleMessage l1 mess
+  case ml of
+    Just nl -> return $ Just (WindowViewableLayout WindowView nl l2)
+    Nothing -> return Nothing
+
+instance ExtensionClass WindowViewState where
+  initialValue = Normal

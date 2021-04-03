@@ -81,6 +81,8 @@ define_keymap(lambda wm_class: wm_class not in ("Emacs", "Gnome-terminal", "jetb
 
 define_keymap(lambda wm_class: wm_class in ("jetbrains-idea"), {
     # Cancel
-    K("C-g"): [K("esc"), set_mark(False)]
+    K("C-g"): [K("esc"), set_mark(False)],
+    K("M-n"): K("M-tab"),
+    K("M-p"): K("M-Shift-tab")
 }, "jetbrains-idea keys")
 
