@@ -71,6 +71,8 @@ import Graphics.X11.Xlib.Extras
 import Foreign
 import Foreign.C.Types
 
+import Data.Ord
+
 black = "#4E4B42"
 brightBlack = "#635F54"
 gray = "#B4AF9A"
@@ -238,7 +240,7 @@ main = do
           ((mod4Mask, xK_q), runActionSelected hidpiGSConfig systemActions)
         , ((mod4Mask, xK_r), withWindowSet (\ws -> do
                                                      let sid = W.screen $ W.current ws
-                                                     viewScreen 0 >> refresh >> myrescreen priorityDisplayEDIDs >> docksStartupHook >> viewScreen sid)) -- rescreen >> 
+                                                     viewScreen 0 >> refresh >> myrescreen priorityDisplayEDIDs >> docksStartupHook >> viewScreen sid)) -- rescreen >>
 --        , ((mod4Mask .|. shiftMask, xK_l), spawn "gnome-screensaver-command --lock") -- Lock
 --        , ((mod4Mask .|. shiftMask, xK_s), spawn "systemctl suspend") -- Lock & Suspend
 --        , ((mod4Mask .|. controlMask .|. shiftMask, xK_l), io (exitWith ExitSuccess)) -- Logout
@@ -278,7 +280,7 @@ main = do
         -- Emacs binding
         , ((mod4Mask, xK_p), windows floatAvoidFocusUp)
         , ((mod4Mask, xK_n), windows floatAvoidFocusDown)
-        , ((mod4Mask .|. shiftMask, xK_p), windows W.swapUp)
+        , ((mod4Mask .|. shiftMask, xK_p), windows floatAvoidSwapUp)
         , ((mod4Mask .|. shiftMask, xK_n), windows W.swapDown)
         , ((mod4Mask .|. controlMask, xK_p), prevWS')
         , ((mod4Mask .|. controlMask, xK_n), nextWS')
@@ -318,7 +320,7 @@ main = do
                                     Normal -> nextWS'
                                     WindowView -> windows floatAvoidFocusDown)
         -- スワップ
-        , ((mod4Mask .|. shiftMask, xK_Up), windows W.swapUp)
+        , ((mod4Mask .|. shiftMask, xK_Up), windows floatAvoidSwapUp)
         , ((mod4Mask .|. shiftMask, xK_Left), shiftToPrevWS' >> prevWS')
         , ((mod4Mask .|. shiftMask, xK_Down), windows W.swapDown)
         , ((mod4Mask .|. shiftMask, xK_Right), shiftToNextWS' >> nextWS')
@@ -335,6 +337,12 @@ main = do
 
         , ((mod4Mask, xK_space),               nextScreen >> moveMouseToLastPosition)
         , ((mod4Mask .|. shiftMask, xK_space), prevScreen >> moveMouseToLastPosition)
+
+        , ((mod4Mask, xK_t), do
+                               withWindowSet $ \s -> spawn $ "echo '" ++ (show $ sortedFloats' s) ++ "' >> /tmp/xmonad.debug.floats"
+                               windows floatFocusDown
+                               withWindowSet $ \s -> spawn $ "echo '" ++ (show $ W.integrate' $ W.stack $ W.workspace $ W.current s) ++ "' >> /tmp/xmonad.debug.floats")
+        , ((mod4Mask .|. shiftMask, xK_t), windows floatFocusUp)
 
         -- GridSelected
         , ((mod4Mask, xK_w),                               goToSelected'  anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
@@ -570,18 +578,21 @@ myScratchpads = [
  ]
 
 myScratchpadsManageHook = namedScratchpadManageHook myScratchpads
-myScratchpadsHandleEventHook = namedScratchpadHandleEventHook myScratchpads
+myScratchpadsHandleEventHook =
+    namedScratchpadHandleEventHook myScratchpads <+>
+    (keepWindowSizeHandleEventHook $ appName >>= return . L.isPrefixOf "bitter_fox.xmonad.intellij.")
 
 data NamedScratchpadSendEventWindows = NamedScratchpadSendEventWindows [Window] deriving Typeable
 instance ExtensionClass NamedScratchpadSendEventWindows where
   initialValue = NamedScratchpadSendEventWindows []
 
-namedScratchpadHandleEventHook scratchpads e@(ConfigureRequestEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_x ev_y ev_width ev_height ev_border_width ev_above ev_detail ev_value_mask) = do
-  isTarget <- isScratchpadWindow scratchpads ev_window
+namedScratchpadHandleEventHook scratchpads = keepWindowSizeHandleEventHook $ L.foldr (<||>) (return True) $ L.map query scratchpads
+keepWindowSizeHandleEventHook query e@(ConfigureRequestEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_x ev_y ev_width ev_height ev_border_width ev_above ev_detail ev_value_mask) = do
   NamedScratchpadSendEventWindows ws <- XS.get
   if ev_send_event then
     XS.put $ NamedScratchpadSendEventWindows $ L.delete ev_window ws
-  else
+  else do
+    isTarget <- runQuery query ev_window
     if isTarget && (L.notElem ev_window ws) && (testBit ev_value_mask 2 || testBit ev_value_mask 3) then do
       withWindowAttributes ev_event_display ev_window $ \WindowAttributes{wa_width = w, wa_height = h} ->
         io $ allocaXEvent $ \ev -> do
@@ -594,7 +605,7 @@ namedScratchpadHandleEventHook scratchpads e@(ConfigureRequestEvent ev_event_typ
       XS.put $ NamedScratchpadSendEventWindows $ ev_window:ws
     else return ()
   return (All True)
-namedScratchpadHandleEventHook _ _ = return (All True)
+keepWindowSizeHandleEventHook _ _ = return (All True)
 
 setConfigureRequestEvent ev (ConfigureRequestEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_x ev_y ev_width ev_height ev_border_width ev_above ev_detail ev_value_mask) = do
     (\hsc_ptr -> pokeByteOff hsc_ptr 32) ev ev_parent
@@ -896,15 +907,67 @@ floatAvoidFocusUp' stackSet stack@(W.Stack t [] rs) =
             W.Stack t' (x:ls') rs'
       else
         W.Stack x (xs ++ [t]) []
+
+--floatAvoidFocusUp' stackSet (W.Stack t ls rs) = do
+--  let (lf, ls') = L.partition (isFloat stackSet) ls
+--  let (rf, rs') = L.partition (isFloat stackSet) rs
+--  let W.Stack t' nls nrs = W.focusUp' $ W.Stack t ls' rs'
+--  W.Stack t' (lf ++ nls) (rf ++ nrs)
 floatAvoidFocusUp' stackSet stack@(W.Stack t [] []) = stack
 
 floatAvoidFocusDown' stackSet = reverseStack . (floatAvoidFocusUp' stackSet) . reverseStack
 
+floatAvoidSwapUp stackSet = W.modify' (floatAvoidSwapUp' stackSet) stackSet
+floatAvoidSwapUp' stackSet stack@(W.Stack t ls rs) =
+  if isFloat stackSet t then stack
+  else do
+    let (lf, ls') = span (isFloat stackSet) ls
+    let W.Stack t' nls nrs = swapUp' $ W.Stack t ls' rs
+    W.Stack t' nls ((reverse lf) ++ nrs)
+
+swapUp' :: W.Stack a -> W.Stack a
+swapUp'  (W.Stack t (l:ls) rs) = W.Stack t ls (l:rs)
+swapUp'  (W.Stack t []     rs) = W.Stack t (reverse rs) []
+
+floatFocusUp, floatFocusDown :: Ord a => W.StackSet i l a s sd -> W.StackSet i l a s sd
+floatFocusUp stackSet = W.modify' (floatFocusUp' stackSet) stackSet
+floatFocusDown stackSet = W.modify' (floatFocusDown' stackSet) stackSet
+
+floatFocusUp', floatFocusDown' :: Ord a => W.StackSet i l a s sd -> W.Stack a -> W.Stack a
+floatFocusUp' = floatFocusNext . sortedFloats
+
+floatFocusDown' = floatFocusNext . reverse . sortedFloats
+
+sortedFloats stackSet = L.map fst $ sortedFloats' stackSet
+sortedFloats' stackSet =
+    L.sortBy comparator floats
+        where floats = M.assocs $ W.floating stackSet
+              comparingX = comparing $ \(wid, W.RationalRect x y w h) -> x
+              comparingY = comparing $ \(wid, W.RationalRect x y w h) -> y
+              comparingW = comparing $ \(wid, W.RationalRect x y w h) -> w
+              comparingH = comparing $ \(wid, W.RationalRect x y w h) -> h
+              comparingWid = comparing $ \(wid, W.RationalRect x y w h) -> wid
+              comparator = comparingY `andThen` comparingX `andThen` comparingH `andThen` comparingW `andThen` comparingWid
+
+floatFocusNext floats stack@(W.Stack t ls rs) = do
+    let ws = (ls ++ rs)
+    let fs = L.filter (\w -> L.elem w ws) $ floats
+    if fs == [] then stack
+    else do
+      let fs' = takeWhile (/= t) fs
+      let w = if fs' == [] then last fs else last fs'
+      W.Stack w (L.delete w ls) $ t:(L.delete w rs)
+
+andThen cmp1 cmp2 a b = do
+  let c = cmp1 a b
+  if c == EQ then cmp2 a b
+  else c
+
 floatOnUp = withWindowSet(\s -> do
---  before <- gets windowset
---  case W.stack $ W.workspace $ W.current before of
---    Just (W.Stack t ls rs) -> spawn $ "echo 'Current: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
---    Nothing -> return ()
+  before <- gets windowset
+  case W.stack $ W.workspace $ W.current before of
+    Just (W.Stack t ls rs) -> spawn $ "echo 'Current: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
+    Nothing -> return ()
   case W.stack $ W.workspace $ W.current s of
     Just (W.Stack t ls rs)  -> do
       if isFloat s t then
@@ -915,27 +978,27 @@ floatOnUp = withWindowSet(\s -> do
         let (lf, ls') = L.partition (isFloat s) $ L.dropWhile (isFloat s) ls
         if (rf ++ lf) == [] then return ()
         else floatOnUp'
-    Nothing -> return ()
-  before <- gets windowset
-  case W.stack $ W.workspace $ W.current before of
-    Just (W.Stack t ls rs) -> spawn $ "echo 'Current: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
     Nothing -> return ())
-
-floatOnUp' = do
 --  before <- gets windowset
 --  case W.stack $ W.workspace $ W.current before of
---    Just (W.Stack t ls rs) -> spawn $ "echo 'Before: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
---    Nothing -> return ()
+--    Just (W.Stack t ls rs) -> spawn $ "echo 'Current: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
+--    Nothing -> return ())
+
+floatOnUp' = do
+  before <- gets windowset
+  case W.stack $ W.workspace $ W.current before of
+    Just (W.Stack t ls rs) -> spawn $ "echo 'Before: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
+    Nothing -> return ()
   windows (\s -> W.modify' (\stack@(W.Stack t ls rs) -> do
     let (rf, rs') = L.partition (isFloat s) $ L.reverse rs
     let lf' = L.takeWhile (isFloat s) ls
     let (lf, ls') = L.partition (isFloat s) $ L.dropWhile (isFloat s) ls
     if (rf ++ lf) == [] then stack
-    else W.Stack t (rf ++ lf' ++ lf ++ ls') rs') s)
---  before <- gets windowset
---  case W.stack $ W.workspace $ W.current before of
---    Just (W.Stack t ls rs) -> spawn $ "echo 'After: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
---    Nothing -> return ()
+    else W.Stack t (rf ++ lf' ++ lf ++ ls') $ reverse rs') s)
+  before <- gets windowset
+  case W.stack $ W.workspace $ W.current before of
+    Just (W.Stack t ls rs) -> spawn $ "echo 'After: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
+    Nothing -> return ()
 
 focusedFloatOnUp = do
 --  before <- gets windowset
