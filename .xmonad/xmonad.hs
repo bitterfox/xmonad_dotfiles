@@ -118,6 +118,8 @@ myManageHookAll = manageHook gnomeConfig -- defaultConfig
                        <+> myScratchpadsManageHook
                        <+> ((fmap (L.isSuffixOf ".onBottom") appName) --> onBottom)
                        <+> (stringProperty "WM_WINDOW_ROLE" =? "GtkFileChooserDialog" --> onCenter' 0.1)
+                       <+> ((className =? "jetbrains-idea") <&&> (title =? "win0") --> doFloat)
+
 myLayout = (ResizableTall 1 (3/100) (1/2) [])
 myLayoutHookAll = avoidStruts $ WindowViewableLayout Normal (noBorders $ AndroidLikeWindowView (1/7) (3/100) (1/30) (1/100)) $
                        toggleLayouts (renamed [Replace "■"] $ noBorders Full) $
@@ -159,7 +161,7 @@ myHandleEventHook =
     (\e ->
       case e of
         (ConfigureRequestEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_x ev_y ev_width ev_height ev_border_width ev_above ev_detail ev_value_mask) -> do
-             spawn $ "echo '" ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
+--             spawn $ "echo '" ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
              if testBit ev_value_mask 6 then
                  windows (\s -> W.focusWindow ev_window s)
              else return ()
@@ -167,6 +169,9 @@ myHandleEventHook =
         _ -> return (All True)) <+>
     (\e -> do
              logCurrentMouseLocation
+             return (All True)) <+>
+    (\e -> do
+--             spawn $ "echo '" ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
              return (All True))
 
 myStartupHook =
@@ -343,6 +348,7 @@ main = do
                                windows floatFocusDown
                                withWindowSet $ \s -> spawn $ "echo '" ++ (show $ W.integrate' $ W.stack $ W.workspace $ W.current s) ++ "' >> /tmp/xmonad.debug.floats")
         , ((mod4Mask .|. shiftMask, xK_t), windows floatFocusUp)
+--        , ((mod4Mask .|. controlMask, xK_t), withDisplay $ \dpy -> withWindowSet $ \ws -> io $ setWindowBorderWidth dpy (head $ W.integrate' $ W.stack $ W.workspace $ W.current ws) 0)
 
         -- GridSelected
         , ((mod4Mask, xK_w),                               goToSelected'  anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
@@ -428,7 +434,8 @@ main = do
           (mod4Mask .|. shiftMask, xK_q)
 --        , (mod4Mask, xK_q)
         ] `additionalMouseBindings` [
-          ((mod4Mask .|. controlMask, button1), \w -> focus w >> Flex.mouseResizeWindow w
+          ((mod4Mask, button1), \w -> focus w >> mouseMoveWindow w)
+        , ((mod4Mask .|. controlMask, button1), \w -> focus w >> Flex.mouseResizeWindow w
                                                               >> windows W.shiftMaster)
         , ((mod4Mask, button3), \w -> do
             ws <- gets windowset
@@ -586,7 +593,7 @@ data NamedScratchpadSendEventWindows = NamedScratchpadSendEventWindows [Window] 
 instance ExtensionClass NamedScratchpadSendEventWindows where
   initialValue = NamedScratchpadSendEventWindows []
 
-namedScratchpadHandleEventHook scratchpads = keepWindowSizeHandleEventHook $ L.foldr (<||>) (return True) $ L.map query scratchpads
+namedScratchpadHandleEventHook scratchpads = keepWindowSizeHandleEventHook $ L.foldr (<||>) (return False) $ L.map query scratchpads
 keepWindowSizeHandleEventHook query e@(ConfigureRequestEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_x ev_y ev_width ev_height ev_border_width ev_above ev_detail ev_value_mask) = do
   NamedScratchpadSendEventWindows ws <- XS.get
   if ev_send_event then
@@ -605,6 +612,7 @@ keepWindowSizeHandleEventHook query e@(ConfigureRequestEvent ev_event_type ev_se
       XS.put $ NamedScratchpadSendEventWindows $ ev_window:ws
     else return ()
   return (All True)
+
 keepWindowSizeHandleEventHook _ _ = return (All True)
 
 setConfigureRequestEvent ev (ConfigureRequestEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_x ev_y ev_width ev_height ev_border_width ev_above ev_detail ev_value_mask) = do
