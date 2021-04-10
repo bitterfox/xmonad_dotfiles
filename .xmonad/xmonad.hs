@@ -188,30 +188,24 @@ watch :: String -> String -> IO ()
 watch cmd interval = spawn $ "while :; do " ++ cmd ++ "; sleep " ++ interval ++ "; done"
 
 main = do
+    -- Display
     runProcessWithInputAndWait "sh" ["-c", "sh '/home/bitterfox/.xmonad/auto_detect_display.sh' >> /tmp/debug"] "" (seconds 1)
-    spawn $ "mkdir -p " ++ mouseLogDir
 
---    watch "xmodmap ~/.xmodmap" "0.3"
+    -- Keyboard and Mouse
+    spawn $ "mkdir -p " ++ mouseLogDir
     spawn "xhost +SI:localuser:root; sleep 1; sudo xkeysnail --watch -q ~/config.py & sleep 1; xset r rate 250 50"
     spawn "sudo libinput-gestures"
 
+    -- Desktop
     spawn "nautilus-desktop --force" -- デスクトップを読み込む
 
---    spawn "killall trayer ; sleep 2 ; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 10 --widthtype percent --transparent false --tint 0x000000 --height 22" -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
-
---    spawn "gnome-power-manager"
+    -- Applets
     spawn "nm-applet" -- ネット接続のアプレットを起動
---    spawn "gnome-sound-applet" -- gnome-volume-control-applet? -- ボリューム変更のアプレットを起動
---    spawn "bluetooth-applet"
---    spawn "sparkleshare restart"
---  spawn "/opt/toggldesktop/TogglDesktop.sh"
     spawn "fcitx"
-
     -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
---    spawn "sleep 5; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 0; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 1 ;dropbox start"
---    spawn "sleep 5; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 28 --alpha 0 --monitor 0"
     spawn "sleep 5; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 30 --alpha 0 --monitor 0"
 
+    -- Workaround for Java apps
     spawn "wmname LG3D"
 
 --    spawn "compton -b --config ~/.comptonrc"
@@ -222,15 +216,10 @@ main = do
     spawn $ "echo '" ++ (show numDisplay) ++ "' > /tmp/test"
     spawn $ "xrandr --query | grep -c '\\bconnected\\b' >> /tmp/test"
     xmprocs <- mapM (\displayId -> spawnPipe $ "/usr/bin/xmobar " ++ (if displayId == 0 then "" else "-p Top -x " ++ (show displayId)) ++ " ~/.xmobarrc") [0..numDisplay-1]
---    spawn "xrandr  --verbose --output eDP-1 --off; xrandr  --verbose --output eDP-1 --auto"
---    spawn "sleep 1; gnome-session; xinput --set-prop 12 'libinput Accel Speed' 0.791367"
+
     spawn "gnome-screensaver"
---    spawn "pulseaudio --start"
     spawn "pulseeffects --gapplication-service"
-
     spawn "killall dunst"
---    spawn "xrandr --verbose --output DP-3 --rotate right"
-
     xmonad $ gnomeConfig -- defaultConfig
         { manageHook = myManageHookAll
         , layoutHook =  myLayoutHookAll
