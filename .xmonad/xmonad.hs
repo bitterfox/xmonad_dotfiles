@@ -1804,9 +1804,10 @@ instance (LayoutClass l1 a, LayoutClass l2 a) => LayoutClass (WindowViewableLayo
             return $ Just $ WindowViewableLayout Normal l1 l2
         other -> delegateHandleMessage l mess
 
-    description (WindowViewableLayout state l1 l2) = case state of
-                                         Normal -> "Normal" ++ (description l2)
-                                         WindowView -> "WindowView" ++ (description l1)
+    description (WindowViewableLayout state l1 l2) = description l2
+--      case state of
+--        Normal -> "Normal" ++ (description l2)
+--        WindowView -> "WindowView" ++ (description l1)
 
 delegateHandleMessage (WindowViewableLayout Normal l1 l2) mess = do
   ml <- handleMessage l2 mess
