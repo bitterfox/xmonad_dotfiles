@@ -488,6 +488,59 @@ main = do
 -- Libraries
 
 ------------------------------------------------------------------------------------------
+-- XLib
+------------------------------------------------------------------------------------------
+setConfigureRequestEvent ev (ConfigureRequestEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_x ev_y ev_width ev_height ev_border_width ev_above ev_detail ev_value_mask) = do
+    (\hsc_ptr -> pokeByteOff hsc_ptr 32) ev ev_parent
+    (\hsc_ptr -> pokeByteOff hsc_ptr 40) ev ev_window
+    (\hsc_ptr -> pokeByteOff hsc_ptr 48) ev ev_x
+    (\hsc_ptr -> pokeByteOff hsc_ptr 52) ev ev_y
+    (\hsc_ptr -> pokeByteOff hsc_ptr 56) ev ev_width
+    (\hsc_ptr -> pokeByteOff hsc_ptr 60) ev ev_height
+    (\hsc_ptr -> pokeByteOff hsc_ptr 64) ev ev_border_width
+    (\hsc_ptr -> pokeByteOff hsc_ptr 72) ev ev_above
+    (\hsc_ptr -> pokeByteOff hsc_ptr 80) ev ev_detail
+    (\hsc_ptr -> pokeByteOff hsc_ptr 88) ev ev_value_mask
+------------------------------------------------------------------------------------------
+-- XLib
+------------------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------------------
+-- ManageHook
+------------------------------------------------------------------------------------------
+strutsOffsetRatioTop = 0.02
+
+onTop = onTop' 0
+onTop' spaceRatio = onTop'' spaceRatio spaceRatio
+onTop'' spaceRatioV spaceRatioH = (customFloating $ W.RationalRect spaceRatioV (spaceRatioH + strutsOffsetRatioTop) (1-spaceRatioV*2) (0.5-spaceRatioH*2-strutsOffsetRatioTop))
+onBottom = onBottom' 0
+onBottom' spaceRatio = onBottom'' spaceRatio spaceRatio
+onBottom'' spaceRatioV spaceRatioH = (customFloating $ W.RationalRect spaceRatioV (0.5+spaceRatioH) (1-spaceRatioV*2) (0.5-spaceRatioH*2))
+onCenter = onCenter' 0
+onCenter' spaceRatio = onCenter'' spaceRatio spaceRatio
+onCenter'' spaceRatioV spaceRatioH = (customFloating $ W.RationalRect spaceRatioV (spaceRatioH + strutsOffsetRatioTop) (1-spaceRatioV*2) (1-spaceRatioH*2-strutsOffsetRatioTop))
+
+onTopTest = customFloating $ W.RationalRect 0 0 1 0.5
+
+avoidStrutsFloat = do
+  win <- ask
+  (sid, r) <- liftX $ floatLocation win
+  doF $ \ws ->
+      case L.find ((sid ==) . W.screen) $ W.screens ws of
+        Just sc ->
+          let Rectangle sx sy sw sh = screenRect $ W.screenDetail sc in
+          case M.lookup win $ W.floating ws of
+            Just (W.RationalRect x y w h) ->
+              W.float win (W.RationalRect x (y + (30/(fromIntegral sh))) w (h - (30/fromIntegral sh))) ws
+--              W.float win (W.RationalRect x (y + (strutsOffsetRatioTop)) w (h - strutsOffsetRatioTop)) ws
+--              ws
+            _ -> ws
+        _ -> ws
+------------------------------------------------------------------------------------------
+-- ManageHook
+------------------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------------------
 -- Support for notification (_NET_WM_STATE = _NET_WM_STATE_ABOVE) to be always on top
 ------------------------------------------------------------------------------------------
 aboveStateWindowsOnTop = do
@@ -522,36 +575,6 @@ windowsWithWmState' atom dpy [] = return []
 ------------------------------------------------------------------------------------------
 -- Scratchpad
 ------------------------------------------------------------------------------------------
-
-strutsOffsetRatioTop = 0.02
-
-onTop = onTop' 0
-onTop' spaceRatio = onTop'' spaceRatio spaceRatio
-onTop'' spaceRatioV spaceRatioH = (customFloating $ W.RationalRect spaceRatioV (spaceRatioH + strutsOffsetRatioTop) (1-spaceRatioV*2) (0.5-spaceRatioH*2-strutsOffsetRatioTop))
-onBottom = onBottom' 0
-onBottom' spaceRatio = onBottom'' spaceRatio spaceRatio
-onBottom'' spaceRatioV spaceRatioH = (customFloating $ W.RationalRect spaceRatioV (0.5+spaceRatioH) (1-spaceRatioV*2) (0.5-spaceRatioH*2))
-onCenter = onCenter' 0
-onCenter' spaceRatio = onCenter'' spaceRatio spaceRatio
-onCenter'' spaceRatioV spaceRatioH = (customFloating $ W.RationalRect spaceRatioV (spaceRatioH + strutsOffsetRatioTop) (1-spaceRatioV*2) (1-spaceRatioH*2-strutsOffsetRatioTop))
-
-onTopTest = customFloating $ W.RationalRect 0 0 1 0.5
-
-avoidStrutsFloat = do
-  win <- ask
-  (sid, r) <- liftX $ floatLocation win
-  doF $ \ws ->
-      case L.find ((sid ==) . W.screen) $ W.screens ws of
-        Just sc ->
-          let Rectangle sx sy sw sh = screenRect $ W.screenDetail sc in
-          case M.lookup win $ W.floating ws of
-            Just (W.RationalRect x y w h) ->
-              W.float win (W.RationalRect x (y + (30/(fromIntegral sh))) w (h - (30/fromIntegral sh))) ws
---              W.float win (W.RationalRect x (y + (strutsOffsetRatioTop)) w (h - strutsOffsetRatioTop)) ws
---              ws
-            _ -> ws
-        _ -> ws
-
 javaHome = "~/bin/jdk-10.0.1/"
 jshellPath = javaHome ++ "/bin/jshell"
 
@@ -621,18 +644,6 @@ keepWindowSizeHandleEventHook query e@(ConfigureRequestEvent ev_event_type ev_se
   return (All True)
 
 keepWindowSizeHandleEventHook _ _ = return (All True)
-
-setConfigureRequestEvent ev (ConfigureRequestEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_x ev_y ev_width ev_height ev_border_width ev_above ev_detail ev_value_mask) = do
-    (\hsc_ptr -> pokeByteOff hsc_ptr 32) ev ev_parent
-    (\hsc_ptr -> pokeByteOff hsc_ptr 40) ev ev_window
-    (\hsc_ptr -> pokeByteOff hsc_ptr 48) ev ev_x
-    (\hsc_ptr -> pokeByteOff hsc_ptr 52) ev ev_y
-    (\hsc_ptr -> pokeByteOff hsc_ptr 56) ev ev_width
-    (\hsc_ptr -> pokeByteOff hsc_ptr 60) ev ev_height
-    (\hsc_ptr -> pokeByteOff hsc_ptr 64) ev ev_border_width
-    (\hsc_ptr -> pokeByteOff hsc_ptr 72) ev ev_above
-    (\hsc_ptr -> pokeByteOff hsc_ptr 80) ev ev_detail
-    (\hsc_ptr -> pokeByteOff hsc_ptr 88) ev ev_value_mask
 
 myNamedScratchpadAction = myNamedScratchpadActionInternal myScratchpads
 
@@ -1374,24 +1385,14 @@ scratchpadSelected config scratchpads = do
     myNamedScratchpadActionMaybe scratchpadMaybe
 
 mySDConfig = def {
---               activeColor = "black"
---               activeColor = black
---             , inactiveColor = white
                activeColor = white
              , inactiveColor = black
              , urgentColor = "white"
---             , activeTextColor = "green"
---             , activeTextColor = white
---             , inactiveTextColor = black
              , activeTextColor = black
              , inactiveTextColor = white
              , urgentTextColor = "red"
---             , activeBorderColor = black
---             , inactiveBorderColor = white
              , activeBorderColor = white
---             , activeBorderWidth = 4
              , inactiveBorderColor = black
---             , inactiveBorderWidth = 4
              , urgentBorderColor = "pink"
              , decoHeight = 32
              , fontName = "xft:monospace-9:bold,Symbola-9:bold"
@@ -1936,20 +1937,23 @@ class Terminal t where
     terminalLogHook t as = do
       CurrentTerminalAction ma <- XS.get
       case ma of
-        Just (action, inFile, outFile, Initialize) -> do
+        Just (action, inFile, outFile, Initialize) ->
           withFocused $ \fw -> do
             isTarget <- runQuery (terminalQuery t action) fw
             if isTarget then do
               XS.put $ CurrentTerminalAction $ Just (action, inFile, outFile, Started)
               dontBorder fw
             else return ()
-        Just (action, inFile, outFile, Started) -> do
-          -- FIXME withFocused doesn't work well when move to workspace without windows
-          withFocused $ \fw -> do
-            isTarget <- runQuery (terminalQuery t action) fw
-            if not isTarget then do
-              closeTerminalAction t action inFile outFile True
-            else return ()
+        Just (action, inFile, outFile, Started) ->
+          withWindowSet $ \ws -> do
+            let stack = W.stack $ W.workspace $ W.current ws
+            case stack of
+              Just (W.Stack {W.focus = fw}) -> do
+                isTarget <- runQuery (terminalQuery t action) fw
+                if not isTarget then do
+                  closeTerminalAction t action inFile outFile True
+                else return ()
+              Nothing -> closeTerminalAction t action inFile outFile True
         _ -> return ()
        where findTerminalAction as name = L.find ((name ==) . actionName) as
              dontBorder w = withDisplay $ \dpy -> io $ setWindowBorderWidth dpy w 0
