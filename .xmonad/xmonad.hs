@@ -1991,17 +1991,17 @@ instance Terminal GnomeTerminal where
 
 myTerminal = GnomeTerminal "xmonad.terminal.action"
 selectWindowTerminalActionTemplate =
-  (terminalActionTemplate "select.window" "/home/bitterfox/.xmonad/terminal_actions/select_window.sh" terminalActionManageHook)
+  (terminalActionTemplate "select.window" "~/.xmonad/terminal_actions/select_window.sh" terminalActionManageHook)
   .| withFirstLine .|| words .|| head .|| read
 selectActionTerminalActionTemplate =
-  (terminalActionTemplate "select.action" "/home/bitterfox/.xmonad/terminal_actions/select_action.sh" terminalActionManageHook)
+  (terminalActionTemplate "select.action" "~/.xmonad/terminal_actions/select_action.sh" terminalActionManageHook)
   .| withFirstLine
 dmenuRunTerminalAction =
-  (terminalActionTemplate "dmenu.run" "/home/bitterfox/.xmonad/terminal_actions/dmenu_run.sh" terminalActionManageHook)
+  (terminalActionTemplate "dmenu.run" "~/.xmonad/terminal_actions/dmenu_run.sh" terminalActionManageHook)
   .| withFirstLine .>> spawn
 
 myTerminalActions = [
-   (terminalActionTemplate "open.intellij" "/home/bitterfox/.xmonad/terminal_actions/open_intellij.sh" terminalActionManageHook)
+   (terminalActionTemplate "open.intellij" "~/.xmonad/terminal_actions/open_intellij.sh" terminalActionManageHook)
    .| withFirstLine .|| ((intellijCommand ++ " ") ++) .>> spawn
   , dmenuRunTerminalAction
   , selectWindowTerminalActionTemplate .>| ()
