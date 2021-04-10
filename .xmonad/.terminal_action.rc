@@ -1,0 +1,3 @@
+#!/bin/zsh
+
+export FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --color='bg:#DAD4BB,bg+:#4E4B42,fg:#4E4B42,fg+:#DAD4BB,hl:#3BA99F:underline:bold,hl+:#3BA99F:underline:bold,gutter:#4E4B42,pointer:#CC654C,prompt:#DAD4BB,spinner:#3BA99F,border:#B4AF9A,header:#3BA99F:reverse:bold,info:#B4AF9A'"

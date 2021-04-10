@@ -43,6 +43,8 @@ import XMonad.Util.NamedWindows
 import qualified XMonad.Util.ExtensibleState as XS
 import System.Exit
 import System.IO
+import System.IO.Error hiding (catch)
+import System.Directory
 import Data.Bits
 import qualified Data.List as L
 import qualified Data.Map.Strict as M
@@ -81,6 +83,8 @@ white = "#DAD4BB"
 red = "#CC654C"
 blue = "#3BA99F"
 
+intellijCommand = "~/bin/idea"
+
 applications = [
  ("Vivaldi (Web browser)", "vivaldi"),
  ("Nautilus (File browser)", "nautilus"),
@@ -89,7 +93,7 @@ applications = [
  ("Configuration", "XDG_CURRENT_DESKTOP=GNOME gnome-control-center"),
  ("LibreOffice", "libreoffice"),
  ("JetBrains ToolBox", "~/bin/jetbrains-toolbox-1.14.5179/jetbrains-toolbox"),
- ("IntelliJ Idea", "~/bin/idea"),
+ ("IntelliJ Idea", intellijCommand),
  ("PulseSecure", "/usr/local/pulse/pulseUi"),
  ("Slack", "slack"),
  ("Tweetdeck", webApplication "https://tweetdeck.twitter.com/"),
@@ -116,6 +120,7 @@ priorityDisplayEDIDs = [
 myManageHookAll = manageHook gnomeConfig -- defaultConfig
                        <+> manageDocks
                        <+> myScratchpadsManageHook
+                       <+> terminalManageHook myTerminal myTerminalActions
                        <+> ((fmap (L.isSuffixOf ".onBottom") appName) --> onBottom)
                        <+> (stringProperty "WM_WINDOW_ROLE" =? "GtkFileChooserDialog" --> onCenter' 0.1)
                        <+> ((className =? "jetbrains-idea") <&&> (title =? "win0") --> doFloat)
@@ -143,6 +148,7 @@ myLogHook xmprocs = do
     checkAndHandleDisplayChange moveMouseToLastPosition
     floatOnUp
     aboveStateWindowsOnTop
+    terminalLogHook myTerminal myTerminalActions
 
 xmobarLogHook xmprocs = withWindowSet (\s ->
     L.foldl (>>) def (map (\(i, xmproc) -> do
@@ -158,6 +164,7 @@ myHandleEventHook =
     handleEventHook gnomeConfig <+>
     docksEventHook <+>
     myScratchpadsHandleEventHook <+>
+    myTerminalActionHandleEventHook <+>
     (\e ->
       case e of
         (ConfigureRequestEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_x ev_y ev_width ev_height ev_border_width ev_above ev_detail ev_value_mask) -> do
@@ -351,10 +358,13 @@ main = do
 --        , ((mod4Mask .|. controlMask, xK_t), withDisplay $ \dpy -> withWindowSet $ \ws -> io $ setWindowBorderWidth dpy (head $ W.integrate' $ W.stack $ W.workspace $ W.current ws) 0)
 
         -- GridSelected
-        , ((mod4Mask, xK_w),                               goToSelected'  anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
-        , ((mod4Mask .|. controlMask, xK_w),               goToSelected'  anyWorkspacePredicate                         hidpiGSConfig)
-        , ((mod4Mask .|. shiftMask, xK_w),                 shiftSelected' anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_w), shiftSelected' anyWorkspacePredicate                         hidpiGSConfig)
+--        , ((mod4Mask, xK_w),                               goToSelected'  anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
+--        , ((mod4Mask .|. controlMask, xK_w),               goToSelected'  anyWorkspacePredicate                         hidpiGSConfig)
+--        , ((mod4Mask .|. shiftMask, xK_w),                 shiftSelected' anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
+--        , ((mod4Mask .|. controlMask .|. shiftMask, xK_w), shiftSelected' anyWorkspacePredicate                         hidpiGSConfig)
+        -- TerminalAction
+        , ((mod4Mask, xK_w),                               goToSelectedTerminalAction  anyWorkspaceInCurrentWorkspaceFamilyPredicate)
+        , ((mod4Mask .|. controlMask, xK_w),               goToSelectedTerminalAction  anyWorkspacePredicate                        )
 
         , ((mod4Mask, xK_e), spawnAppSelected hidpiGSConfig applications)
         ------------------------------------------------------------------------------------------------------------------------------------
@@ -366,11 +376,7 @@ main = do
                                                    spawn $ "dmenu_run -i -fn monospace-10:bold -l " ++ lines ++ " -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖'"))
 --                                                   spawn $ "dmenu_run -i -fn monospace-10:bold -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖'"))
         , ((mod4Mask .|. shiftMask, xK_at), spawn "gmrun")
-        , ((mod4Mask, xK_colon), withWindowSet (\s ->
-                                                 do
-                                                   let rect = screenRect $ W.screenDetail $ W.current s
-                                                   let lines = show $ truncate $ (fromIntegral $ rect_height rect) / 30 - 1
-                                                   spawn $ "~/.xmonad/list_intellij_projects.sh '2020.2' '" ++ lines ++ "' | sed -r 's/(.*\\/([^\\/]+)$)/\\2 \\1/' | sort  | dmenu -i -fn monospace-10:bold -l " ++ lines ++ " -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖ IntelliJ IDEA' | { read line; if [ -n \"$line\" ]; then echo \"$line\" | awk '{print $2}' | xargs ~/bin/idea; fi }"))
+        , ((mod4Mask, xK_colon), openIntelliJTerminalAction)
 
         -- Scratchpad
         , ((mod4Mask, xK_Return), myNamedScratchpadAction "mainterm")
@@ -1803,3 +1809,188 @@ delegateHandleMessage (WindowViewableLayout WindowView l1 l2) mess = do
 
 instance ExtensionClass WindowViewState where
   initialValue = Normal
+
+------------------------------------------------------------------------------------------
+-- Terminal actions
+------------------------------------------------------------------------------------------
+
+--terminalActionScratchpadsManageHook = namedScratchpadManageHook terminalActionScratchpads
+
+--terminalActionScrachpad name command =
+--    NS name
+--       ("/usr/lib/gnome-terminal/gnome-terminal-server" ++
+--           " --app-id bitter_fox.xmonad.terminal.action." ++ name ++
+--           " --name=bitter_fox.xmonad.terminal.action." ++ name ++ " --class=" ++ "xmonad-terminal" ++
+--           " & gnome-terminal --app-id bitter_fox.xmonad.terminal.action." ++ name ++ " -- zsh -c '. ~/.zshrc; . ~/.xmonad/.terminal_action.rc; " ++ command ++ "'"
+--       )
+--       (appName =? ("bitter_fox.xmonad.terminal.action." ++ name))
+--       terminalActionManagehook
+
+terminalActionManageHook = onCenter'' 0.3 0.2
+
+--terminalActionScratchpads :: [NamedScratchpad]
+--terminalActionScratchpads = [
+--    terminalActionScrachpad "open.intellij" "~/scripts/list_intellij_projects.sh 2020.2 100 | fzf | xargs ~/bin/idea > /dev/null"
+-- ]
+
+data CurrentTerminalAction = CurrentTerminalAction (Maybe (TerminalAction (), String, String, CurrentTerminalActionState)) deriving Typeable
+instance ExtensionClass CurrentTerminalAction where
+  initialValue = CurrentTerminalAction Nothing
+
+data CurrentTerminalActionState = Initialize | Started deriving Typeable
+
+data TerminalAction o = TerminalAction {
+      actionName :: String,
+      actionInputs :: X [String],
+      actionScript :: String,
+      actionOutputsHandler :: [String] -> X o,
+      actionManageHook :: ManageHook
+} deriving Typeable
+
+(.<.) :: TerminalAction a -> X [String] -> TerminalAction a
+ta .<. inputs = ta { actionInputs = inputs }
+
+(.>.) :: TerminalAction a -> (a -> X b) -> TerminalAction b
+ta .>. handler = ta {
+  actionOutputsHandler = \outputs -> do
+    o <- actionOutputsHandler ta outputs
+    handler o
+}
+
+(.>>) :: TerminalAction (Maybe a) -> (a -> X ()) -> TerminalAction ()
+ta .>> handler = ta {
+  actionOutputsHandler = \outputs -> do
+    mo <- actionOutputsHandler ta outputs
+    case mo of
+      Just o -> handler o
+      Nothing -> return ()
+}
+
+(.|) :: TerminalAction a -> (a -> b) -> TerminalAction b
+ta .| handler = ta {
+  actionOutputsHandler = \outputs -> do
+    o <- actionOutputsHandler ta outputs
+    return $ handler o
+}
+
+(.||) :: TerminalAction (Maybe a) -> (a -> b) -> TerminalAction (Maybe b)
+ta .|| handler = ta {
+  actionOutputsHandler = \outputs -> do
+    mo <- actionOutputsHandler ta outputs
+    case mo of
+      Just o -> return $ Just $ handler o
+      Nothing -> return Nothing
+}
+
+withoutEmpty outputs
+    | outputs == [] = Nothing
+    | otherwise = Just outputs
+
+withFirstLine outputs
+    | outputs == [] = Nothing
+    | otherwise = Just $ head outputs
+
+terminalActionTemplate :: String -> String -> ManageHook -> TerminalAction [String]
+terminalActionTemplate name script manageHook =
+  TerminalAction {
+    actionName = name,
+    actionInputs = return [],
+    actionScript = script,
+    actionOutputsHandler = return,
+    actionManageHook = manageHook
+  }
+
+class Terminal t where
+    terminalQuery :: t -> TerminalAction () -> Query Bool
+    runNamedTerminalAction :: t -> [TerminalAction ()] -> String -> X ()
+    runNamedTerminalAction t as name = do
+      let m = L.find ((name ==) . actionName) as
+      case m of
+        Just a -> runTerminalAction t a
+        Nothing -> return ()
+
+    runTerminalAction :: t -> TerminalAction () -> X ()
+    runTerminalAction t a@TerminalAction{actionName = name, actionInputs = inputs} = do
+      let inFile = "/tmp/xmonad.terminal.action." ++ name ++ ".in"
+      let outFile = "/tmp/xmonad.terminal.action." ++ name ++ ".out"
+--      XS.put $ CurrentTerminalAction $ Just (actionName a, inFile, outFile, Initialize)
+      XS.put $ CurrentTerminalAction $ Just (a, inFile, outFile, Initialize)
+      lines <- inputs
+      io $ writeFile inFile $ unlines lines
+      startTerminal t a inFile outFile
+
+    startTerminal :: t -> TerminalAction () -> FilePath -> FilePath -> X ()
+
+    terminalManageHook :: t -> [TerminalAction ()] -> ManageHook
+    terminalManageHook t as = composeAll $ L.map (\a -> (terminalQuery t a) --> (actionManageHook a)) as
+
+    terminalLogHook :: t -> [TerminalAction ()] -> X ()
+    terminalLogHook t as = do
+      CurrentTerminalAction ma <- XS.get
+      case ma of
+        Just (action, inFile, outFile, Initialize) -> do
+          withFocused $ \fw -> do
+            isTarget <- runQuery (terminalQuery t action) fw
+            if isTarget then XS.put $ CurrentTerminalAction $ Just (action, inFile, outFile, Started)
+            else return ()
+        Just (action, inFile, outFile, Started) -> do
+          -- FIXME withFocused doesn't work well when move to workspace without windows
+          withFocused $ \fw -> do
+            let q = terminalQuery t action
+            isTarget <- runQuery q fw
+            if not isTarget then do
+              killMatchedWindow q
+              outLines <- io $ readFile outFile
+              XS.put $ CurrentTerminalAction Nothing
+              actionOutputsHandler action $ lines outLines
+              io $ safeRemoveFile inFile
+              io $ safeRemoveFile outFile
+            else return ()
+        _ -> return ()
+       where findTerminalAction as name = L.find ((name ==) . actionName) as
+             safeRemoveFile fileName = removeFile fileName `catch` handleExists
+             handleExists e
+                          | isDoesNotExistError e = return ()
+                          | otherwise = throwIO e
+
+data GnomeTerminal = GnomeTerminal {
+      prefix :: String
+}
+instance Terminal GnomeTerminal where
+    terminalQuery (GnomeTerminal prefix) a = (appName =? (prefix ++ "." ++ (actionName a)))
+    startTerminal (GnomeTerminal prefix) (TerminalAction name _ script _ _) inFile outFile = do
+      spawn $ "/usr/lib/gnome-terminal/gnome-terminal-server" ++
+           " --app-id " ++ prefix ++ "." ++ name ++
+           " --name=" ++ prefix ++ "." ++ name ++ " --class=" ++ "xmonad-terminal" ++
+           " & gnome-terminal --app-id " ++ prefix ++ "." ++ name ++ " -- " ++ script ++ " " ++ inFile ++ " " ++ outFile
+
+myTerminal = GnomeTerminal "xmonad.terminal.action"
+selectWindowTerminalActionTemplate =
+  (terminalActionTemplate "select.window" "/home/bitterfox/.xmonad/terminal_actions/fzf.sh" terminalActionManageHook)
+  .| withFirstLine .|| words .|| head .|| read
+
+myTerminalActions = [
+   (terminalActionTemplate "open.intellij" "/home/bitterfox/.xmonad/terminal_actions/open_intellij.sh" terminalActionManageHook)
+   .| withFirstLine .|| ((intellijCommand ++ " ") ++) .>> spawn
+  , selectWindowTerminalActionTemplate .>. (\lines -> return ())]
+
+myTerminalActionHandleEventHook = keepWindowSizeHandleEventHook $ L.foldr (<||>) (return False) $ L.map (terminalQuery myTerminal) myTerminalActions
+
+openIntelliJTerminalAction = do
+  runNamedTerminalAction myTerminal myTerminalActions "open.intellij"
+
+goToSelectedTerminalAction predicate =
+  runTerminalAction myTerminal $ (
+    (selectWindowTerminalActionTemplate .<. ((windowMap' predicate) >>= (\l -> return $ L.map (\(s, w) -> (show w) ++ " " ++ s) l)))
+    .>> (\w -> do
+                 s <- gets windowset
+                 case W.findTag w s of
+                   Just tag -> windows $ (W.focusWindow w) . (W.greedyView tag)
+                   Nothing -> windows $ W.focusWindow w))
+
+killMatchedWindow query =
+    withWindowSet $ \ws ->
+      L.foldr (>>) (return ()) $ L.map (\w -> runQuery query w >>= (\isTarget -> if isTarget then killWindow w else return ())) $ W.allWindows ws
+------------------------------------------------------------------------------------------
+-- Terminal actions
+------------------------------------------------------------------------------------------
