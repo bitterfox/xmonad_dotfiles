@@ -249,8 +249,8 @@ main = do
         } `additionalKeys`
         [
         -- System actions
---          ((mod4Mask, xK_q), runActionSelected hidpiGSConfig systemActions)
           ((mod4Mask, xK_q), runActionSelectedTerminalAction systemActions)
+        , ((mod1Mask .|. mod4Mask, xK_q), runActionSelected hidpiGSConfig systemActions)
         , ((mod4Mask, xK_r), withWindowSet (\ws -> do
                                                      let sid = W.screen $ W.current ws
                                                      viewScreen 0 >> refresh >> myrescreen priorityDisplayEDIDs >> docksStartupHook >> viewScreen sid)) -- rescreen >>
@@ -358,26 +358,26 @@ main = do
         , ((mod4Mask .|. shiftMask, xK_t), windows floatFocusUp)
 --        , ((mod4Mask .|. controlMask, xK_t), withDisplay $ \dpy -> withWindowSet $ \ws -> io $ setWindowBorderWidth dpy (head $ W.integrate' $ W.stack $ W.workspace $ W.current ws) 0)
 
-        -- GridSelected
---        , ((mod4Mask, xK_w),                               goToSelected'  anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
---        , ((mod4Mask .|. controlMask, xK_w),               goToSelected'  anyWorkspacePredicate                         hidpiGSConfig)
---        , ((mod4Mask .|. shiftMask, xK_w),                 shiftSelected' anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
---        , ((mod4Mask .|. controlMask .|. shiftMask, xK_w), shiftSelected' anyWorkspacePredicate                         hidpiGSConfig)
         -- TerminalAction
-        , ((mod4Mask, xK_w),                               smartGreedyViewSelectedWindowTerminalAction (cycle [
-                                                             ("Visible workspaces", visibleWorkspacesPredicate),
-                                                             ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate),
-                                                             ("All workspaces", anyWorkspacePredicate)] !!))
-        , ((mod4Mask .|. controlMask, xK_w),               greedyViewSelectedWindowTerminalAction      (cycle [
-                                                             ("Visible workspaces", visibleWorkspacesPredicate),
-                                                             ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate),
-                                                             ("All workspaces", anyWorkspacePredicate)] !!))
-        , ((mod4Mask .|. shiftMask, xK_w),                 shiftSelectedWindowTerminalAction            (cycle [
-                                                             ("Visible workspaces", visibleWorkspacesPredicate),
-                                                             ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate),
-                                                             ("All workspaces", anyWorkspacePredicate)] !!))
-
-        , ((mod4Mask, xK_e), spawnAppSelected hidpiGSConfig applications)
+        , ((mod4Mask, xK_w),                 smartGreedyViewSelectedWindowTerminalAction (cycle [
+                                               ("Visible workspaces", visibleWorkspacesPredicate),
+                                               ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate),
+                                               ("All workspaces", anyWorkspacePredicate)] !!))
+        , ((mod4Mask .|. controlMask, xK_w), greedyViewSelectedWindowTerminalAction      (cycle [
+                                               ("Visible workspaces", visibleWorkspacesPredicate),
+                                               ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate),
+                                               ("All workspaces", anyWorkspacePredicate)] !!))
+        , ((mod4Mask .|. shiftMask, xK_w),   shiftSelectedWindowTerminalAction            (cycle [
+                                               ("Visible workspaces", visibleWorkspacesPredicate),
+                                               ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate),
+                                               ("All workspaces", anyWorkspacePredicate)] !!))
+        , ((mod4Mask, xK_e),                 spawnAppSelectedTerminalAction applications)
+        -- GridSelected
+        , ((mod1Mask .|. mod4Mask, xK_w),                               goToSelected'  anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
+        , ((mod1Mask .|. mod4Mask .|. controlMask, xK_w),               goToSelected'  anyWorkspacePredicate                         hidpiGSConfig)
+        , ((mod1Mask .|. mod4Mask .|. shiftMask, xK_w),                 shiftSelected' anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
+        , ((mod1Mask .|. mod4Mask .|. controlMask .|. shiftMask, xK_w), shiftSelected' anyWorkspacePredicate                         hidpiGSConfig)
+        , ((mod1Mask .|. mod4Mask, xK_e),                               spawnAppSelected hidpiGSConfig applications)
         ------------------------------------------------------------------------------------------------------------------------------------
 
 --        , ((mod4Mask, xK_at), withWindowSet (\s ->
@@ -1650,7 +1650,7 @@ instance ExtensionClass OriginalDisplayIdToCurrentScreenId where
 
 originalScreenIdToCurrentScreenId priorityDisplayEDIDs = do
     xinesc <- (withDisplay getCleanedScreenInfo) :: X [Rectangle]
-    
+
     edidToOriginalScreenIds <- (mapM (\(i, screenRectangle) -> do
         edid <- getEDID screenRectangle
         return (edid, i)) $ indexed xinesc) :: X [(EDID, Int)]
@@ -2057,6 +2057,8 @@ greedyViewWindow' screenAware w  = do
         else return ()
         windows $ (W.focusWindow w) . (W.greedyView tag)
     Nothing -> windows $ W.focusWindow w
+
+spawnAppSelectedTerminalAction apps = runActionSelectedTerminalAction $ L.map (\(a, b) -> (a, spawn b)) apps
 
 runActionSelectedTerminalAction actions =
     runTerminalAction myTerminal $ selectActionTerminalActionTemplate .<. (return $ L.map fst actions) .>> (\a -> do
