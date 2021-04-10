@@ -1,8 +1,42 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+import System.Directory
+import System.Exit
+import System.IO
+import System.IO.Error hiding (catch)
+import System.Process (runInteractiveProcess, readProcess)
+
+import Data.Bits
+import qualified Data.List as L
+import qualified Data.Map.Strict as M
+import Data.Maybe
+import Data.Monoid
+import Data.Ord
+import qualified Data.Text as T
+
+import Control.Concurrent
+import Control.Exception.Extensible as E
+import Control.Monad (foldM, filterM, mapM, forever, mplus)
+
+import Text.Parsec
+import Text.Parsec.String (Parser)
+import qualified Text.Show as TS
+
+import Codec.Binary.UTF8.String
+
+import Foreign
+import Foreign.C.Types
+
+import Graphics.X11.Xlib
+import Graphics.X11.Xlib.Event
+import Graphics.X11.Xlib.Extras
+
 import XMonad
 import XMonad.Core
+import qualified XMonad.StackSet as W
+import XMonad.ManageHook
+
 import XMonad.Actions.CopyWindow
 import XMonad.Actions.CycleWS
 import qualified XMonad.Actions.FlexibleResize as Flex
@@ -12,10 +46,13 @@ import XMonad.Actions.Search (selectSearchBrowser, google)
 import XMonad.Actions.Submap
 import XMonad.Actions.WindowGo
 --import XMonad.Config.Desktop (desktopLayoutModifiers)
+
 import XMonad.Config.Desktop
 import XMonad.Config.Gnome
+
 import XMonad.Hooks.DynamicLog
 import XMonad.Hooks.ManageDocks
+
 import XMonad.Layout.Fullscreen
 import XMonad.Layout.Gaps
 import qualified XMonad.Layout.LayoutModifier as LM
@@ -33,47 +70,18 @@ import XMonad.Layout.TwoPane
 import XMonad.Layout.ThreeColumns
 import XMonad.Layout.SimpleDecoration
 import XMonad.Layout.Roledex
-import qualified XMonad.StackSet as W
-import XMonad.Layout.ToggleLayouts
-import XMonad.ManageHook
-import XMonad.Util.Run(spawnPipe, runProcessWithInput, runProcessWithInputAndWait, seconds)
-import XMonad.Util.EZConfig
-import XMonad.Util.NamedScratchpad
-import XMonad.Util.NamedWindows
-import qualified XMonad.Util.ExtensibleState as XS
-import System.Exit
-import System.IO
-import System.IO.Error hiding (catch)
-import System.Directory
-import Data.Bits
-import qualified Data.List as L
-import qualified Data.Map.Strict as M
-import Data.Maybe
-import qualified Data.Text as T
-import Data.Monoid
-import Control.Exception.Extensible as E
-import Control.Monad (foldM, filterM, mapM, forever, mplus)
-import Control.Concurrent
-import qualified Text.Show as TS
-import Text.Parsec
-import Text.Parsec.String (Parser)
-
-import System.Process (runInteractiveProcess, readProcess)
-import Codec.Binary.UTF8.String
-
 import XMonad.Layout.Circle
 import XMonad.Layout.OneBig
 import XMonad.Layout.GridVariants
 import XMonad.Layout.Roledex
 import XMonad.Layout.Accordion
+import XMonad.Layout.ToggleLayouts
 
-import Graphics.X11.Xlib
-import Graphics.X11.Xlib.Event
-import Graphics.X11.Xlib.Extras
-import Foreign
-import Foreign.C.Types
-
-import Data.Ord
+import XMonad.Util.Run(spawnPipe, runProcessWithInput, runProcessWithInputAndWait, seconds)
+import XMonad.Util.EZConfig
+import XMonad.Util.NamedScratchpad
+import XMonad.Util.NamedWindows
+import qualified XMonad.Util.ExtensibleState as XS
 
 black = "#4E4B42"
 brightBlack = "#635F54"
