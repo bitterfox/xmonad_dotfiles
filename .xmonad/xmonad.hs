@@ -249,7 +249,8 @@ main = do
         } `additionalKeys`
         [
         -- System actions
-          ((mod4Mask, xK_q), runActionSelected hidpiGSConfig systemActions)
+--          ((mod4Mask, xK_q), runActionSelected hidpiGSConfig systemActions)
+          ((mod4Mask, xK_q), runActionSelectedTerminalAction systemActions)
         , ((mod4Mask, xK_r), withWindowSet (\ws -> do
                                                      let sid = W.screen $ W.current ws
                                                      viewScreen 0 >> refresh >> myrescreen priorityDisplayEDIDs >> docksStartupHook >> viewScreen sid)) -- rescreen >>
@@ -363,18 +364,29 @@ main = do
 --        , ((mod4Mask .|. shiftMask, xK_w),                 shiftSelected' anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
 --        , ((mod4Mask .|. controlMask .|. shiftMask, xK_w), shiftSelected' anyWorkspacePredicate                         hidpiGSConfig)
         -- TerminalAction
-        , ((mod4Mask, xK_w),                               goToSelectedTerminalAction  anyWorkspaceInCurrentWorkspaceFamilyPredicate)
-        , ((mod4Mask .|. controlMask, xK_w),               goToSelectedTerminalAction  anyWorkspacePredicate                        )
+        , ((mod4Mask, xK_w),                               smartGreedyViewSelectedWindowTerminalAction (cycle [
+                                                             ("Visible workspaces", visibleWorkspacesPredicate),
+                                                             ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate),
+                                                             ("All workspaces", anyWorkspacePredicate)] !!))
+        , ((mod4Mask .|. controlMask, xK_w),               greedyViewSelectedWindowTerminalAction      (cycle [
+                                                             ("Visible workspaces", visibleWorkspacesPredicate),
+                                                             ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate),
+                                                             ("All workspaces", anyWorkspacePredicate)] !!))
+        , ((mod4Mask .|. shiftMask, xK_w),                 shiftSelectedWindowTerminalAction            (cycle [
+                                                             ("Visible workspaces", visibleWorkspacesPredicate),
+                                                             ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate),
+                                                             ("All workspaces", anyWorkspacePredicate)] !!))
 
         , ((mod4Mask, xK_e), spawnAppSelected hidpiGSConfig applications)
         ------------------------------------------------------------------------------------------------------------------------------------
 
-        , ((mod4Mask, xK_at), withWindowSet (\s ->
-                                                 do
-                                                   let rect = screenRect $ W.screenDetail $ W.current s
-                                                   let lines = show $ truncate $ (fromIntegral $ rect_height rect) / 30 - 1
-                                                   spawn $ "dmenu_run -i -fn monospace-10:bold -l " ++ lines ++ " -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖'"))
+--        , ((mod4Mask, xK_at), withWindowSet (\s ->
+--                                                 do
+--                                                   let rect = screenRect $ W.screenDetail $ W.current s
+--                                                   let lines = show $ truncate $ (fromIntegral $ rect_height rect) / 30 - 1
+--                                                   spawn $ "dmenu_run -i -fn monospace-10:bold -l " ++ lines ++ " -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖'"))
 --                                                   spawn $ "dmenu_run -i -fn monospace-10:bold -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖'"))
+        , ((mod4Mask, xK_at), runDmenuRunTerminalAction)
         , ((mod4Mask .|. shiftMask, xK_at), spawn "gmrun")
         , ((mod4Mask, xK_colon), openIntelliJTerminalAction)
 
@@ -1400,6 +1412,8 @@ anyWorkspacePredicate :: WindowSet -> WindowSpace -> Bool
 anyWorkspacePredicate windowset workspace = ("NSP" :: WorkspaceId) /= (W.tag workspace)
 anyWorkspaceInCurrentWorkspaceFamilyPredicate :: WindowSet -> WindowSpace -> Bool
 anyWorkspaceInCurrentWorkspaceFamilyPredicate windowset workspace = anyWorkspacePredicate windowset workspace && ((toFamilyId $ W.currentTag windowset) == (toFamilyId $ W.tag workspace))
+visibleWorkspacesPredicate :: WindowSet -> WindowSpace -> Bool
+visibleWorkspacesPredicate windowset workspace = anyWorkspacePredicate windowset workspace && ((W.tag workspace == W.currentTag windowset) || (L.elem (W.tag workspace) $ L.map (W.tag . W.workspace) $ W.visible windowset))
 
 goToSelected' :: (WindowSet -> WindowSpace -> Bool) -> GSConfig Window -> X ()
 goToSelected' =
@@ -1814,24 +1828,7 @@ instance ExtensionClass WindowViewState where
 -- Terminal actions
 ------------------------------------------------------------------------------------------
 
---terminalActionScratchpadsManageHook = namedScratchpadManageHook terminalActionScratchpads
-
---terminalActionScrachpad name command =
---    NS name
---       ("/usr/lib/gnome-terminal/gnome-terminal-server" ++
---           " --app-id bitter_fox.xmonad.terminal.action." ++ name ++
---           " --name=bitter_fox.xmonad.terminal.action." ++ name ++ " --class=" ++ "xmonad-terminal" ++
---           " & gnome-terminal --app-id bitter_fox.xmonad.terminal.action." ++ name ++ " -- zsh -c '. ~/.zshrc; . ~/.xmonad/.terminal_action.rc; " ++ command ++ "'"
---       )
---       (appName =? ("bitter_fox.xmonad.terminal.action." ++ name))
---       terminalActionManagehook
-
 terminalActionManageHook = onCenter'' 0.3 0.2
-
---terminalActionScratchpads :: [NamedScratchpad]
---terminalActionScratchpads = [
---    terminalActionScrachpad "open.intellij" "~/scripts/list_intellij_projects.sh 2020.2 100 | fzf | xargs ~/bin/idea > /dev/null"
--- ]
 
 data CurrentTerminalAction = CurrentTerminalAction (Maybe (TerminalAction (), String, String, CurrentTerminalActionState)) deriving Typeable
 instance ExtensionClass CurrentTerminalAction where
@@ -1857,6 +1854,20 @@ ta .>. handler = ta {
     handler o
 }
 
+(.>|) :: TerminalAction a -> b -> TerminalAction b
+ta .>| b = ta {
+  actionOutputsHandler = \outputs -> do
+    o <- actionOutputsHandler ta outputs
+    return b
+}
+
+(.|) :: TerminalAction a -> (a -> b) -> TerminalAction b
+ta .| handler = ta {
+  actionOutputsHandler = \outputs -> do
+    o <- actionOutputsHandler ta outputs
+    return $ handler o
+}
+
 (.>>) :: TerminalAction (Maybe a) -> (a -> X ()) -> TerminalAction ()
 ta .>> handler = ta {
   actionOutputsHandler = \outputs -> do
@@ -1866,11 +1877,14 @@ ta .>> handler = ta {
       Nothing -> return ()
 }
 
-(.|) :: TerminalAction a -> (a -> b) -> TerminalAction b
-ta .| handler = ta {
+(.>?) :: TerminalAction (Maybe a) -> X () -> TerminalAction (Maybe a)
+ta .>? handler = ta {
   actionOutputsHandler = \outputs -> do
-    o <- actionOutputsHandler ta outputs
-    return $ handler o
+    mo <- actionOutputsHandler ta outputs
+    case mo of
+      Nothing -> handler
+      _ -> return ()
+    return mo
 }
 
 (.||) :: TerminalAction (Maybe a) -> (a -> b) -> TerminalAction (Maybe b)
@@ -1911,6 +1925,11 @@ class Terminal t where
 
     runTerminalAction :: t -> TerminalAction () -> X ()
     runTerminalAction t a@TerminalAction{actionName = name, actionInputs = inputs} = do
+      CurrentTerminalAction ma <- XS.get
+      case ma of
+        Just (a', i', o', Initialize) -> XS.put $ CurrentTerminalAction Nothing
+        Just (a', i', o', Started) -> closeTerminalAction t a' i' o' True
+        _ -> return ()
       let inFile = "/tmp/xmonad.terminal.action." ++ name ++ ".in"
       let outFile = "/tmp/xmonad.terminal.action." ++ name ++ ".out"
 --      XS.put $ CurrentTerminalAction $ Just (actionName a, inFile, outFile, Initialize)
@@ -1931,27 +1950,40 @@ class Terminal t where
         Just (action, inFile, outFile, Initialize) -> do
           withFocused $ \fw -> do
             isTarget <- runQuery (terminalQuery t action) fw
-            if isTarget then XS.put $ CurrentTerminalAction $ Just (action, inFile, outFile, Started)
+            if isTarget then do
+              XS.put $ CurrentTerminalAction $ Just (action, inFile, outFile, Started)
+              dontBorder fw
             else return ()
         Just (action, inFile, outFile, Started) -> do
           -- FIXME withFocused doesn't work well when move to workspace without windows
           withFocused $ \fw -> do
-            let q = terminalQuery t action
-            isTarget <- runQuery q fw
+            isTarget <- runQuery (terminalQuery t action) fw
             if not isTarget then do
-              killMatchedWindow q
-              outLines <- io $ readFile outFile
-              XS.put $ CurrentTerminalAction Nothing
-              actionOutputsHandler action $ lines outLines
-              io $ safeRemoveFile inFile
-              io $ safeRemoveFile outFile
+              closeTerminalAction t action inFile outFile True
             else return ()
         _ -> return ()
        where findTerminalAction as name = L.find ((name ==) . actionName) as
-             safeRemoveFile fileName = removeFile fileName `catch` handleExists
-             handleExists e
-                          | isDoesNotExistError e = return ()
-                          | otherwise = throwIO e
+             dontBorder w = withDisplay $ \dpy -> io $ setWindowBorderWidth dpy w 0
+
+    closeTerminalAction :: t -> TerminalAction () -> FilePath -> FilePath -> Bool -> X ()
+    closeTerminalAction t a inFile outFile runOutputHandler = do
+      XS.put $ CurrentTerminalAction Nothing
+      let q = terminalQuery t a
+      killMatchedWindow q
+      if runOutputHandler then do
+        outLines <- io $ safeReadFile outFile
+        actionOutputsHandler a $ lines outLines
+      else return ()
+      io $ safeRemoveFile inFile
+      io $ safeRemoveFile outFile
+      where handleExists d e
+                         | isDoesNotExistError e = return d
+                         | otherwise = throwIO e
+            safeRemoveFile fileName = removeFile fileName `catch` handleExists ()
+            safeReadFile fileName = readFile fileName `catch` handleExists []
+            killMatchedWindow query =
+              withWindowSet $ \ws ->
+                L.foldr (>>) (return ()) $ L.map (\w -> runQuery query w >>= (\isTarget -> if isTarget then killWindow w else return ())) $ W.allWindows ws
 
 data GnomeTerminal = GnomeTerminal {
       prefix :: String
@@ -1966,31 +1998,75 @@ instance Terminal GnomeTerminal where
 
 myTerminal = GnomeTerminal "xmonad.terminal.action"
 selectWindowTerminalActionTemplate =
-  (terminalActionTemplate "select.window" "/home/bitterfox/.xmonad/terminal_actions/fzf.sh" terminalActionManageHook)
+  (terminalActionTemplate "select.window" "/home/bitterfox/.xmonad/terminal_actions/select_window.sh" terminalActionManageHook)
   .| withFirstLine .|| words .|| head .|| read
+selectActionTerminalActionTemplate =
+  (terminalActionTemplate "select.action" "/home/bitterfox/.xmonad/terminal_actions/select_action.sh" terminalActionManageHook)
+  .| withFirstLine
+dmenuRunTerminalAction =
+  (terminalActionTemplate "dmenu.run" "/home/bitterfox/.xmonad/terminal_actions/dmenu_run.sh" terminalActionManageHook)
+  .| withFirstLine .>> spawn
 
 myTerminalActions = [
    (terminalActionTemplate "open.intellij" "/home/bitterfox/.xmonad/terminal_actions/open_intellij.sh" terminalActionManageHook)
    .| withFirstLine .|| ((intellijCommand ++ " ") ++) .>> spawn
-  , selectWindowTerminalActionTemplate .>. (\lines -> return ())]
+  , dmenuRunTerminalAction
+  , selectWindowTerminalActionTemplate .>| ()
+  , selectActionTerminalActionTemplate .>| ()]
 
 myTerminalActionHandleEventHook = keepWindowSizeHandleEventHook $ L.foldr (<||>) (return False) $ L.map (terminalQuery myTerminal) myTerminalActions
 
 openIntelliJTerminalAction = do
   runNamedTerminalAction myTerminal myTerminalActions "open.intellij"
 
-goToSelectedTerminalAction predicate =
-  runTerminalAction myTerminal $ (
-    (selectWindowTerminalActionTemplate .<. ((windowMap' predicate) >>= (\l -> return $ L.map (\(s, w) -> (show w) ++ " " ++ s) l)))
-    .>> (\w -> do
-                 s <- gets windowset
-                 case W.findTag w s of
-                   Just tag -> windows $ (W.focusWindow w) . (W.greedyView tag)
-                   Nothing -> windows $ W.focusWindow w))
+data SelectedWindowTerminalActionState = SelectedWindowTerminalActionState String Int deriving (Typeable)
+instance ExtensionClass SelectedWindowTerminalActionState where
+  initialValue = SelectedWindowTerminalActionState "" 0
 
-killMatchedWindow query =
-    withWindowSet $ \ws ->
-      L.foldr (>>) (return ()) $ L.map (\w -> runQuery query w >>= (\isTarget -> if isTarget then killWindow w else return ())) $ W.allWindows ws
+smartGreedyViewSelectedWindowTerminalAction =
+  runSelectedWindowTerminalAction "smart.greedy.view" smartGreedyViewWindow
+
+greedyViewSelectedWindowTerminalAction =
+  runSelectedWindowTerminalAction "greedy.view" greedyViewWindow
+
+shiftSelectedWindowTerminalAction =
+  runSelectedWindowTerminalAction "shift" $ \w -> windows $ \s -> W.shiftMaster $ W.focusWindow w $ W.shiftWin (W.currentTag s) w s
+
+runSelectedWindowTerminalAction myname handler predicateSelector = do
+  s@(SelectedWindowTerminalActionState name count) <- XS.get
+  let n = if name == myname then count + 1 else 0
+  let (header, predicate) = predicateSelector n
+  runTerminalAction myTerminal $ selectWindowTerminalAction header predicate .>> handler .>. (\_ -> XS.remove s)
+  XS.put $ SelectedWindowTerminalActionState myname $ n
+
+selectWindowTerminalAction header predicate  =
+  selectWindowTerminalActionTemplate .<. ((windowMap' predicate) >>= (\l -> return $ ("0 " ++ header):(L.map (\(s, w) -> (show w) ++ " " ++ s) l)))
+
+smartGreedyViewWindow = greedyViewWindow' True
+greedyViewWindow = greedyViewWindow' False
+
+greedyViewWindow' screenAware w  = do
+  s <- gets windowset
+  case W.findTag w s of
+    Just tag -> do
+        if screenAware then do
+          let fid = toFamilyId tag
+          case L.find ((fid ==) . toFamilyId . W.tag . W.workspace) $ W.visible s of
+            Just (W.Screen { W.screen = sid }) -> viewScreen sid
+            _ -> return ()
+        else return ()
+        windows $ (W.focusWindow w) . (W.greedyView tag)
+    Nothing -> windows $ W.focusWindow w
+
+runActionSelectedTerminalAction actions =
+    runTerminalAction myTerminal $ selectActionTerminalActionTemplate .<. (return $ L.map fst actions) .>> (\a -> do
+      let ma = L.find ((a ==) . fst) actions
+      case ma of
+        Just (_, action) -> action
+        _ -> return ())
+
+runDmenuRunTerminalAction = runTerminalAction myTerminal dmenuRunTerminalAction
+
 ------------------------------------------------------------------------------------------
 -- Terminal actions
 ------------------------------------------------------------------------------------------
