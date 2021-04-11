@@ -496,6 +496,14 @@ main = do
 ifX :: Bool -> X() -> X()
 ifX cond whenTrue = if cond then whenTrue else return ()
 
+caseMaybeJust :: Maybe a -> (a -> X ()) -> X ()
+caseMaybeJust m f =
+  case m of
+    Just a -> f a
+    Nothing -> return ()
+
+doForJust f m = caseMaybeJust m f
+
 ------------------------------------------------------------------------------------------
 -- XMonad utils
 ------------------------------------------------------------------------------------------
@@ -677,9 +685,8 @@ myNamedScratchpadRelocationAction scratchpads n = do
   where
     isSameName = \ns -> n == (name ns)
 
-myNamedScratchpadActionMaybe mns = case mns of
-    Just ns -> myNamedScratchpadAction $ name ns
-    _ -> return ()
+myNamedScratchpadActionMaybe mns =
+    caseMaybeJust mns $ \ns -> myNamedScratchpadAction $ name ns
 
 runScratchpadAction scratchpad = myNamedScratchpadActionInternal [scratchpad] $ name scratchpad
 
@@ -1002,12 +1009,11 @@ andThen cmp1 cmp2 a b = do
   else c
 
 floatOnUp = withWindowSet(\s -> do
-  before <- gets windowset
-  case W.stack $ W.workspace $ W.current before of
-    Just (W.Stack t ls rs) -> spawn $ "echo 'Current: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
-    Nothing -> return ()
-  case W.stack $ W.workspace $ W.current s of
-    Just (W.Stack t ls rs)  -> do
+--  before <- gets windowset
+--  caseMaybeJust (W.stack $ W.workspace $ W.current before) $
+--    \(W.Stack t ls rs) -> spawn $ "echo 'Current: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
+  caseMaybeJust (W.stack $ W.workspace $ W.current s) $
+    \(W.Stack t ls rs) -> do
       if isFloat s t then
           if (L.filter (isFloat s) ls) == [] then return ()
           else focusedFloatOnUp
@@ -1015,28 +1021,26 @@ floatOnUp = withWindowSet(\s -> do
         let (rf, rs') = L.partition (isFloat s) rs
         let (lf, ls') = L.partition (isFloat s) $ L.dropWhile (isFloat s) ls
         if (rf ++ lf) == [] then return ()
-        else floatOnUp'
-    Nothing -> return ())
+        else floatOnUp')
 --  before <- gets windowset
 --  case W.stack $ W.workspace $ W.current before of
 --    Just (W.Stack t ls rs) -> spawn $ "echo 'Current: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
 --    Nothing -> return ())
 
 floatOnUp' = do
-  before <- gets windowset
-  case W.stack $ W.workspace $ W.current before of
-    Just (W.Stack t ls rs) -> spawn $ "echo 'Before: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
-    Nothing -> return ()
+--  before <- gets windowset
+--  caseMaybeJust (W.stack $ W.workspace $ W.current before) $
+--    \(W.Stack t ls rs) -> spawn $ "echo 'Before: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
   windows (\s -> W.modify' (\stack@(W.Stack t ls rs) -> do
     let (rf, rs') = L.partition (isFloat s) $ L.reverse rs
     let lf' = L.takeWhile (isFloat s) ls
     let (lf, ls') = L.partition (isFloat s) $ L.dropWhile (isFloat s) ls
     if (rf ++ lf) == [] then stack
     else W.Stack t (rf ++ lf' ++ lf ++ ls') $ reverse rs') s)
-  before <- gets windowset
-  case W.stack $ W.workspace $ W.current before of
-    Just (W.Stack t ls rs) -> spawn $ "echo 'After: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
-    Nothing -> return ()
+--  before <- gets windowset
+--  case W.stack $ W.workspace $ W.current before of
+--    Just (W.Stack t ls rs) -> spawn $ "echo 'After: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
+--    Nothing -> return ()
 
 focusedFloatOnUp = do
 --  before <- gets windowset
@@ -1211,26 +1215,17 @@ fallbackIfNoScreen f windowSet screenId =
       Just sc -> f windowSet screenId $ toFamilyId $ W.tag $ W.workspace $ sc
       Nothing -> f windowSet 0 (currentFamilyId windowSet)
 
-viewToScreen screenId =
-    withWindowSet(\s -> do
-      case L.find (\sc -> (W.screen sc) == S (screenId - 1)) $ W.screens s of
-        Just sc -> windows $ W.view $ W.tag $ W.workspace sc
-        Nothing -> return ()
-    ) >> moveMouseToLastPosition
+viewToScreen screenId = do
+    withWindowSet $ \s -> caseMaybeJust (L.find (\sc -> (W.screen sc) == S (screenId - 1)) $ W.screens s) $ windows . W.view . W.tag . W.workspace
+    moveMouseToLastPosition
 
-greedyViewToScreen screenId =
-    withWindowSet(\s -> do
-      case L.find (\sc -> (W.screen sc) == S (screenId - 1)) $ W.screens s of
-        Just sc -> windows $ W.greedyView $ W.tag $ W.workspace sc
-        Nothing -> return ()
-    ) >> moveMouseToLastPosition
+greedyViewToScreen screenId = do
+    withWindowSet $ \s -> caseMaybeJust (L.find (\sc -> (W.screen sc) == S (screenId - 1)) $ W.screens s) $ windows . W.greedyView . W.tag . W.workspace
+    moveMouseToLastPosition
 
-shiftToScreen screenId =
-    withWindowSet(\s -> do
-      case L.find (\sc -> (W.screen sc) == S (screenId - 1)) $ W.screens s of
-        Just sc -> windows $ W.shift $ W.tag $ W.workspace sc
-        Nothing -> return ()
-    ) >> moveMouseToLastPosition
+shiftToScreen screenId = do
+    withWindowSet $ \s -> caseMaybeJust (L.find (\sc -> (W.screen sc) == S (screenId - 1)) $ W.screens s) $ windows . W.shift . W.tag . W.workspace
+    moveMouseToLastPosition
 
 ------------------------------------------------------------------------------------------
 -- Workspaces
@@ -1333,17 +1328,9 @@ nierColorizer a active =
   else
       return (gray, black)
 
-spawnAppSelected conf apps = do
-  maybeCommand <- gridselect conf apps
-  case maybeCommand of
-    Just command -> spawn $ command
-    Nothing -> return ()
+spawnAppSelected conf apps = gridselect conf apps >>= doForJust spawn
 
-runActionSelected conf actions = do
-  maybeAction <- gridselect conf actions
-  case maybeAction of
-    Just action -> action
-    Nothing -> return ()
+runActionSelected conf actions = gridselect conf actions >>= doForJust (\x -> x)
 
 myNavNSearch :: TwoD a (Maybe a)
 myNavNSearch = makeXEventhandler $ shadowWithKeymap navNSearchKeyMap navNSearchDefaultHandler
@@ -1419,11 +1406,7 @@ gridselectWindow' predicate gsconf = windowMap' predicate >>= gridselect gsconf
 -- select a window with cursors keys. The selected window is then passed to
 -- a callback function.
 withSelectedWindow' :: (Window -> X ()) -> (WindowSet -> WindowSpace -> Bool) -> GSConfig Window -> X ()
-withSelectedWindow' callback predicate conf = do
-    mbWindow <- gridselectWindow' predicate conf
-    case mbWindow of
-        Just w -> callback w
-        Nothing -> return ()
+withSelectedWindow' callback predicate conf = gridselectWindow' predicate conf >>= doForJust callback
 
 windowMap' :: (WindowSet -> WindowSpace -> Bool) -> X [(String,Window)]
 windowMap' predicate = do
@@ -1535,13 +1518,9 @@ copyAllWindowTo ws s = foldr (\w -> \s' -> copyWindow w ws s') s $ W.allWindows 
 
 -----
 viewScreen :: ScreenId -> X ()
-viewScreen sid = do
-  mws <- screenWorkspace sid
-  case mws of
-    Nothing -> return ()
-    Just ws -> windows $ W.view ws
+viewScreen sid = screenWorkspace sid >>= doForJust (windows . W.view)
 
-myrestart = withWindowSet $ \s -> myrestart' $ W.screen $ W.current s
+myrestart = withWindowSet $ myrestart' . W.screen . W.current
 myrestart' sid = do
   if sid == 0 then
       spawn "if type xmonad; then xmonad --recompile && xmonad --restart; else xmessage xmonad not in \\$PATH: \"$PATH\"; fi"
@@ -1851,11 +1830,7 @@ ta .| handler = ta {
 
 (.>>) :: TerminalAction (Maybe a) -> (a -> X ()) -> TerminalAction ()
 ta .>> handler = ta {
-  actionOutputsHandler = \outputs -> do
-    mo <- actionOutputsHandler ta outputs
-    case mo of
-      Just o -> handler o
-      Nothing -> return ()
+  actionOutputsHandler = \outputs -> actionOutputsHandler ta outputs >>= doForJust handler
 }
 
 (.>?) :: TerminalAction (Maybe a) -> X () -> TerminalAction (Maybe a)
@@ -1872,9 +1847,7 @@ ta .>? handler = ta {
 ta .|| handler = ta {
   actionOutputsHandler = \outputs -> do
     mo <- actionOutputsHandler ta outputs
-    case mo of
-      Just o -> return $ Just $ handler o
-      Nothing -> return Nothing
+    return $ mo >>= (Just . handler)
 }
 
 withoutEmpty outputs
@@ -1898,11 +1871,8 @@ terminalActionTemplate name script manageHook =
 class Terminal t where
     terminalQuery :: t -> TerminalAction () -> Query Bool
     runNamedTerminalAction :: t -> [TerminalAction ()] -> String -> X ()
-    runNamedTerminalAction t as name = do
-      let m = L.find ((name ==) . actionName) as
-      case m of
-        Just a -> runTerminalAction t a
-        Nothing -> return ()
+    runNamedTerminalAction t as name =
+      caseMaybeJust (L.find ((name ==) . actionName) as) $ runTerminalAction t
 
     runTerminalAction :: t -> TerminalAction () -> X ()
     runTerminalAction t a@TerminalAction{actionName = name, actionInputs = inputs} = do
@@ -2032,20 +2002,16 @@ greedyViewWindow' screenAware w  = do
     Just tag -> do
       ifX screenAware $ do
         let fid = toFamilyId tag
-        case L.find ((fid ==) . toFamilyId . W.tag . W.workspace) $ W.visible s of
-          Just (W.Screen { W.screen = sid }) -> viewScreen sid
-          _ -> return ()
+        caseMaybeJust (L.find ((fid ==) . toFamilyId . W.tag . W.workspace) $ W.visible s) $ viewScreen . W.screen
       windows $ (W.focusWindow w) . (W.greedyView tag)
     Nothing -> windows $ W.focusWindow w
 
 spawnAppSelectedTerminalAction apps = runActionSelectedTerminalAction $ L.map (\(a, b) -> (a, spawn b)) apps
 
 runActionSelectedTerminalAction actions =
-    runTerminalAction myTerminal $ selectActionTerminalActionTemplate .<. (return $ L.map fst actions) .>> (\a -> do
-      let ma = L.find ((a ==) . fst) actions
-      case ma of
-        Just (_, action) -> action
-        _ -> return ())
+    runTerminalAction myTerminal $ selectActionTerminalActionTemplate
+                                     .<. (return $ L.map fst actions)
+                                     .>> (\a -> doForJust snd $ L.find ((a ==) . fst) actions)
 
 runDmenuRunTerminalAction = runTerminalAction myTerminal dmenuRunTerminalAction
 
