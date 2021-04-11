@@ -177,9 +177,7 @@ myHandleEventHook =
       case e of
         (ConfigureRequestEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_x ev_y ev_width ev_height ev_border_width ev_above ev_detail ev_value_mask) -> do
 --             spawn $ "echo '" ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
-             if testBit ev_value_mask 6 then
-                 windows (\s -> W.focusWindow ev_window s)
-             else return ()
+             ifX (testBit ev_value_mask 6) $ windows (\s -> W.focusWindow ev_window s)
              return (All True)
         _ -> return (All True)) <+>
     (\e -> do
@@ -454,7 +452,7 @@ main = do
                                                               >> windows W.shiftMaster)
         , ((mod4Mask, button3), \w -> do
             ws <- gets windowset
-            if isFloat ws w then do
+            ifX (isFloat ws w) $ do
                 before <- gets windowset
                 case W.stack $ W.workspace $ W.current before of
                   Just (W.Stack t ls rs) -> spawn $ "echo 'Before: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
@@ -468,8 +466,7 @@ main = do
                 before <- gets windowset
                 case W.stack $ W.workspace $ W.current before of
                   Just (W.Stack t ls rs) -> spawn $ "echo 'After: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
-                  Nothing -> return ()
-            else return ())
+                  Nothing -> return ())
         ] `additionalKeys` [
           ((mod4Mask .|. m, k), f i)
             | (i, k) <- zip originalWorkspaces $ [xK_1 .. xK_9] ++ [xK_0]
@@ -494,6 +491,17 @@ main = do
         ]
 
 -- Libraries
+
+------------------------------------------------------------------------------------------
+-- XMonad utils
+------------------------------------------------------------------------------------------
+
+ifX :: Bool -> X() -> X()
+ifX cond whenTrue = if cond then whenTrue else return ()
+
+------------------------------------------------------------------------------------------
+-- XMonad utils
+------------------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------------------
 -- XLib
@@ -638,7 +646,7 @@ keepWindowSizeHandleEventHook query e@(ConfigureRequestEvent ev_event_type ev_se
     XS.put $ NamedScratchpadSendEventWindows $ L.delete ev_window ws
   else do
     isTarget <- runQuery query ev_window
-    if isTarget && (L.notElem ev_window ws) && (testBit ev_value_mask 2 || testBit ev_value_mask 3) then do
+    ifX (isTarget && (L.notElem ev_window ws) && (testBit ev_value_mask 2 || testBit ev_value_mask 3)) $ do
       withWindowAttributes ev_event_display ev_window $ \WindowAttributes{wa_width = w, wa_height = h} ->
         io $ allocaXEvent $ \ev -> do
           setEventType ev configureRequest
@@ -648,7 +656,6 @@ keepWindowSizeHandleEventHook query e@(ConfigureRequestEvent ev_event_type ev_se
                                         }
           sendEvent ev_event_display ev_window False propertyChangeMask ev
       XS.put $ NamedScratchpadSendEventWindows $ ev_window:ws
-    else return ()
   return (All True)
 
 keepWindowSizeHandleEventHook _ _ = return (All True)
@@ -904,7 +911,7 @@ dynamicMoving l acceleration delay =
                      in
                        (w, W.RationalRect newX newY width height, (toX, toY), (dirX, dirY))) l
                  in
-                   io (if delay == 0 then return () else threadDelay delay)
+                   (ifX (delay /= 0) $ io $ threadDelay delay)
                    >> moveAll (L.map (
                      \t -> if checkDone t then forceToLocation t else
                        let (w, to, (toX, toY), (dirX, dirY)) = t in (w, to)
@@ -934,13 +941,13 @@ floatAvoidFocusUp' stackSet stack@(W.Stack t (l:ls) rs) =
         let W.Stack t' ls' rs' = floatAvoidFocusUp' stackSet (W.Stack t ls rs) in
           W.Stack t' (l:ls') rs'
     else W.Stack l ls (t:rs)
-floatAvoidFocusUp' stackSet stack@(W.Stack t [] rs) =
-    let (x:xs) = reverse rs in
-      if M.member x $ W.floating stackSet then
-          let W.Stack t' ls' rs' = floatAvoidFocusUp' stackSet (W.Stack t [] $ reverse xs) in
-            W.Stack t' (x:ls') rs'
-      else
-        W.Stack x (xs ++ [t]) []
+floatAvoidFocusUp' stackSet stack@(W.Stack t [] rs) = do
+    let (x:xs) = reverse rs
+    if M.member x $ W.floating stackSet then do
+      let W.Stack t' ls' rs' = floatAvoidFocusUp' stackSet (W.Stack t [] $ reverse xs)
+      W.Stack t' (x:ls') rs'
+    else
+      W.Stack x (xs ++ [t]) []
 
 --floatAvoidFocusUp' stackSet (W.Stack t ls rs) = do
 --  let (lf, ls') = L.partition (isFloat stackSet) ls
@@ -1058,7 +1065,10 @@ reverseStack (W.Stack t ls rs) = W.Stack t rs ls
 -- WorkspaceFamily
 ------------------------------------------------------------------------------------------
 notSP :: X (WindowSpace -> Bool)
-notSP = return $ ("NSP" /=) . W.tag
+notSP = return $ pureNotSP
+pureNotSP :: WindowSpace -> Bool
+pureNotSP = ("NSP" /=) . W.tag
+pureNotSP' = ("NSP" /=)
 currentWorkspaceFamily currentFamily = return (\ws -> L.isSuffixOf ("_" ++ currentFamily) $ W.tag ws)
 
 currentFamilyId ws = toFamilyId $ W.tag $ W.workspace $ W.current ws
@@ -1066,39 +1076,18 @@ toFamilyId = drop 2
 currentWorkspaceId ws = toWorkspaceId $ W.tag $ W.workspace $ W.current ws
 toWorkspaceId id = [ head id ]
 nextWS' :: X ()
-nextWS' = withWindowSet(\s -> do
-            let wsid = W.tag $ W.workspace $ W.current s
-            if (wsid == "NSP") then
-                return ()
-            else
-                moveTo Next $ WSIs $ currentWorkspaceFamily $ toFamilyId wsid
-          )
+nextWS' = doOnCurrentWorkspaceFamily $ moveTo Next
 prevWS' :: X ()
-
-prevWS' = withWindowSet(\s -> do
-            let wsid = W.tag $ W.workspace $ W.current s
-            if (wsid == "NSP") then
-                return ()
-            else
-                moveTo Prev $ WSIs $ currentWorkspaceFamily $ toFamilyId wsid
-          )
+prevWS' = doOnCurrentWorkspaceFamily $ moveTo Prev
 
 shiftToNextWS' :: X()
-shiftToNextWS' = withWindowSet(\s -> do
-            let wsid = W.tag $ W.workspace $ W.current s
-            if (wsid == "NSP") then
-                return ()
-            else
-                shiftTo Next $ WSIs $ currentWorkspaceFamily $ toFamilyId wsid
-          )
+shiftToNextWS' = doOnCurrentWorkspaceFamily $ shiftTo Next
 shiftToPrevWS' :: X()
-shiftToPrevWS' = withWindowSet(\s -> do
-            let wsid = W.tag $ W.workspace $ W.current s
-            if (wsid == "NSP") then
-                return ()
-            else
-                shiftTo Prev $ WSIs $ currentWorkspaceFamily $ toFamilyId wsid
-          )
+shiftToPrevWS' = doOnCurrentWorkspaceFamily $ shiftTo Prev
+
+doOnCurrentWorkspaceFamily f = withWindowSet $ \s -> do
+  let wsid = W.tag $ W.workspace $ W.current s
+  ifX (pureNotSP' wsid) $ f $ WSIs $ currentWorkspaceFamily $ toFamilyId wsid
 
 originalWorkspaces = map show ([1 .. 9 :: Int] ++ [0])
 workspaceFamilies = map show ([1 .. 9 :: Int] ++ [0])
@@ -1512,11 +1501,9 @@ launchIntelliJTerminal =
 
 hideIntelliJTerminal exclude w = do
   aname <- runQuery appName w
-  if L.isPrefixOf "bitter_fox.xmonad.intellij." aname then do
+  ifX (L.isPrefixOf "bitter_fox.xmonad.intellij." aname) $ do
     let name = L.drop (L.length "bitter_fox.xmonad.intellij.") aname
-    if name /= exclude then runScratchpadAction $ intelliJScrachpad name homeDirectory onBottom
-    else return ()
-  else return ()
+    ifX (name /= exclude) $ runScratchpadAction $ intelliJScrachpad name homeDirectory onBottom
 
 intelliJInfo :: Parser [String]
 intelliJInfo = do
@@ -1677,10 +1664,8 @@ checkAndHandleDisplayChange action =
       LastScreenId maybeScreenId <- XS.get
       case maybeScreenId of
         Just screenId ->
-          if (W.screen $ W.current s) == screenId then
-            return ()
-          else
-            (XS.put $ LastScreenId $ Just $ W.screen $ W.current s) >>
+          ifX ((W.screen $ W.current s) /= screenId) $ do
+            XS.put $ LastScreenId $ Just $ W.screen $ W.current s
             action
         Nothing ->
             (XS.put $ LastScreenId $ Just $ W.screen $ W.current s) >>
@@ -1949,19 +1934,17 @@ class Terminal t where
         Just (action, inFile, outFile, Initialize) ->
           withFocused $ \fw -> do
             isTarget <- runQuery (terminalQuery t action) fw
-            if isTarget then do
+            ifX isTarget $ do
               XS.put $ CurrentTerminalAction $ Just (action, inFile, outFile, Started)
               dontBorder fw
-            else return ()
         Just (action, inFile, outFile, Started) ->
           withWindowSet $ \ws -> do
             let stack = W.stack $ W.workspace $ W.current ws
             case stack of
               Just (W.Stack {W.focus = fw}) -> do
                 isTarget <- runQuery (terminalQuery t action) fw
-                if not isTarget then do
+                ifX (not isTarget) $ do
                   closeTerminalAction t action inFile outFile True
-                else return ()
               Nothing -> closeTerminalAction t action inFile outFile True
         _ -> return ()
        where findTerminalAction as name = L.find ((name ==) . actionName) as
@@ -1972,10 +1955,9 @@ class Terminal t where
       XS.put $ CurrentTerminalAction Nothing
       let q = terminalQuery t a
       killMatchedWindow q
-      if runOutputHandler then do
+      ifX runOutputHandler $ do
         outLines <- io $ safeReadFile outFile
         actionOutputsHandler a $ lines outLines
-      else return ()
       io $ safeRemoveFile inFile
       io $ safeRemoveFile outFile
       where handleExists d e
@@ -1985,7 +1967,7 @@ class Terminal t where
             safeReadFile fileName = readFile fileName `catch` handleExists []
             killMatchedWindow query =
               withWindowSet $ \ws ->
-                L.foldr (>>) (return ()) $ L.map (\w -> runQuery query w >>= (\isTarget -> if isTarget then killWindow w else return ())) $ W.allWindows ws
+                L.foldr (>>) (return ()) $ L.map (\w -> runQuery query w >>= (\isTarget -> ifX isTarget $ killWindow w)) $ W.allWindows ws
 
 data GnomeTerminal = GnomeTerminal {
       prefix :: String
@@ -2051,13 +2033,12 @@ greedyViewWindow' screenAware w  = do
   s <- gets windowset
   case W.findTag w s of
     Just tag -> do
-        if screenAware then do
-          let fid = toFamilyId tag
-          case L.find ((fid ==) . toFamilyId . W.tag . W.workspace) $ W.visible s of
-            Just (W.Screen { W.screen = sid }) -> viewScreen sid
-            _ -> return ()
-        else return ()
-        windows $ (W.focusWindow w) . (W.greedyView tag)
+      ifX screenAware $ do
+        let fid = toFamilyId tag
+        case L.find ((fid ==) . toFamilyId . W.tag . W.workspace) $ W.visible s of
+          Just (W.Screen { W.screen = sid }) -> viewScreen sid
+          _ -> return ()
+      windows $ (W.focusWindow w) . (W.greedyView tag)
     Nothing -> windows $ W.focusWindow w
 
 spawnAppSelectedTerminalAction apps = runActionSelectedTerminalAction $ L.map (\(a, b) -> (a, spawn b)) apps
