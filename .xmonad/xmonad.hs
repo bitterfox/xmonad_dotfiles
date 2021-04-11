@@ -160,11 +160,8 @@ myLogHook xmprocs = do
 
 xmobarLogHook xmprocs = withWindowSet (\s ->
     L.foldl (>>) def (map (\(i, xmproc) -> do
-        OriginalDisplayIdToCurrentScreenId idToId <- XS.get
 --      originalScreenIdToCurrentScreenIdMap <- originalScreenIdToCurrentScreenId priorityDisplayEDIDs
-        let j = case M.lookup i idToId of
-                  Just j -> j
-                  Nothing -> i
+        j <- (\(OriginalDisplayIdToCurrentScreenId idToId) -> fromMaybe i $ M.lookup i idToId) <$> XS.get
         dynamicLogWithPP (multiScreenXMobarPP s j xmproc)) (L.zip [0..(L.length xmprocs)] xmprocs)))
 
 --value_mask :: !CULong = (bit 2) (.|.) (bit 3)
@@ -459,7 +456,7 @@ main = do
                   Nothing -> return ()
                 windows $ W.modify' $ \stack@(W.Stack t ls rs) ->
                     if t == w then
-                        case L.filter (isFloat ws) $ ls ++ rs of
+                      case L.filter (isFloat ws) $ ls ++ rs of
                         (nw:_) -> W.Stack nw (L.delete nw ls) $ (L.delete nw rs) ++ [w]
                         _ -> stack
                     else W.Stack t (L.delete w ls) $ (L.delete w rs) ++ [w]
