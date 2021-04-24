@@ -131,6 +131,7 @@ myManageHookAll = manageHook gnomeConfig -- defaultConfig
                        <+> terminalManageHook myTerminal myTerminalActions
                        <+> ((fmap (L.isSuffixOf ".onBottom") appName) --> onBottom)
                        <+> (stringProperty "WM_WINDOW_ROLE" =? "GtkFileChooserDialog" --> onCenter' 0.1)
+                       <+> (stringProperty "WM_WINDOW_ROLE" =? "gimp-file-open" --> onCenter' 0.1)
                        <+> ((className =? "jetbrains-idea") <&&> (title =? "win0") --> doFloat)
 
 myLayout = (ResizableTall 1 (3/100) (1/2) [])
@@ -223,6 +224,8 @@ main = do
     spawn "gnome-screensaver"
     spawn "pulseeffects --gapplication-service"
     spawn "killall dunst"
+
+    spawn "xrandr --output eDP-1 --brightness 1 --gamma 1.05:1.05:1.095"
     xmonad $ gnomeConfig -- defaultConfig
         { manageHook = myManageHookAll
         , layoutHook =  myLayoutHookAll
@@ -442,6 +445,7 @@ main = do
         ] `removeKeys`
         [
           (mod4Mask .|. shiftMask, xK_q)
+        , (mod4Mask .|. shiftMask, xK_slash)
 --        , (mod4Mask, xK_q)
         ] `additionalMouseBindings` [
           ((mod4Mask, button1), \w -> focus w >> mouseMoveWindow w)
@@ -451,19 +455,12 @@ main = do
             ws <- gets windowset
             ifX (isFloat ws w) $ do
                 before <- gets windowset
-                case W.stack $ W.workspace $ W.current before of
-                  Just (W.Stack t ls rs) -> spawn $ "echo 'Before: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
-                  Nothing -> return ()
                 windows $ W.modify' $ \stack@(W.Stack t ls rs) ->
                     if t == w then
                       case L.filter (isFloat ws) $ ls ++ rs of
                         (nw:_) -> W.Stack nw (L.delete nw ls) $ (L.delete nw rs) ++ [w]
                         _ -> stack
-                    else W.Stack t (L.delete w ls) $ (L.delete w rs) ++ [w]
-                before <- gets windowset
-                case W.stack $ W.workspace $ W.current before of
-                  Just (W.Stack t ls rs) -> spawn $ "echo 'After: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
-                  Nothing -> return ())
+                    else W.Stack t (L.delete w ls) $ (L.delete w rs) ++ [w])
         ] `additionalKeys` [
           ((mod4Mask .|. m, k), f i)
             | (i, k) <- zip originalWorkspaces $ [xK_1 .. xK_9] ++ [xK_0]
@@ -1050,6 +1047,7 @@ focusedFloatOnUp = do
   windows (\s -> W.modify' (\stack@(W.Stack t ls rs) -> do
     let (lf, ls') = L.partition (isFloat s) ls
     if lf == [] then stack
+--    else W.Stack t ls' $ rs ++ (reverse lf)) s)
     else W.Stack t ls' $ (reverse lf) ++ rs) s)
 --  before <- gets windowset
 --  case W.stack $ W.workspace $ W.current before of
@@ -1939,13 +1937,20 @@ class Terminal t where
 data GnomeTerminal = GnomeTerminal {
       prefix :: String
 }
+data GnomeTerminalUniqueCount = GnomeTerminalUniqueCount Int deriving (Typeable)
+instance ExtensionClass GnomeTerminalUniqueCount where
+  initialValue = GnomeTerminalUniqueCount 0
 instance Terminal GnomeTerminal where
-    terminalQuery (GnomeTerminal prefix) a = (appName =? (prefix ++ "." ++ (actionName a)))
+--    terminalQuery (GnomeTerminal prefix) a = (appName =? (prefix ++ "." ++ (actionName a)))
+    terminalQuery (GnomeTerminal prefix) a = (L.isPrefixOf $ prefix ++ "." ++ (actionName a)) <$> appName
     startTerminal (GnomeTerminal prefix) (TerminalAction name _ script _ _) inFile outFile = do
+      GnomeTerminalUniqueCount count <- XS.get
+      XS.put $ GnomeTerminalUniqueCount $ count + 1
+      let appId = prefix ++ "." ++ name ++ ".id" ++ (show count)
       spawn $ "/usr/lib/gnome-terminal/gnome-terminal-server" ++
-           " --app-id " ++ prefix ++ "." ++ name ++
-           " --name=" ++ prefix ++ "." ++ name ++ " --class=" ++ "xmonad-terminal" ++
-           " & gnome-terminal --app-id " ++ prefix ++ "." ++ name ++ " -- " ++ script ++ " " ++ inFile ++ " " ++ outFile
+           " --app-id " ++ appId ++
+           " --name=" ++ appId ++ " --class=" ++ "xmonad-terminal" ++
+           " & gnome-terminal --app-id " ++ appId ++ " -- " ++ script ++ " " ++ inFile ++ " " ++ outFile
 
 myTerminal = GnomeTerminal "xmonad.terminal.action"
 selectWindowTerminalActionTemplate =

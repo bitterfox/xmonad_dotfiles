@@ -19,7 +19,6 @@ fi
 
 text=`printf "❖%3d%%" $percent`
 if [ $percent -ge 90 ]; then
-    echo "<fc=$white,$red>$text</fc>"
-else
-    echo "$text"
+    emergency
 fi
+xmobar_echo "$text"

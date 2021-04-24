@@ -8,4 +8,5 @@ white="#DAD4BB"
 red="#CC654C"
 blue="#3BA99F"
 
-export FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --color='bg:$white,bg+:$black,fg:$black,fg+:$white,hl:#3BA99F:underline:bold,hl+:#3BA99F:underline:bold,gutter:$white,pointer:$red,prompt:$black,spinner:$blue,border:$gray,header:#3BA99F:reverse:bold,info:$brightBlack,query:$black'"
+#export FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --color='bg:$white,bg+:$brightBlack,fg:$black,fg+:$white,hl:#3BA99F:underline:bold,hl+:#3BA99F:underline:bold,gutter:$white,pointer:$red,prompt:$black,spinner:$blue,border:$gray,header:#3BA99F:reverse:bold,info:$brightBlack,query:$black'"
+export FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --color='bg:$darkWhite,bg+:$black,fg:$black,fg+:$white,hl:#3BA99F:underline:bold,hl+:#3BA99F:underline:bold,gutter:$darkWhite,pointer:$red,prompt:$black,spinner:$blue,border:$gray,header:#3BA99F:reverse:bold,info:$brightBlack,query:$black'"

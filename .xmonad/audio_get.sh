@@ -1,5 +1,7 @@
 #!/bin/sh
 
+. ~/.xmonad/color.sh
+
 info=`pacmd list-sinks | grep -e index -e "^\s*volume:" -e muted -e name: | grep -A3 '\*'`
 
 name=`echo "$info" | grep name: | sed -r "s/.*<([^>]+)>/\1/"`
@@ -22,7 +24,7 @@ case "$name" in
 esac
 
 if [ "$isMute" = "yes" ]; then
-    echo "🔇$volume_text($name)"
+    xmobar_echo "🔇$volume_text($name)"
 else
-    echo "🔊$volume_text($name)"
+    xmobar_echo "🔊$volume_text($name)"
 fi

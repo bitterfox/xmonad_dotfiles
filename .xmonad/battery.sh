@@ -29,15 +29,15 @@ text="🔋$left%($time_text)"
 
 if [ "$status" = "Charging" ]; then
     if [ `echo "$left >= 95" | bc` = 1 ]; then
-        text="<fc=$brightBlue,$black>$text</fc>"
+        ok
     fi
 elif [ "$status" = "Full" ]; then
-    text="<fc=$brightBlue,$black>$text</fc>"
+    ok
 else
     if [ `echo "$left <= 15" | bc` = 1 ]; then
-        text="<fc=$white,$red>$text</fc>"
+        emergency
     fi
 fi
 
 #echo "$text status=$status, now=$now, full=$full, wat=$wat, left=$left, time=$time, $time_text"
-echo "$text"
+xmobar_echo "$text"

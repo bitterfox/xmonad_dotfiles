@@ -59,6 +59,4 @@ fi
 rx_text=`printf "⬇%4d%4s" $rx_bps $rx_unit`
 tx_text=`printf "⬆️%4d%4s" $tx_bps $tx_unit`
 
-echo -n "📶$rx_prefix$rx_text$rx_suffix|$tx_prefix$tx_text$tx_suffix"
-
-echo "$text"
+xmobar_echo "📶$rx_prefix$rx_text$rx_suffix|$tx_prefix$tx_text$tx_suffix"
