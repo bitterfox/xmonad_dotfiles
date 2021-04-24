@@ -15,7 +15,8 @@
     #
     # If this option is set to mouse or keyboard, the monitor option
     # will be ignored.
-    follow = mouse
+#    follow = mouse
+    follow = none
 
     # The geometry of the window:
     #   [{width}]x{height}[+/-{x}+/-{y}]
@@ -230,19 +231,23 @@
     # Xev might be helpful to find names for keys.
 
     # Close notification.
-    close = ctrl+space
+    close = mod4+slash
+    #close = mod4+/
 
     # Close all notifications.
-    close_all = ctrl+shift+space
+    close_all = ctrl+mod4+shift+slash
+    #close_all = mod4+shift+/
 
     # Redisplay last message(s).
     # On the US keyboard layout "grave" is normally above TAB and left
     # of "1". Make sure this key actually exists on your keyboard layout,
     # e.g. check output of 'xmodmap -pke'
-    history = ctrl+at
+    history = mod4+shift+slash
+    #history = mod4+\
 
     # Context menu.
-    context = ctrl+shift+at
+    context = mod4+ctrl+slash
+    #context = mod4+shift+\
 
 [urgency_low]
     # IMPORTANT: colors have to be defined in quotation marks.
