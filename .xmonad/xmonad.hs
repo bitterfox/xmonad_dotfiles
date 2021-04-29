@@ -1828,9 +1828,9 @@ instance (LayoutClass l a, Show a, Eq a) => LayoutClass (CompositeTall l) a wher
           let rects = splitRect list rect
 --          spawn $ "echo '" ++ (show rect) ++ "' >> /tmp/xmonad.debug.layout"
 --          spawn $ "echo '" ++ (show (L.map (\(wins, r, _) -> (wins, r)) list)) ++ "' >> /tmp/xmonad.debug.layout"
-          spawn $ "echo '" ++ (show (L.map (\(wins, r, _) -> (wins, r)) rects)) ++ "' >> /tmp/xmonad.debug.layout"
+--          spawn $ "echo '" ++ (show (L.map (\(wins, r, _) -> (wins, r)) rects)) ++ "' >> /tmp/xmonad.debug.layout"
           results <- applyLayouts rects tag stack
-          spawn $ "echo '" ++ (show results) ++ "' >> /tmp/xmonad.debug.layout"
+--          spawn $ "echo '" ++ (show results) ++ "' >> /tmp/xmonad.debug.layout"
           return (fst results,
             if L.all isNothing $ snd results then Nothing
             else Just $ replaceLayouts layout $ snd results)
@@ -1838,7 +1838,6 @@ instance (LayoutClass l a, Show a, Eq a) => LayoutClass (CompositeTall l) a wher
 --      return ([(W.focus stack, rect)], Nothing)
         Nothing -> return ([], Nothing)
 
--- TODO Refactor, Support Resize rightside bar
     handleMessage layout m = do
       maybeCells <- stackCells layout
       maybeLayouts <- stackLayouts layout
@@ -2073,24 +2072,6 @@ splitRect' ((wins, ratio, layout):list) rect len currentWidth =
           mw = rect_width rect
           width = (fromIntegral $ mw) `div` len
 splitRect' [] rect len cw = []
-
---runCompositedLayouts [] = []
---runCompositedLayouts (wins, ratio, layout):list =
-    -- TODO
-
---    handleMessage l@(WindowViewableLayout state l1 l2) mess = do
---      case fromMessage mess of
---        Just View -> do
---            handleMessage l2 $ SomeMessage Hide
---            return $ Just $ WindowViewableLayout WindowView l1 l2
---        Just Focus -> do
---            handleMessage l1 $ SomeMessage Hide
---            return $ Just $ WindowViewableLayout Normal l1 l2
---        other -> delegateHandleMessage l mess
-
---      case state of
---        Normal -> "Normal" ++ (description l2)
---        WindowView -> "WindowView" ++ (description l1)
 
 ------------------------------------------------------------------------------------------
 -- Terminal actions
