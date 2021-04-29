@@ -287,6 +287,11 @@ main = do
         , ((mod4Mask, xK_i), sendMessage $ DelegateMessage $ SomeMessage Shrink)
         , ((mod4Mask, xK_m), sendMessage $ DelegateMessage $ SomeMessage Expand)
 
+        , ((mod4Mask .|. shiftMask, xK_h), sendMessage $ ResizeAnotherSide Shrink)
+        , ((mod4Mask .|. shiftMask, xK_l), sendMessage $ ResizeAnotherSide Expand)
+
+        , ((mod4Mask .|. shiftMask, xK_r), sendMessage ResetSize)
+
         , ((mod4Mask .|. shiftMask, xK_comma ), sendMessage NewCellAtLeft)
         , ((mod4Mask .|. shiftMask, xK_period), sendMessage NewCellAtRight)
         ------------------------------------------------------------------------------------------------------------------------------------
@@ -1810,6 +1815,12 @@ instance Message NewCell
 data DelegateMessage = DelegateMessage SomeMessage deriving ( Typeable )
 instance Message DelegateMessage
 
+data ResizeAnotherSide = ResizeAnotherSide Resize deriving ( Typeable )
+instance Message ResizeAnotherSide
+
+data ResetSize = ResetSize deriving ( Typeable )
+instance Message ResetSize
+
 instance (LayoutClass l a, Show a, Eq a) => LayoutClass (CompositeTall l) a where
     runLayout (W.Workspace tag layout stackMaybe) rect =
       case stackMaybe of
@@ -1833,18 +1844,29 @@ instance (LayoutClass l a, Show a, Eq a) => LayoutClass (CompositeTall l) a wher
     handleMessage layout m = do
       maybeCells <- stackCells layout
       maybeLayouts <- stackLayouts layout
-      let newLayout = msum [fmap (handleResize maybeCells) (fromMessage m)
+      let maybeNewLayout = msum [fmap (handleResize maybeCells) (fromMessage m)
+                           ,fmap (handleResizeAnotherSide maybeCells maybeLayouts) (fromMessage m)
+                           ,fmap handleResetSize (fromMessage m)
                            ,fmap (handleIncMasterN maybeCells) (fromMessage m)
                            ,fmap (handleNewCellMessage maybeLayouts) (fromMessage m)]
-      if isNothing newLayout then
-          -- TODO delegate message to inner layout and replace layouts
+      case maybeNewLayout of
+        Just newLayout ->
           case fromMessage m of
-            Just (DelegateMessage m) -> handleDelegateMessage maybeLayouts m
-            _ -> handleDelegateMessage maybeLayouts m
-      else return newLayout
+            Just ResetSize ->
+              handleDelegateMessage newLayout maybeLayouts m >>= (return . Just . head . catMaybes . (:[maybeNewLayout]))
+            _ -> return maybeNewLayout
+        Nothing -> case fromMessage m of
+            Just (DelegateMessage m) -> handleDelegateMessage layout maybeLayouts m
+            _ -> handleDelegateMessage layout maybeLayouts m
       where
         handleResize (Just cells) Shrink = layout {compositeTallCells = replaceFocusedCell cells $ \c -> c {compositeCellRatio = max 0 $ compositeCellRatio c - compositeTallRatioIncrement layout}}
         handleResize (Just cells) Expand = layout {compositeTallCells = replaceFocusedCell cells $ \c -> c {compositeCellRatio = compositeCellRatio c + compositeTallRatioIncrement layout}}
+        handleResizeAnotherSide (Just cells) (Just layouts) (ResizeAnotherSide resize) =
+          if (L.null $ W.down layouts) || (L.null $ W.up cells) then handleResize (Just cells) resize else handleResize (Just $ W.focusUp' cells) resize
+        handleResetSize ResetSize =
+          layout {
+            compositeTallCells = L.map (\c -> c {compositeCellRatio = 1}) $ compositeTallCells layout
+          }
         handleIncMasterN (Just cells) (IncMasterN n) = do
           let newWins = (compositeCellWindows $ W.focus cells) + n
           if newWins <= 0 then
@@ -1864,14 +1886,14 @@ instance (LayoutClass l a, Show a, Eq a) => LayoutClass (CompositeTall l) a wher
           let len = L.length $ W.up layouts
           let (ls,rs) = L.splitAt (len+1) $ compositeTallCells layout
           layout {compositeTallCells = ls ++ [CompositeCell 1 1 $ compositeTallLayoutTemplate layout] ++ rs}
-        handleDelegateMessage (Just layouts) m = do
+        handleDelegateMessage currentLayout (Just layouts) m = do
               ml <- handleMessage (W.focus layouts) m
               return (ml >>= (\l -> Just $ layouts {
                                       W.focus = Just l,
                                       W.up = L.map (\n -> Nothing) (W.up layouts),
                                       W.down = L.map (\n -> Nothing) (W.down layouts)
                                     })
-                         >>= (Just . (replaceLayouts layout) . W.integrate))
+                         >>= (Just . (replaceLayouts currentLayout) . W.integrate))
     description = show
 
 data SimpleWide a = SimpleWide {
@@ -1900,7 +1922,9 @@ instance LayoutClass SimpleWide a where
       where idx = L.length $ W.up stack
             wins = W.integrate stack
             len = L.length wins
-    pureMessage l@(SimpleWide ratio ratioInc cidx clen) m = fmap handleResize (fromMessage m)
+    pureMessage l@(SimpleWide ratio ratioInc cidx clen) m =
+        msum [fmap handleResize (fromMessage m)
+             ,fmap handleResetSize (fromMessage m)]
       where rs = ratio ++ (L.replicate (cidx - L.length ratio) 1)
             handleResize Shrink = do
               let (f, s) = splitAt (min (clen -2) cidx) rs
@@ -1910,6 +1934,7 @@ instance LayoutClass SimpleWide a where
               let (f, s) = splitAt (min (clen -2) cidx) rs
               if L.null s then l
               else l { simpleWideRatio = f ++ ((head s + ratioInc):(tail s)) }
+            handleResetSize ResetSize = l {simpleWideRatio = L.map (\r -> 1) ratio}
 
     description = show
 
