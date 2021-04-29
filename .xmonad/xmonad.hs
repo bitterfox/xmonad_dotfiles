@@ -282,13 +282,14 @@ main = do
                                  WindowView -> broadcastMessage Focus >> refresh
                                  Normal -> sendMessage ToggleLayout)
 
-
         -- 水平のサイズ変更
         , ((mod4Mask, xK_i), sendMessage $ DelegateMessage $ SomeMessage Shrink)
         , ((mod4Mask, xK_m), sendMessage $ DelegateMessage $ SomeMessage Expand)
+        , ((mod4Mask .|. shiftMask, xK_i), sendMessage $ DelegateMessage $ SomeMessage $ ResizeAnotherSide Expand)
+        , ((mod4Mask .|. shiftMask, xK_m), sendMessage $ DelegateMessage $ SomeMessage $ ResizeAnotherSide Shrink)
 
-        , ((mod4Mask .|. shiftMask, xK_h), sendMessage $ ResizeAnotherSide Shrink)
-        , ((mod4Mask .|. shiftMask, xK_l), sendMessage $ ResizeAnotherSide Expand)
+        , ((mod4Mask .|. shiftMask, xK_h), sendMessage $ ResizeAnotherSide Expand)
+        , ((mod4Mask .|. shiftMask, xK_l), sendMessage $ ResizeAnotherSide Shrink)
 
         , ((mod4Mask .|. shiftMask, xK_r), sendMessage ResetSize)
 
@@ -1862,7 +1863,30 @@ instance (LayoutClass l a, Show a, Eq a) => LayoutClass (CompositeTall l) a wher
         handleResize (Just cells) Shrink = layout {compositeTallCells = replaceFocusedCell cells $ \c -> c {compositeCellRatio = max 0 $ compositeCellRatio c - compositeTallRatioIncrement layout}}
         handleResize (Just cells) Expand = layout {compositeTallCells = replaceFocusedCell cells $ \c -> c {compositeCellRatio = compositeCellRatio c + compositeTallRatioIncrement layout}}
         handleResizeAnotherSide (Just cells) (Just layouts) (ResizeAnotherSide resize) =
-          if (L.null $ W.down layouts) || (L.null $ W.up cells) then handleResize (Just cells) resize else handleResize (Just $ W.focusUp' cells) resize
+          if (L.null $ W.down layouts) || (L.null $ W.up cells) then
+            handleResize (Just cells) $ reverseResize resize
+          else do
+            let up = head $ W.up cells
+            let f = W.focus cells
+            let ratioInc = compositeTallRatioIncrement layout
+            let diff = case resize of
+                         Expand -> min (compositeCellRatio up) ratioInc
+                         Shrink -> min (compositeCellRatio f) ratioInc
+            let replacedCells = cells {
+                                  W.focus = f {
+                                     compositeCellRatio = (case resize of
+                                                             Expand -> (+)
+                                                             Shrink -> (-)) (compositeCellRatio f) diff
+                                  },
+                                  W.up = (up {
+                                     compositeCellRatio = (case resize of
+                                                             Expand -> (-)
+                                                             Shrink -> (+)) (compositeCellRatio up) diff
+                                  }):(tail $ W.up cells)
+                                }
+            layout {
+                 compositeTallCells = W.integrate replacedCells
+            }
         handleResetSize ResetSize =
           layout {
             compositeTallCells = L.map (\c -> c {compositeCellRatio = 1}) $ compositeTallCells layout
@@ -1923,20 +1947,37 @@ instance LayoutClass SimpleWide a where
             wins = W.integrate stack
             len = L.length wins
     pureMessage l@(SimpleWide ratio ratioInc cidx clen) m =
-        msum [fmap handleResize (fromMessage m)
+        msum [fmap (handleResize l cidx) (fromMessage m)
+             ,fmap handleResizeAnotherSide (fromMessage m)
              ,fmap handleResetSize (fromMessage m)]
-      where rs = ratio ++ (L.replicate (cidx - L.length ratio) 1)
-            handleResize Shrink = do
-              let (f, s) = splitAt (min (clen -2) cidx) rs
-              if L.null s then l
-              else l { simpleWideRatio = f ++ ((max 0 $ head s - ratioInc):(tail s)) }
-            handleResize Expand = do
-              let (f, s) = splitAt (min (clen -2) cidx) rs
-              if L.null s then l
-              else l { simpleWideRatio = f ++ ((head s + ratioInc):(tail s)) }
+      where rs layout = (simpleWideRatio layout) ++ (L.replicate (cidx - (L.length $ simpleWideRatio layout)) 1)
+            handleResize layout i Shrink = do
+              let (f, s) = splitAt (min (clen -2) i) $ rs layout
+              if L.null s then layout
+              else layout { simpleWideRatio = f ++ ((max 0 $ head s - ratioInc):(tail s)) }
+            handleResize layout i Expand = do
+              let (f, s) = splitAt (min (clen -2) i) $ rs layout
+              if L.null s then layout
+              else layout { simpleWideRatio = f ++ ((head s + ratioInc):(tail s)) }
+            handleResizeAnotherSide (ResizeAnotherSide resize) =
+                if (cidx == 0) || (cidx == clen - 1) then
+                    handleResize l cidx $ reverseResize resize
+                else do
+                  let (f, s) = splitAt (min (clen -2) cidx-1) $ rs l
+                  let up = head s
+                  let down = head $ tail s
+                  let diff = case resize of
+                               Expand -> min up ratioInc
+                               Shrink -> min down ratioInc
+                  case resize of
+                    Expand -> l { simpleWideRatio = f ++ [up - diff, down + diff] ++ (tail $ tail s) }
+                    Shrink -> l { simpleWideRatio = f ++ [up + diff, down - diff] ++ (tail $ tail s) }
             handleResetSize ResetSize = l {simpleWideRatio = L.map (\r -> 1) ratio}
 
     description = show
+
+reverseResize Shrink = Expand
+reverseResize Expand = Shrink
 
 modifyLayout fs defaultLayout = modifyLayout' fs Nothing defaultLayout
 modifyLayout' (f:fs) maybeLayout defaultLayout = do
@@ -2028,11 +2069,11 @@ splitRect' ((wins, ratio, layout):list) rect len currentWidth =
     else do
       let w = (truncate ((fromIntegral width) * ratio))
       if currentWidth + fromIntegral w >= fromIntegral mw then
-          [(wins, (rect {rect_x = x, rect_width = mw - currentWidth}), layout)]
+          [(wins, (rect {rect_x = x, rect_width = mw - currentWidth}), layout)] ++ (splitRect' list rect len $ mw)
       else
           [(wins, (rect {rect_x = x, rect_width = fromIntegral w}), layout)] ++ (splitRect' list rect len $ currentWidth + w)
     where x = rect_x rect + (fromIntegral currentWidth)
-          mw = rect_width rect
+          mw = rect_width rect - (fromIntegral $ L.length list) * 10
           width = (fromIntegral $ mw) `div` len
 splitRect' [] rect len cw = []
 
