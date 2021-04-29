@@ -17,7 +17,7 @@ import qualified Data.Text as T
 
 import Control.Concurrent
 import Control.Exception.Extensible as E
-import Control.Monad (foldM, filterM, mapM, forever, mplus)
+import Control.Monad (foldM, filterM, mapM, forever, mplus, msum)
 
 import Text.Parsec
 import Text.Parsec.String (Parser)
@@ -149,6 +149,9 @@ myLayoutHookAll = avoidStruts $ WindowViewableLayout Normal (noBorders $ Android
                        ||| (Accordion)
                        ||| (Roledex)
                        ) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
+myLayoutHookDevel = avoidStruts $ toggleLayouts (renamed [Replace "■"] $ noBorders Full) $ ( tall ||| (Mirror tall))
+  where tall = compositeTall (3/100) simpleWide
+        simpleWide = SimpleWide [] (3/100)
 
 tall = Tall 1 (3/100) (1/2)
 
@@ -228,7 +231,8 @@ main = do
     spawn "xrandr --output eDP-1 --brightness 1 --gamma 1.05:1.05:1.095"
     xmonad $ gnomeConfig -- defaultConfig
         { manageHook = myManageHookAll
-        , layoutHook =  myLayoutHookAll
+--        , layoutHook =  myLayoutHookAll
+        , layoutHook =  myLayoutHookDevel
         , logHook = myLogHook xmprocs
         , handleEventHook = myHandleEventHook
         , startupHook = myStartupHook
@@ -282,6 +286,9 @@ main = do
         -- 水平のサイズ変更
         , ((mod4Mask, xK_i), sendMessage MirrorExpand)
         , ((mod4Mask, xK_m), sendMessage MirrorShrink)
+
+        , ((mod4Mask .|. shiftMask, xK_comma ), sendMessage NewCellAtLeft)
+        , ((mod4Mask .|. shiftMask, xK_period), sendMessage NewCellAtRight)
         ------------------------------------------------------------------------------------------------------------------------------------
 
         -- Window $ Workspace
@@ -1781,6 +1788,185 @@ delegateHandleMessage (WindowViewableLayout WindowView l1 l2) mess = do
 
 instance ExtensionClass WindowViewState where
   initialValue = Normal
+
+data CompositeTall layout a = CompositeTall {
+      compositeTallCells :: [CompositeCell layout a],
+      compositeTallRatioIncrement :: Rational,
+      compositeTallLayoutTemplate :: layout a,
+      compositeTallRestLayout :: layout a
+  } deriving ( Read, Show )
+
+data CompositeCell layout a = CompositeCell {
+      compositeCellWindows :: Int,
+      compositeCellRatio :: Rational,
+      compositeCellLayout :: layout a
+  } deriving ( Read, Show )
+
+compositeTall ratioIncrement layoutTemplate = CompositeTall [CompositeCell 1 1 layoutTemplate] ratioIncrement layoutTemplate layoutTemplate
+
+data NewCell = NewCellAtLeft | NewCellAtRight deriving ( Typeable )
+instance Message NewCell
+
+instance (LayoutClass l a, Show a, Eq a) => LayoutClass (CompositeTall l) a where
+    runLayout (W.Workspace tag layout stackMaybe) rect =
+      case stackMaybe of
+        Just stack -> do
+--      let list = assignWindows layout windows
+          let list = assignStack layout stack
+          let rects = splitRect list rect
+--          spawn $ "echo '" ++ (show rect) ++ "' >> /tmp/xmonad.debug.layout"
+--          spawn $ "echo '" ++ (show (L.map (\(wins, r, _) -> (wins, r)) list)) ++ "' >> /tmp/xmonad.debug.layout"
+          spawn $ "echo '" ++ (show (L.map (\(wins, r, _) -> (wins, r)) rects)) ++ "' >> /tmp/xmonad.debug.layout"
+          results <- applyLayouts rects tag stack
+          spawn $ "echo '" ++ (show results) ++ "' >> /tmp/xmonad.debug.layout"
+          -- TODO replace layout
+          return (fst results, Nothing)
+--          return (L.map (\(wins, r, layout) -> (head wins, r)) rects, Nothing)
+--      return ([(W.focus stack, rect)], Nothing)
+        Nothing -> return ([], Nothing)
+
+-- TODO Refactor, Support Resize rightside bar
+    handleMessage layout m = do
+      maybeCells <- stackCells layout
+      maybeLayouts <- stackLayouts layout
+      let newLayout = msum [fmap (handleResize maybeCells) (fromMessage m)
+                           ,fmap (handleIncMasterN maybeCells) (fromMessage m)
+                           ,fmap (handleNewCellMessage maybeLayouts) (fromMessage m)]
+      if isNothing newLayout then
+          -- TODO delegate message to inner layout and replace layouts
+          return Nothing
+      else return newLayout
+      where
+        handleResize (Just cells) Shrink = layout {compositeTallCells = replaceFocusedCell cells $ \c -> c {compositeCellRatio = max 0 $ compositeCellRatio c - compositeTallRatioIncrement layout}}
+        handleResize (Just cells) Expand = layout {compositeTallCells = replaceFocusedCell cells $ \c -> c {compositeCellRatio = compositeCellRatio c + compositeTallRatioIncrement layout}}
+        handleIncMasterN (Just cells) (IncMasterN n) = do
+          let newWins = (compositeCellWindows $ W.focus cells) + n
+          if newWins <= 0 then
+            layout {compositeTallCells = removeFocusedCell cells}
+          else
+            layout {compositeTallCells = replaceFocusedCell cells $ \c -> c { compositeCellWindows = newWins }}
+        handleIncMasterN Nothing (IncMasterN n) = do
+          if n > 0 then
+            layout {compositeTallCells = [CompositeCell n 1 $ compositeTallLayoutTemplate layout]}
+          else
+            layout
+        handleNewCellMessage (Just layouts) NewCellAtLeft = do
+          let len = L.length $ W.up layouts
+          let (ls,rs) = L.splitAt len $ compositeTallCells layout
+          layout {compositeTallCells = ls ++ [CompositeCell 1 1 $ compositeTallLayoutTemplate layout] ++ rs}
+        handleNewCellMessage (Just layouts) NewCellAtRight = do
+          let len = L.length $ W.up layouts
+          let (ls,rs) = L.splitAt (len+1) $ compositeTallCells layout
+          layout {compositeTallCells = ls ++ [CompositeCell 1 1 $ compositeTallLayoutTemplate layout] ++ rs}
+    description = show
+
+data SimpleWide a = SimpleWide {
+      simpleWideRatio :: [Rational],
+      simpleWideRatioIncrement :: Rational
+} deriving ( Read, Show )
+
+instance LayoutClass SimpleWide a where
+    pureLayout l@(SimpleWide ratio _) rect stack = do
+        let wins = W.integrate stack
+        let rs = ratio ++ (L.replicate (L.length wins - L.length ratio) 1)
+        let list = zipWith (\w r -> ([w], r, l)) wins rs
+        let rects = splitRect list $ mirrorRect rect
+        L.map (\(ws, r, l) -> (head ws, mirrorRect r)) rects
+
+    description = show
+
+rebuildStack wins stack = do
+  let (f, s) = span (W.focus stack /=) wins
+  if L.null s then W.Stack (head wins) [] (L.tail wins)
+  else W.Stack (head s) (L.reverse f) $ L.tail s
+applyLayouts :: (LayoutClass layout a, Eq a) => [([a], Rectangle, layout a)] -> WorkspaceId -> W.Stack a -> X ([(a, Rectangle)], [Maybe (layout a)])
+applyLayouts [] tag stack = return $ ([], [])
+applyLayouts ((wins, rect, layout):list) tag stack = do
+  (f, s) <- runLayout (W.Workspace tag layout $ Just $ rebuildStack wins stack) rect
+  (fx, sx) <- applyLayouts list tag stack
+  return ((f++fx), (s:sx))
+
+stackCells :: CompositeTall layout a -> X (Maybe (W.Stack (CompositeCell layout a)))
+stackCells layout = do
+  let cellsLen = L.length $ compositeTallCells layout
+  if cellsLen == 0 then return Nothing
+  else
+    withWindowSet $ \ws ->
+      case W.stack $ W.workspace $ W.current ws of
+        Just stack -> do
+          let list = assignStack layout (stack {W.down = []})
+          let (f, s) = splitAt ((min cellsLen $ L.length list) - 1) $ compositeTallCells layout
+          if L.null s then return Nothing
+          else do
+            let focus = head s
+            return $ Just $ W.Stack focus (reverse f) $ tail s
+        Nothing -> do
+          let cells = compositeTallCells layout
+          return $ Just $ W.Stack (head cells) [] (tail cells)
+stackLayouts :: CompositeTall layout a -> X (Maybe (W.Stack (layout a)))
+stackLayouts layout = do
+  let cells = compositeTallCells layout
+  let layouts = (L.map compositeCellLayout cells) ++ [compositeTallRestLayout layout]
+  withWindowSet $ \ws ->
+    case W.stack $ W.workspace $ W.current ws of
+      Just stack -> do
+        let list = assignStack layout (stack {W.down = []})
+        let (f, s) = splitAt ((min (L.length layouts) $ L.length list) - 1) $ layouts
+        if L.null s then return Nothing
+        else do
+          let focus = head s
+          return $ Just $ W.Stack focus (reverse f) $ tail s
+      Nothing -> do
+        return $ Just $ W.Stack (head layouts) [] (tail layouts)
+replaceFocusedCell :: W.Stack (CompositeCell layout a) -> (CompositeCell layout a -> CompositeCell layout a) -> [CompositeCell layout a]
+replaceFocusedCell stack@W.Stack{W.focus = fc} f = W.integrate $ stack {W.focus = f fc}
+removeFocusedCell stack = (L.reverse $ W.up stack) ++ W.down stack
+
+assignStack layout stack = assignWindows layout $ W.integrate stack
+assignWindows :: CompositeTall layout a -> [b] -> [([b], Rational, layout a)]
+assignWindows layout [] = []
+assignWindows layout@(CompositeTall cells inc template rest) windows =
+  if L.null cells then
+    [(windows, -1, rest)]
+  else do
+    let CompositeCell wins ratio layout = head cells
+    let (f, s) = splitAt wins windows
+    [(f, ratio, layout)] ++ (assignWindows (CompositeTall (tail cells) inc template rest) s)
+
+splitRect :: [([a], Rational, layout a)] -> Rectangle -> [([a], Rectangle, layout a)]
+splitRect list rect = splitRect' list rect (L.length list) 0
+splitRect' :: [([a], Rational, layout a)] -> Rectangle -> Int -> Dimension -> [([a], Rectangle, layout a)]
+splitRect' ((wins, ratio, layout):list) rect len currentWidth =
+    if L.null list then
+        [(wins, rect {rect_x = x, rect_width = mw - currentWidth}, layout)]
+    else do
+      let w = (truncate ((fromIntegral width) * ratio))
+      if currentWidth + fromIntegral w >= fromIntegral mw then
+          [(wins, (rect {rect_x = x, rect_width = mw - currentWidth}), layout)]
+      else
+          [(wins, (rect {rect_x = x, rect_width = fromIntegral w}), layout)] ++ (splitRect' list rect len $ currentWidth + w)
+    where x = rect_x rect + (fromIntegral currentWidth)
+          mw = rect_width rect
+          width = (fromIntegral $ mw) `div` len
+splitRect' [] rect len cw = []
+
+--runCompositedLayouts [] = []
+--runCompositedLayouts (wins, ratio, layout):list =
+    -- TODO
+
+--    handleMessage l@(WindowViewableLayout state l1 l2) mess = do
+--      case fromMessage mess of
+--        Just View -> do
+--            handleMessage l2 $ SomeMessage Hide
+--            return $ Just $ WindowViewableLayout WindowView l1 l2
+--        Just Focus -> do
+--            handleMessage l1 $ SomeMessage Hide
+--            return $ Just $ WindowViewableLayout Normal l1 l2
+--        other -> delegateHandleMessage l mess
+
+--      case state of
+--        Normal -> "Normal" ++ (description l2)
+--        WindowView -> "WindowView" ++ (description l1)
 
 ------------------------------------------------------------------------------------------
 -- Terminal actions
