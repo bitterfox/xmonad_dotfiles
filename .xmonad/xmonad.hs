@@ -134,24 +134,21 @@ myManageHookAll = manageHook gnomeConfig -- defaultConfig
                        <+> (stringProperty "WM_WINDOW_ROLE" =? "gimp-file-open" --> onCenter' 0.1)
                        <+> ((className =? "jetbrains-idea") <&&> (title =? "win0") --> doFloat)
 
-myLayout = (ResizableTall 1 (3/100) (1/2) [])
-myLayoutHookAll = avoidStruts $ WindowViewableLayout Normal (noBorders $ AndroidLikeWindowView (1/7) (3/100) (1/30) (1/100)) $
+myLayout = compositeTall (3/100) wide
+  where wide = simpleWide (3/100)
+--myLayout = (ResizableTall 1 (3/100) (1/2) [])
+myLayoutHookAll = avoidStruts $ WindowViewableLayout Normal (
+                                      (noBorders $ AndroidLikeWindowView (1/7) (3/100) (1/30) (1/100))
+                                  ||| (Roledex)) $
                        toggleLayouts (renamed [Replace "■"] $ noBorders Full) $
--- $                       ((renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout) ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout) ||| (renamed [Replace "田"] $ noFrillsDeco shrinkText mySDConfig $ multiCol [1] 4 0.01 0.5)) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
-                       (   (renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ MyModifiedLayout myLayout)
+                       (   (renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout)
                        ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout)
-                       ||| (renamed [Replace "田"] $ MyModifiedLayout $ multiCol [1] 4 0.01 0.5)
-                       ||| (renamed [Replace "M田"] $ Mirror $ MyModifiedLayout $ multiCol [1] 4 0.01 0.5)
                        ||| (Circle)
                        ||| (OneBig (3/4) (3/4))
                        ||| (SplitGrid XMonad.Layout.GridVariants.L 2 3 (2/3) (16/10) (5/100))
                        ||| (ThreeColMid 1 (3/100) (1/2))
                        ||| (Accordion)
-                       ||| (Roledex)
-                       ) -- tall, Mirror tallからFullにトグルできるようにする。(M-<Sapce>での変更はtall, Mirror tall) --  ||| Roledex
-myLayoutHookDevel = avoidStruts $ toggleLayouts (renamed [Replace "■"] $ noBorders Full) $ ( tall ||| (Mirror tall))
-  where tall = compositeTall (3/100) wide
-        wide = simpleWide (3/100)
+                       )
 
 tall = Tall 1 (3/100) (1/2)
 
@@ -232,7 +229,7 @@ main = do
     xmonad $ gnomeConfig -- defaultConfig
         { manageHook = myManageHookAll
 --        , layoutHook =  myLayoutHookAll
-        , layoutHook =  myLayoutHookDevel
+        , layoutHook =  myLayoutHookAll
         , logHook = myLogHook xmprocs
         , handleEventHook = myHandleEventHook
         , startupHook = myStartupHook
@@ -2073,7 +2070,7 @@ splitRect' ((wins, ratio, layout):list) rect len currentWidth =
       else
           [(wins, (rect {rect_x = x, rect_width = fromIntegral w}), layout)] ++ (splitRect' list rect len $ currentWidth + w)
     where x = rect_x rect + (fromIntegral currentWidth)
-          mw = rect_width rect - (fromIntegral $ L.length list) * 10
+          mw = rect_width rect
           width = (fromIntegral $ mw) `div` len
 splitRect' [] rect len cw = []
 
