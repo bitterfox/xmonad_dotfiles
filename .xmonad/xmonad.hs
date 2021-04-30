@@ -986,9 +986,9 @@ floatFocusUp stackSet = W.modify' (floatFocusUp' stackSet) stackSet
 floatFocusDown stackSet = W.modify' (floatFocusDown' stackSet) stackSet
 
 floatFocusUp', floatFocusDown' :: Ord a => W.StackSet i l a s sd -> W.Stack a -> W.Stack a
-floatFocusUp' = floatFocusNext . sortedFloats
+floatFocusUp' = floatFocusNext . reverse . sortedFloats
 
-floatFocusDown' = floatFocusNext . reverse . sortedFloats
+floatFocusDown' = floatFocusNext . sortedFloats
 
 sortedFloats stackSet = L.map fst $ sortedFloats' stackSet
 sortedFloats' stackSet =
@@ -1002,8 +1002,8 @@ sortedFloats' stackSet =
               comparator = comparingY `andThen` comparingX `andThen` comparingH `andThen` comparingW `andThen` comparingWid
 
 floatFocusNext floats stack@(W.Stack t ls rs) = do
-    let ws = (ls ++ rs)
-    let fs = L.filter (\w -> L.elem w ws) $ floats
+    let ws = W.integrate stack
+    let fs = L.reverse $ L.filter (\w -> L.elem w ws) $ floats
     if fs == [] then stack
     else do
       let fs' = takeWhile (/= t) fs
