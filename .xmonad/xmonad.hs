@@ -82,6 +82,7 @@ import XMonad.Util.EZConfig
 import XMonad.Util.NamedScratchpad
 import XMonad.Util.NamedWindows
 import qualified XMonad.Util.ExtensibleState as XS
+import XMonad.Util.WindowProperties (getProp32s)
 
 black = "#4E4B42"
 brightBlack = "#635F54"
@@ -141,13 +142,13 @@ myLayoutHookAll = avoidStruts $ WindowViewableLayout Normal (
                                       (noBorders $ AndroidLikeWindowView (1/7) (3/100) (1/30) (1/100))
                                   ||| (Roledex)) $
                        toggleLayouts (renamed [Replace "■"] $ noBorders Full) $
-                       (   (renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout)
-                       ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout)
-                       ||| (Circle)
-                       ||| (OneBig (3/4) (3/4))
-                       ||| (SplitGrid XMonad.Layout.GridVariants.L 2 3 (2/3) (16/10) (5/100))
-                       ||| (ThreeColMid 1 (3/100) (1/2))
-                       ||| (Accordion)
+--                       (   (renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout)
+                       (   (renamed [Replace "┣"] $ myLayout)
+--                       ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout)
+                       ||| (renamed [Replace "┳"] $ Mirror myLayout)
+--                       ||| (Circle)
+--                       ||| (OneBig (3/4) (3/4))
+--                       ||| (Accordion)
                        )
 
 tall = Tall 1 (3/100) (1/2)
@@ -186,7 +187,7 @@ myHandleEventHook =
              return (All True))
 
 myStartupHook =
-    startupHook gnomeConfig <+> docksStartupHook <+> configureMouse <+>  myrescreen priorityDisplayEDIDs
+    startupHook gnomeConfig <+> docksStartupHook <+> myDocksStartupHook <+> configureMouse <+>  myrescreen priorityDisplayEDIDs
 
 watch :: String -> String -> IO ()
 watch cmd interval = spawn $ "while :; do " ++ cmd ++ "; sleep " ++ interval ++ "; done"
@@ -249,7 +250,7 @@ main = do
         , ((mod1Mask .|. mod4Mask, xK_q), runActionSelected hidpiGSConfig systemActions)
         , ((mod4Mask, xK_r), withWindowSet (\ws -> do
                                                      let sid = W.screen $ W.current ws
-                                                     viewScreen 0 >> refresh >> myrescreen priorityDisplayEDIDs >> docksStartupHook >> viewScreen sid)) -- rescreen >>
+                                                     viewScreen 0 >> refresh >> myrescreen priorityDisplayEDIDs >> docksStartupHook >> myDocksStartupHook >> viewScreen sid)) -- rescreen >>
 --        , ((mod4Mask .|. shiftMask, xK_l), spawn "gnome-screensaver-command --lock") -- Lock
 --        , ((mod4Mask .|. shiftMask, xK_s), spawn "systemctl suspend") -- Lock & Suspend
 --        , ((mod4Mask .|. controlMask .|. shiftMask, xK_l), io (exitWith ExitSuccess)) -- Logout
@@ -579,7 +580,7 @@ aboveStateWindowsOnTop = do
     atom_NET_WM_STATE_ABOVE <- getAtom "_NET_WM_STATE_ABOVE"
     let aboveStateWindows = L.filter (L.elem atom_NET_WM_STATE_ABOVE . snd) windowsWithWmState
 --    let aboveWindows = L.filter (L.elem  . snd) windowsWithWmState
-    io $ appendFile "/tmp/xmonad.debug.dunst" $ (show aboveStateWindows) ++ "\n"
+--    io $ appendFile "/tmp/xmonad.debug.dunst" $ (show aboveStateWindows) ++ "\n"
     io $ L.foldr (>>) (return ()) $ L.map (raiseWindow dpy . fst) aboveStateWindows
 
 windowsWithWmState dpy ws = do
@@ -598,6 +599,29 @@ windowsWithWmState' atom dpy (w:ws) = do
 windowsWithWmState' atom dpy [] = return []
 ------------------------------------------------------------------------------------------
 -- Support for notification (_NET_WM_STATE = _NET_WM_STATE_ABOVE) to be always on top
+------------------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------------------
+-- Support for docks
+-- Desktop lowest, Docks higher than desktop but lower than other windows
+------------------------------------------------------------------------------------------
+myDocksStartupHook = withDisplay $ \dpy -> do
+    rootw <- asks theRoot
+    (_,_,wins) <- io $ queryTree dpy rootw
+    docks <- filterM (runQuery checkDock) wins
+    desks <- filterM (runQuery checkDesktop) wins
+    names <- mapM (runQuery className) docks
+--    spawn $ "echo '" ++ (show names) ++ "' >> /tmp/xmonad.debug.docks"
+    io $ L.foldr (>>) (return ()) $ L.map (lowerWindow dpy) docks
+    io $ L.foldr (>>) (return ()) $ L.map (lowerWindow dpy) desks
+checkDesktop = ask >>= \w -> liftX $ do
+  desk <- getAtom "_NET_WM_WINDOW_TYPE_DESKTOP"
+  mbr <- getProp32s "_NET_WM_WINDOW_TYPE" w
+  case mbr of
+    Just rs -> return $ any (== desk) (map fromIntegral rs)
+    _       -> return False
+------------------------------------------------------------------------------------------
+-- Support for docks
 ------------------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------------------
