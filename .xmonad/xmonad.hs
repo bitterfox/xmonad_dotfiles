@@ -128,6 +128,7 @@ priorityDisplayEDIDs = [
 
 myManageHookAll = manageHook gnomeConfig -- defaultConfig
                        <+> manageDocks
+                       <+> myDocksManageHook
                        <+> myScratchpadsManageHook
                        <+> terminalManageHook myTerminal myTerminalActions
                        <+> ((fmap (L.isSuffixOf ".onBottom") appName) --> onBottom)
@@ -267,6 +268,8 @@ main = do
         , ((mod4Mask, xK_d), sendMessage NextLayout)
         -- Full screen
         , ((mod4Mask, xK_f), sendMessage ToggleLayout)
+        -- Struts
+        , ((mod4Mask, xK_b), (myDocksStartupHook) >> (sendMessage ToggleStruts))
 
         -- Window view
         , ((mod4Mask, xK_v), do
@@ -605,7 +608,11 @@ windowsWithWmState' atom dpy [] = return []
 -- Support for docks
 -- Desktop lowest, Docks higher than desktop but lower than other windows
 ------------------------------------------------------------------------------------------
-myDocksStartupHook = withDisplay $ \dpy -> do
+myDocksStartupHook = docksOnBottom
+
+myDocksManageHook = checkDock --> (liftX docksOnBottom >> mempty)
+
+docksOnBottom = withDisplay $ \dpy -> do
     rootw <- asks theRoot
     (_,_,wins) <- io $ queryTree dpy rootw
     docks <- filterM (runQuery checkDock) wins
@@ -614,6 +621,7 @@ myDocksStartupHook = withDisplay $ \dpy -> do
 --    spawn $ "echo '" ++ (show names) ++ "' >> /tmp/xmonad.debug.docks"
     io $ L.foldr (>>) (return ()) $ L.map (lowerWindow dpy) docks
     io $ L.foldr (>>) (return ()) $ L.map (lowerWindow dpy) desks
+
 checkDesktop = ask >>= \w -> liftX $ do
   desk <- getAtom "_NET_WM_WINDOW_TYPE_DESKTOP"
   mbr <- getProp32s "_NET_WM_WINDOW_TYPE" w
