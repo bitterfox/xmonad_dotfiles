@@ -17,7 +17,7 @@ import qualified Data.Text as T
 
 import Control.Concurrent
 import Control.Exception.Extensible as E
-import Control.Monad (foldM, filterM, mapM, forever, mplus, msum)
+import Control.Monad (foldM, filterM, mapM, forM, forever, mplus, msum)
 
 import Text.Parsec
 import Text.Parsec.String (Parser)
@@ -59,8 +59,9 @@ import qualified XMonad.Layout.LayoutModifier as LM
 import XMonad.Layout.LayoutScreens
 import XMonad.Layout.Mosaic
 import XMonad.Layout.MultiColumns
-import XMonad.Layout.MultiToggle
+import XMonad.Layout.MyMultiToggle
 import XMonad.Layout.MultiToggle.Instances
+import qualified XMonad.Layout.Decoration as LD
 import XMonad.Layout.NoFrillsDecoration
 import XMonad.Layout.Renamed
 import XMonad.Layout.NoBorders
@@ -143,10 +144,10 @@ myLayoutHookAll = avoidStruts $ WindowViewableLayout Normal (
                                       (noBorders $ AndroidLikeWindowView (1/7) (3/100) (1/30) (1/100))
                                   ||| (Roledex)) $
                        toggleLayouts (renamed [Replace "■"] $ noBorders Full) $
---                       (   (renamed [Replace "┣"] $ noFrillsDeco shrinkText mySDConfig $ myLayout)
-                       (   (renamed [Replace "┣"] $ myLayout)
---                       ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout)
-                       ||| (renamed [Replace "┳"] $ Mirror myLayout)
+                       (   (renamed [Replace "┣"] $ mkToggleInitial (single TitleTransformer) TitleTransformer $ myLayout)
+--                       (   (renamed [Replace "┣"] $ myLayout)
+                       ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout)
+--                       ||| (renamed [Replace "┳"] $ Mirror myLayout)
 --                       ||| (Circle)
 --                       ||| (OneBig (3/4) (3/4))
 --                       ||| (Accordion)
@@ -228,6 +229,8 @@ main = do
     spawn "killall dunst"
 
     spawn "xrandr --output eDP-1 --brightness 1 --gamma 1.05:1.05:1.095"
+
+--    spawn $ "echo '" ++ (show $ mkToggleInitial (single TitleTransformer) TitleTransformer $ myLayout) ++ "' >> /tmp/xmonad.debug.layout"
     xmonad $ gnomeConfig -- defaultConfig
         { manageHook = myManageHookAll
 --        , layoutHook =  myLayoutHookAll
@@ -269,7 +272,8 @@ main = do
         -- Full screen
         , ((mod4Mask, xK_f), sendMessage ToggleLayout)
         -- Struts
-        , ((mod4Mask, xK_b), (myDocksStartupHook) >> (sendMessage ToggleStruts))
+        , ((mod4Mask, xK_b), docksOnBottom >> (sendMessage ToggleStruts))
+        , ((mod4Mask .|. shiftMask, xK_b), sendMessage $ XMonad.Layout.MyMultiToggle.Toggle TitleTransformer)
 
         -- Window view
         , ((mod4Mask, xK_v), do
@@ -615,19 +619,31 @@ myDocksManageHook = checkDock --> (liftX docksOnBottom >> mempty)
 docksOnBottom = withDisplay $ \dpy -> do
     rootw <- asks theRoot
     (_,_,wins) <- io $ queryTree dpy rootw
-    docks <- filterM (runQuery checkDock) wins
-    desks <- filterM (runQuery checkDesktop) wins
-    names <- mapM (runQuery className) docks
---    spawn $ "echo '" ++ (show names) ++ "' >> /tmp/xmonad.debug.docks"
-    io $ L.foldr (>>) (return ()) $ L.map (lowerWindow dpy) docks
-    io $ L.foldr (>>) (return ()) $ L.map (lowerWindow dpy) desks
+    docks <- filterM (runQuery checkDockOnly) wins
+    desks <- filterM (runQuery $ checkDesktopOnly <&&> checkBackgroundDesktop) wins
+    forM (docks ++ desks) $ \win -> do
+      name <- runQuery className win
+      withWindowAttributes dpy win $ \(WindowAttributes {wa_x = x, wa_y = y, wa_width = w, wa_height = h}) -> do
+        (_, p, cs) <- io $ queryTree dpy win
+        let s = (show x) ++ "," ++ (show y) ++ "," ++ (show w) ++ "," ++ (show h)
+        pn <- runQuery className p
+        spawn $ "echo '" ++ ((show p) ++ "," ++ (show pn)) ++ " -> " ++ (show win) ++ ":" ++ (show name) ++ "," ++ s ++ (" -> " ++ (show cs)) ++ "' >> /tmp/xmonad.debug.docks"
+    io $ L.foldr (>>) (return ()) $ L.map (lowerWindow dpy) $ L.reverse docks
+    io $ L.foldr (>>) (return ()) $ L.map (lowerWindow dpy) $ L.reverse desks
 
-checkDesktop = ask >>= \w -> liftX $ do
+checkDockOnly = ask >>= \w -> liftX $ do
+  dock <- getAtom "_NET_WM_WINDOW_TYPE_DOCK"
+  mbr <- getProp32s "_NET_WM_WINDOW_TYPE" w
+  case mbr of
+    Just rs -> return $ any (== dock) (map fromIntegral rs)
+    _       -> return False
+checkDesktopOnly = ask >>= \w -> liftX $ do
   desk <- getAtom "_NET_WM_WINDOW_TYPE_DESKTOP"
   mbr <- getProp32s "_NET_WM_WINDOW_TYPE" w
   case mbr of
     Just rs -> return $ any (== desk) (map fromIntegral rs)
     _       -> return False
+checkBackgroundDesktop = className =? "Nautilus"
 ------------------------------------------------------------------------------------------
 -- Support for docks
 ------------------------------------------------------------------------------------------
@@ -2104,6 +2120,11 @@ splitRect' ((wins, ratio, layout):list) rect len currentWidth =
           mw = rect_width rect
           width = (fromIntegral $ mw) `div` len
 splitRect' [] rect len cw = []
+
+data TitleTransformer = TitleTransformer deriving (Read, Show, Eq, Typeable)
+
+instance Transformer TitleTransformer Window where
+    transform TitleTransformer x k = k (noFrillsDeco shrinkText mySDConfig x) (\(LM.ModifiedLayout _ x') -> x')
 
 ------------------------------------------------------------------------------------------
 -- Terminal actions
