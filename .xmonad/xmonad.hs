@@ -80,6 +80,7 @@ import XMonad.Layout.Accordion
 import XMonad.Layout.ToggleLayouts
 
 import XMonad.Util.Run(spawnPipe, runProcessWithInput, runProcessWithInputAndWait, seconds)
+import XMonad.Util.DunstSupport
 import XMonad.Util.EZConfig
 import XMonad.Util.NamedScratchpad
 import XMonad.Util.NamedWindows
@@ -159,7 +160,7 @@ myLogHook xmprocs = do
     xmobarLogHook xmprocs
     checkAndHandleDisplayChange moveMouseToLastPosition
     floatOnUp
-    aboveStateWindowsOnTop
+    dunstLogHook
     terminalLogHook myTerminal myTerminalActions
 
 xmobarLogHook xmprocs = withWindowSet (\s ->
@@ -576,38 +577,6 @@ avoidStrutsFloat = do
         _ -> ws
 ------------------------------------------------------------------------------------------
 -- ManageHook
-------------------------------------------------------------------------------------------
-
-------------------------------------------------------------------------------------------
--- Support for notification (_NET_WM_STATE = _NET_WM_STATE_ABOVE) to be always on top
-------------------------------------------------------------------------------------------
-aboveStateWindowsOnTop = do
-    rw <- asks theRoot
-    dpy <- asks display
-    (_, _, windows) <- io $ queryTree dpy rw
-    windowsWithWmState <- windowsWithWmState dpy windows
-    atom_NET_WM_STATE_ABOVE <- getAtom "_NET_WM_STATE_ABOVE"
-    let aboveStateWindows = L.filter (L.elem atom_NET_WM_STATE_ABOVE . snd) windowsWithWmState
---    let aboveWindows = L.filter (L.elem  . snd) windowsWithWmState
---    io $ appendFile "/tmp/xmonad.debug.dunst" $ (show aboveStateWindows) ++ "\n"
-    io $ L.foldr (>>) (return ()) $ L.map (raiseWindow dpy . fst) aboveStateWindows
-
-windowsWithWmState dpy ws = do
-  atom <- getAtom "_NET_WM_STATE"
-  windowsWithWmState' atom dpy ws
-
-windowsWithWmState' atom dpy (w:ws) = do
-  mp <- io $ getWindowProperty32 dpy atom w
-  r <- windowsWithWmState' atom dpy ws
-  io $ case mp of
-    Just p -> do
-      return $ (w, L.map (\(CLong n) -> fromIntegral n :: Atom) p):r
---            name <- getAtomNames dpy $ L.map (\(CLong n) -> fromIntegral n) p
---            return $ (w, name):r
-    Nothing -> return r
-windowsWithWmState' atom dpy [] = return []
-------------------------------------------------------------------------------------------
--- Support for notification (_NET_WM_STATE = _NET_WM_STATE_ABOVE) to be always on top
 ------------------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------------------
