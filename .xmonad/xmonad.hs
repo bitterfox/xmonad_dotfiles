@@ -145,8 +145,7 @@ myLayoutHookAll = avoidStruts $ WindowViewableLayout Normal (
                                   ||| (Roledex)) $
                        toggleLayouts (renamed [Replace "■"] $ noBorders Full) $
                        (   (renamed [Replace "┣"] $ mkToggleInitial (single TitleTransformer) TitleTransformer $ myLayout)
---                       (   (renamed [Replace "┣"] $ myLayout)
-                       ||| (renamed [Replace "┳"] $ noFrillsDeco shrinkText mySDConfig $ Mirror myLayout)
+                       ||| (renamed [Replace "┳"] $ mkToggleInitial (single TitleTransformer) TitleTransformer $ Mirror myLayout)
 --                       ||| (renamed [Replace "┳"] $ Mirror myLayout)
 --                       ||| (Circle)
 --                       ||| (OneBig (3/4) (3/4))
