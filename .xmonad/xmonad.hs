@@ -441,6 +441,8 @@ main = do
         , ((mod4Mask .|. shiftMask, xK_F3), spawn "sh ~/.xmonad/audio_next.sh")
         , ((mod4Mask, xK_F6), spawn "sh ~/.xmonad/bright_down.sh")
         , ((mod4Mask, xK_F7), spawn "sh ~/.xmonad/bright_up.sh")
+
+        , ((mod4Mask, xK_x), splitScreen)
         ] `additionalKeysP`
         [
         -- 輝度・ボリューム周り
@@ -1329,20 +1331,28 @@ logCurrentMouseLocation =
 
 moveMouseToLastPosition :: X ()
 moveMouseToLastPosition =
-    withWindowSet (\ws ->
-      do
-        MousePositionMap lastMousePositions <- XS.get
-        let s = W.current ws
-        case M.lookup (W.screen s) lastMousePositions of
-          Just (x, y) -> moveMouseTo x y
-          Nothing -> do
-              let sd = W.screenDetail s
-              let rect = screenRect sd
-              let x = truncate $ (fromIntegral $ rect_x rect) + (fromIntegral $ rect_width rect) / 2
-              let y = truncate $ (fromIntegral $ rect_y rect) + (fromIntegral $ rect_height rect) / 2
-              moveMouseTo x y
+    withWindowSet $ \ws -> do
+      let rect = screenRect $ W.screenDetail $ W.current ws
+      xconf <- ask
+      let maybeMousePos = mousePosition xconf
+      case maybeMousePos of
+        Just (x, y) -> do
+            if pointWithin x y rect then return ()
+            else moveMouseToLastPosition' ws
+        _ -> moveMouseToLastPosition' ws
+moveMouseToLastPosition' ws = do
+  MousePositionMap lastMousePositions <- XS.get
+  let s = W.current ws
+  let (x, y) = case M.lookup (W.screen s) lastMousePositions of
+                 Just (x, y) -> (x, y)
+                 Nothing -> do
+                   let sd = W.screenDetail s
+                   let rect = screenRect sd
+                   let x = truncate $ (fromIntegral $ rect_x rect) + (fromIntegral $ rect_width rect) / 2
+                   let y = truncate $ (fromIntegral $ rect_y rect) + (fromIntegral $ rect_height rect) / 2
+                   (x, y)
+  moveMouseTo x y
 --        setMouseSpeedForScreen $ fromIntegral $ W.screen s
-    )
 
 moveMouseTo x y = do
 --  runProcessWithInputAndWait "sh" ["-c", "xdotool mousemove " ++ (show x) ++ " " ++ (show y) ++ "; find-cursor -c '" ++ red ++ "' -s 400 -d 30 -r 1 -g -l 8"] "" (seconds 1) -- Can we move mouse within XMonad?
@@ -2365,4 +2375,40 @@ runDmenuRunTerminalAction = runTerminalAction myTerminal dmenuRunTerminalAction
 
 ------------------------------------------------------------------------------------------
 -- Terminal actions
+------------------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------------------
+-- Split screen
+------------------------------------------------------------------------------------------
+splitScreen = splitScreen' (1 / 6)
+splitScreen' :: Rational -> X ()
+splitScreen' ratio =
+  windows $ \ws -> do
+    let current = W.current ws
+    let visible = W.visible ws
+    let (SD rect) = W.screenDetail current
+    let nextWS = head $ W.hidden ws
+    let newSid = S $ (L.maximum $ L.map (\(S id) -> id) $ L.map (W.screen) $ current:visible) + 1
+    ws {
+      W.current = W.Screen {
+                      W.workspace = nextWS,
+                      W.screen = newSid,
+                      W.screenDetail = SD {
+                                         screenRect = rect {
+                                                        rect_x = rect_x rect + truncate ((fromIntegral $ (rect_width rect)) * (1 - ratio)),
+                                                        rect_width = truncate $ (fromIntegral (rect_width rect)) * ratio
+                                                      }
+                                       }
+                  },
+      W.visible = current {
+                    W.screenDetail = SD {
+                                       screenRect = rect {
+                                                      rect_width = truncate $ fromIntegral (rect_width rect) * (1 - ratio)
+                                                    }
+                                     }
+                  }:visible,
+      W.hidden = tail $ W.hidden ws
+    }
+------------------------------------------------------------------------------------------
+-- Split screen
 ------------------------------------------------------------------------------------------
