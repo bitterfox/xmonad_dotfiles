@@ -41,6 +41,7 @@ import XMonad.Actions.CopyWindow
 import XMonad.Actions.CycleWS
 import XMonad.Actions.EvacuationLikeMac
 import qualified XMonad.Actions.FlexibleResize as Flex
+import XMonad.Actions.IntelliJTerminal
 import XMonad.Actions.Volume
 import XMonad.Actions.GridSelect
 import XMonad.Actions.Search (selectSearchBrowser, google)
@@ -130,6 +131,12 @@ priorityDisplayEDIDs = [
  "00ffffffffffff0010acb7414c323332",
  "00ffffffffffff0010acb5414c333232"]
 
+intelliJTerminalEnv =
+  IntelliJTerminalEnvironment {
+    homeDirectory = "/home/bitterfox",
+    XMonad.Actions.IntelliJTerminal.hook = onBottom
+  }
+
 myManageHookAll = manageHook gnomeConfig -- defaultConfig
                        <+> manageDocks
                        <+> myDocksManageHook
@@ -139,6 +146,7 @@ myManageHookAll = manageHook gnomeConfig -- defaultConfig
                        <+> (stringProperty "WM_WINDOW_ROLE" =? "GtkFileChooserDialog" --> onCenter' 0.1)
                        <+> (stringProperty "WM_WINDOW_ROLE" =? "gimp-file-open" --> onCenter' 0.1)
                        <+> ((className =? "jetbrains-idea") <&&> (title =? "win0") --> doFloat)
+                       <+> intelliJTerminalManageHook intelliJTerminalEnv
 
 myLayout = compositeTall (3/100) wide
   where wide = simpleWide (3/100)
@@ -425,7 +433,7 @@ main = do
         , ((mod4Mask .|. controlMask .|. shiftMask, xK_F8), showOrHideScratchpads myScratchpads False)
         , ((mod4Mask .|. controlMask, xK_F9), toggleScrachpadAction myScratchpads)
 
-        , ((mod4Mask, xK_backslash), launchIntelliJTerminal)
+        , ((mod4Mask, xK_backslash), launchIntelliJTerminal intelliJTerminalEnv)
 --        , ((mod4Mask, xK_s), scratchpadSelected hidpiGSConfig myScratchpads)
         ------------------------------------------------------------------------------------------------------------------------------------
 
@@ -633,7 +641,7 @@ myScratchpads = [
 myScratchpadsManageHook = namedScratchpadManageHook myScratchpads
 myScratchpadsHandleEventHook =
     namedScratchpadHandleEventHook myScratchpads <+>
-    (keepWindowSizeHandleEventHook $ appName >>= return . L.isPrefixOf "bitter_fox.xmonad.intellij.")
+    (keepWindowSizeHandleEventHook $ intelliJTerminalQuery)
 
 myNamedScratchpadAction = myNamedScratchpadActionInternal myScratchpads
 
@@ -1170,61 +1178,6 @@ getWorkspace' w = withWindowSet $ \s -> do
 -- GridSelect
 ------------------------------------------------------------------------------------------
 
-
-------------------------------------------------------------------------------------------
--- IntelliJExternalTerminal
-------------------------------------------------------------------------------------------
-intelliJScrachpad :: String -> String -> ManageHook -> NamedScratchpad
-intelliJScrachpad name workingDir manageHook =
-    NS name
-       ("/usr/lib/gnome-terminal/gnome-terminal-server" ++
-           " --app-id bitter_fox.xmonad.intellij." ++ name ++
-           " --name=bitter_fox.xmonad.intellij." ++ name ++ " --class=" ++ "intellij-terminal" ++
-           " & gnome-terminal --app-id bitter_fox.xmonad.intellij." ++ name ++
-           " --working-directory=" ++ workingDir
-       )
-       (appName =? ("bitter_fox.xmonad.intellij." ++ name))
-       manageHook
-
-launchIntelliJTerminal :: X ()
-launchIntelliJTerminal =
-    withFocused (\w -> do
-      cname <- runQuery className w
-      if cname == "jetbrains-idea" then do
-          t <- runQuery title w
-          case (parse intelliJInfo "/tmp/hoge" t) of
-            Left e -> return ()
-            Right [project, dir] -> do
-                   let name = project ++ (T.unpack $ T.replace (T.pack "~") (T.pack "") $ T.replace (T.pack "/") (T.pack ".") $ T.pack dir) ++ ".onBottom"
-                   withWindowSet (\s -> L.foldr (>>) (return ()) $ L.map (hideIntelliJTerminal name) $ W.integrate' $ W.stack $ W.workspace $ W.current s)
-                   runScratchpadAction $ intelliJScrachpad name (extractHomeDirectory dir) onBottom
-      else withWindowSet (\s -> L.foldr (>>) (return ()) $ L.map (hideIntelliJTerminal "") $ W.integrate' $ W.stack $ W.workspace $ W.current s)
-    )
-
-hideIntelliJTerminal exclude w = do
-  aname <- runQuery appName w
-  ifX (L.isPrefixOf "bitter_fox.xmonad.intellij." aname) $ do
-    let name = L.drop (L.length "bitter_fox.xmonad.intellij.") aname
-    ifX (name /= exclude) $ runScratchpadAction $ intelliJScrachpad name homeDirectory onBottom
-
-intelliJInfo :: Parser [String]
-intelliJInfo = do
-  project <- many (noneOf [' '])
-  char ' '
-  char '['
-  dir <- many (noneOf [']'])
-  char ']'
-  return [project, dir]
-
-homeDirectory = "/home/bitterfox"
-extractHomeDirectory path =
-    if L.head path == '~' then
-        homeDirectory ++ L.tail path
-    else path
-------------------------------------------------------------------------------------------
--- IntelliJExternalTerminal
-------------------------------------------------------------------------------------------
-
 ------------------------------------------------------------------------------------------
 -- AllWindow
 ------------------------------------------------------------------------------------------
@@ -1236,7 +1189,6 @@ copyAllWindowTo ws s = foldr (\w -> \s' -> copyWindow w ws s') s $ W.allWindows 
 ------------------------------------------------------------------------------------------
 -- AllWindow
 ------------------------------------------------------------------------------------------
-
 
 -----
 viewScreen :: ScreenId -> X ()
