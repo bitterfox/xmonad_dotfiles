@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts #-}
 import System.Directory
 import System.Exit
 import System.IO
@@ -324,10 +326,10 @@ main = do
         , ((mod4Mask .|. controlMask, xK_n), nextWS')
 --        , ((mod4Mask .|. controlMask .|. shiftMask, xK_p), shiftToPrevWS' >> prevWS') -- TODO Fix
 --        , ((mod4Mask .|. controlMask .|. shiftMask, xK_n), shiftToNextWS' >> nextWS') -- TODO Fix
-        , ((mod4Mask .|. mod1Mask, xK_p), prevScreen >> moveMouseToLastPosition)
-        , ((mod4Mask .|. mod1Mask, xK_n), nextScreen >> moveMouseToLastPosition)
-        , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_p), shiftPrevScreen >> prevScreen >> moveMouseToLastPosition)
-        , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_n), shiftNextScreen >> nextScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. mod1Mask, xK_p), prevRootScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. mod1Mask, xK_n), nextRootScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_p), shiftPrevRootScreen >> prevRootScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_n), shiftNextRootScreen >> nextRootScreen >> moveMouseToLastPosition)
 
         , ((mod4Mask, xK_o), windows W.swapMaster)
         , ((mod4Mask .|. shiftMask, xK_o), windows W.shiftMaster)
@@ -340,8 +342,8 @@ main = do
 --        , ((mod4Mask .|. controlMask .|. shiftMask, xK_j), shiftToNextWS' >> nextWS')
 --        , ((mod4Mask .|. controlMask .|. shiftMask, xK_k), shiftToPrevWS' >> prevWS')
         -- スクリーンの移動
-        , ((mod4Mask .|. mod1Mask, xK_j), nextScreen >> moveMouseToLastPosition)
-        , ((mod4Mask .|. mod1Mask, xK_k), prevScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. mod1Mask, xK_j), nextRootScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. mod1Mask, xK_k), prevRootScreen >> moveMouseToLastPosition)
 
         -- Arrow key
         -- フォーカスの移動
@@ -373,8 +375,8 @@ main = do
         , ((mod4Mask .|. controlMask .|. shiftMask, xK_Down), shiftToNextWS' >> nextWS')
         , ((mod4Mask .|. controlMask .|. shiftMask, xK_Right), shiftToNextWS' >> nextWS')
 
-        , ((mod4Mask, xK_space),               nextScreen >> moveMouseToLastPosition)
-        , ((mod4Mask .|. shiftMask, xK_space), prevScreen >> moveMouseToLastPosition)
+        , ((mod4Mask, xK_space),               nextRootScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. shiftMask, xK_space), prevRootScreen >> moveMouseToLastPosition)
 
         , ((mod4Mask, xK_t), do
                                withWindowSet $ \s -> spawn $ "echo '" ++ (show $ sortedFloats' s) ++ "' >> /tmp/xmonad.debug.floats"
@@ -455,7 +457,14 @@ main = do
         , ((mod4Mask, xK_F6), spawn "sh ~/.xmonad/bright_down.sh")
         , ((mod4Mask, xK_F7), spawn "sh ~/.xmonad/bright_up.sh")
 
-        , ((mod4Mask, xK_x), splitScreen)
+        , ((mod4Mask, xK_x), createVirtualScreen $ ((Mirror $ simpleWide (3/100)) ||| (simpleWide (3/100))))
+        , ((mod4Mask .|. mod1Mask, xK_d), sendScreenMessage NextLayout)
+        , ((mod4Mask .|. mod1Mask, xK_h), sendScreenMessage Shrink)
+        , ((mod4Mask .|. mod1Mask, xK_l), sendScreenMessage Expand)
+        , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_h), sendScreenMessage $ ResizeAnotherSide Expand)
+        , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_l), sendScreenMessage $ ResizeAnotherSide Shrink)
+        , ((mod4Mask .|. mod1Mask, xK_b), prevChildScreen)
+        , ((mod4Mask .|. mod1Mask, xK_f), nextChildScreen)
         ] `additionalKeysP`
         [
         -- 輝度・ボリューム周り
@@ -1275,7 +1284,7 @@ myrescreen priorityDisplayEDIDs = do
 
     spawn $ "echo '" ++ (show sortedEDIDToScreenRectangles) ++ "' >> /tmp/xmonad.debug"
     windows $ \ws@(W.StackSet { W.current = v, W.visible = vs, W.hidden = hs }) ->
-        let (xs, ys) = splitAt (length xinesc) $ map W.workspace (v:vs) ++ hs
+        let (xs, ys) = splitAt (length xinesc) $ map W.workspace (L.sortOn (W.screen) (v:vs)) ++ hs
             (a:as)   = zipWith3 W.Screen xs [0..] $ map SD $ map (snd) sortedEDIDToScreenRectangles
         in  ws { W.current = a
                , W.visible = as
@@ -1827,35 +1836,198 @@ runDmenuRunTerminalAction = runTerminalAction myTerminal dmenuRunTerminalAction
 ------------------------------------------------------------------------------------------
 -- Split screen
 ------------------------------------------------------------------------------------------
-splitScreen = splitScreen' (1 / 6)
-splitScreen' :: Rational -> X ()
-splitScreen' ratio =
-  windows $ \ws -> do
+data ScreenLayout a = forall l. (LayoutClass l a, Read (l a)) => ScreenLayout (l a)
+
+instance LayoutClass ScreenLayout ScreenId where
+    runLayout (W.Workspace i (ScreenLayout l) ms) r = fmap (fmap ScreenLayout) `fmap` runLayout (W.Workspace i l ms) r
+    doLayout (ScreenLayout l) r s  = fmap (fmap ScreenLayout) `fmap` doLayout l r s
+    emptyLayout (ScreenLayout l) r = fmap (fmap ScreenLayout) `fmap` emptyLayout l r
+    handleMessage (ScreenLayout l) = fmap (fmap ScreenLayout) . handleMessage l
+    description (ScreenLayout l)   = description l
+
+instance Show (ScreenLayout a) where show (ScreenLayout l) = show l
+
+data VirtualScreen = VirtualScreen {
+  rootSid :: ScreenId,
+  originalRect :: Rectangle,
+  screenLayout :: ScreenLayout ScreenId,
+  screenStack :: W.Stack ScreenId
+} deriving (Typeable, Show)
+
+data VirtualScreens = VirtualScreens [VirtualScreen] deriving (Typeable, Show)
+instance ExtensionClass VirtualScreens where
+  initialValue = VirtualScreens []
+
+findVirtualScreen :: VirtualScreens -> ScreenId -> Maybe VirtualScreen
+findVirtualScreen (VirtualScreens virtualScreens) sid =
+  L.find (L.elem sid . W.integrate . screenStack) virtualScreens
+
+newVirtualScreen screen layout =
+  VirtualScreen {
+    rootSid = sid,
+    originalRect = screenRect $ W.screenDetail screen,
+    screenLayout = ScreenLayout layout,
+    screenStack = W.Stack {
+                    W.focus = sid,
+                    W.up = [],
+                    W.down = []
+                  }
+  }
+  where sid = W.screen screen
+
+insertScreenStack :: VirtualScreen -> ScreenId -> VirtualScreen
+insertScreenStack vs@VirtualScreen{screenStack = ss} sid =
+  vs {
+    screenStack = ss {
+                    W.down = down ++ [sid]
+                  }
+  }
+  where down = W.down ss
+
+replaceVirtualScreen :: VirtualScreens -> VirtualScreen -> VirtualScreens
+replaceVirtualScreen (VirtualScreens vss) vs =
+  VirtualScreens $ vs:(L.filter ((rootSid vs /=) . rootSid) vss)
+
+createVirtualScreen :: (LayoutClass l ScreenId, Read (l ScreenId)) => (l ScreenId) -> X ()
+createVirtualScreen defaultLayout = do
+  virtualScreens <- XS.get
+  withWindowSet $ \ws -> whenX (return $ not $ L.null $ W.hidden ws) $ do
     let current = W.current ws
     let visible = W.visible ws
-    let (SD rect) = W.screenDetail current
+    let allScreen = current:visible
+    let vs = case findVirtualScreen virtualScreens $ W.screen current of
+               Just vs -> vs
+               Nothing -> newVirtualScreen current defaultLayout
+
+    let newSid = S $ (L.maximum $ L.map (\(S id) -> id) $ L.map (W.screen) allScreen) + 1
+    let nvs = insertScreenStack vs newSid
+
+    (newRects, newLayoutMaybe) <- runLayout (W.Workspace {
+                 W.tag = show $ rootSid nvs,
+                 W.layout = screenLayout nvs,
+                 W.stack = Just $ screenStack nvs}) (originalRect nvs)
+
+    XS.put $ replaceVirtualScreen virtualScreens $ case newLayoutMaybe of
+                                                     Just newLayout -> nvs {screenLayout = newLayout}
+                                                     Nothing -> nvs
+
     let nextWS = head $ W.hidden ws
-    let newSid = S $ (L.maximum $ L.map (\(S id) -> id) $ L.map (W.screen) $ current:visible) + 1
-    ws {
-      W.current = W.Screen {
-                      W.workspace = nextWS,
-                      W.screen = newSid,
-                      W.screenDetail = SD {
-                                         screenRect = rect {
-                                                        rect_x = rect_x rect + truncate ((fromIntegral $ (rect_width rect)) * (1 - ratio)),
-                                                        rect_width = truncate $ (fromIntegral (rect_width rect)) * ratio
-                                                      }
-                                       }
-                  },
-      W.visible = current {
-                    W.screenDetail = SD {
-                                       screenRect = rect {
-                                                      rect_width = truncate $ fromIntegral (rect_width rect) * (1 - ratio)
-                                                    }
-                                     }
-                  }:visible,
-      W.hidden = tail $ W.hidden ws
+    let newHidden = tail $ W.hidden ws
+
+    let newCurrent = replaceScreenRect newRects $ W.Screen {
+                       W.workspace = nextWS,
+                       W.screen = newSid,
+                       W.screenDetail = SD $ originalRect nvs
+                     }
+    let newVisible = L.map (replaceScreenRect newRects) allScreen
+
+    windows $ \_ -> ws {
+      W.current = newCurrent,
+      W.visible = newVisible,
+      W.hidden = newHidden
     }
+
+replaceScreenRect rects screen =
+  case findScreenRect rects $ W.screen screen of
+    Just rect -> screen {W.screenDetail = SD rect}
+    Nothing -> screen
+
+findScreenRect :: [(ScreenId, Rectangle)] -> ScreenId -> Maybe Rectangle
+findScreenRect rects sid = fmap snd $ L.find ((sid ==) . fst) rects
+
+sendScreenMessage msg = do
+  virtualScreens <- XS.get
+  withWindowSet $ \ws -> do
+    let current = W.current ws
+    spawn $ "echo '" ++ (show virtualScreens) ++ "' >> /tmp/xmonad.debug.screen"
+    case findVirtualScreen virtualScreens $ W.screen current of
+      Just vs -> do
+        let stack = screenStack vs
+        let (up, focus:down) = span (W.screen current /=) $ W.integrate stack
+        let newStack = W.Stack {W.focus = focus, W.up = L.reverse up, W.down = down}
+        (_, layoutMaybe) <- runLayout (W.Workspace {
+                 W.tag = show $ rootSid vs,
+                 W.layout = screenLayout vs,
+                 W.stack = Just $ newStack}) (originalRect vs)
+        spawn $ "echo '" ++ (show layoutMaybe) ++ "' >> /tmp/xmonad.debug.screen"
+        let layout = case layoutMaybe of
+                       Just l -> l
+                       Nothing -> screenLayout vs
+        newLayoutMaybe <- handleMessage layout (SomeMessage msg) `catchX` return Nothing
+        whenJust newLayoutMaybe $ \l -> do
+          (rect, _) <- runLayout (W.Workspace {
+                 W.tag = show $ rootSid vs,
+                 W.layout = l,
+                 W.stack = Just $ newStack}) (originalRect vs)
+          XS.put $ replaceVirtualScreen virtualScreens $ vs {screenLayout = l}
+          let visible = W.visible ws
+          windows $ \_ -> ws {
+            W.current = replaceScreenRect rect current,
+            W.visible = L.map (replaceScreenRect rect) visible
+          }
+      Nothing -> return ()
+
+rootSids vss ws = L.sort $ L.nub $ L.map (findRootSid vss) $ W.screens ws
+
+currentRootSid vss ws = findRootSid vss $ W.current ws
+
+findRootSid vss screen = case findVirtualScreen vss sid of
+                        Just vs -> rootSid vs
+                        Nothing -> sid
+  where sid = W.screen screen
+
+nextRootScreen = focusRootScreen id
+prevRootScreen = focusRootScreen L.reverse
+focusRootScreen f = do
+  virtualScreens <- XS.get
+  windows $ \ws -> do
+    let rootSids' = rootSids virtualScreens ws
+    let currentRoot = currentRootSid virtualScreens ws
+    let prevSid = head $ tail $ dropWhile (currentRoot /=) $ cycle $ f rootSids'
+    let (up, focus:down) = L.span ((prevSid /=) . W.screen) $ W.screens ws
+    ws {
+      W.current = focus,
+      W.visible = up ++ down
+    }
+
+shiftNextRootScreen = shiftRootScreen id
+shiftPrevRootScreen = shiftRootScreen L.reverse
+shiftRootScreen f = do
+  virtualScreens <- XS.get
+  windows $ \ws -> do
+    let rootSids' = rootSids virtualScreens ws
+    let currentRoot = currentRootSid virtualScreens ws
+    let prevSid = head $ tail $ dropWhile (currentRoot /=) $ cycle $ f rootSids'
+    case L.find ((prevSid ==) . W.screen) $ W.screens ws of
+      Just s -> W.shift (W.tag $ W.workspace s) ws
+      Nothing -> ws
+
+focusIt a stack = do
+  let (up, focusDown) = L.span (a /=) $ W.integrate stack
+  case focusDown of
+    f:d -> Just $ W.Stack {W.focus = f, W.up = L.reverse up, W.down = d}
+    _ -> Nothing
+nextChildScreen = focusChildScreen W.focusDown'
+prevChildScreen = focusChildScreen W.focusUp'
+focusChildScreen f = do
+  virtualScreens <- XS.get
+  windows $ \ws -> do
+    let currentSid = W.screen $ W.current ws
+    case findVirtualScreen virtualScreens currentSid of
+      Just vs -> do
+        case focusIt currentSid $ screenStack vs of
+          Just stack -> do
+            let newStack = f stack
+            let focus = W.focus newStack
+            if focus == currentSid then ws
+            else case L.find ((focus ==) . W.screen) $ W.visible ws of
+                   Just s -> ws {
+                               W.current = s,
+                               W.visible = (W.current ws):(L.filter ((focus /=) . W.screen) $ W.visible ws)
+                             }
+                   Nothing -> ws
+          _ -> ws
+      Nothing -> ws
 ------------------------------------------------------------------------------------------
 -- Split screen
 ------------------------------------------------------------------------------------------
