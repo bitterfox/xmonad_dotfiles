@@ -9,6 +9,7 @@ module XMonad.Util.MyNamedScratchpad (
 ) where
 
 import qualified Data.List as L
+import qualified Data.Map.Strict as M
 import Data.Monoid
 import Foreign
 import Foreign.C.Types
@@ -63,24 +64,23 @@ instance ExtensionClass NamedScratchpadSendEventWindows where
   initialValue = NamedScratchpadSendEventWindows []
 
 namedScratchpadHandleEventHook scratchpads = keepWindowSizeHandleEventHook $ L.foldr (<||>) (return False) $ L.map query scratchpads
-keepWindowSizeHandleEventHook query e@(ConfigureRequestEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_x ev_y ev_width ev_height ev_border_width ev_above ev_detail ev_value_mask) = do
-  NamedScratchpadSendEventWindows ws <- XS.get
-  if ev_send_event then
-    XS.put $ NamedScratchpadSendEventWindows $ L.delete ev_window ws
-  else do
-    isTarget <- runQuery query ev_window
-    whenX (return $ isTarget && (L.notElem ev_window ws) && (testBit ev_value_mask 2 || testBit ev_value_mask 3)) $ do
-      withWindowAttributes ev_event_display ev_window $ \WindowAttributes{wa_width = w, wa_height = h} ->
-        io $ allocaXEvent $ \ev -> do
-          setEventType ev configureRequest
-          setConfigureRequestEvent ev $ e {
-                                          ev_width = w,
-                                          ev_height = h
-                                        }
-          sendEvent ev_event_display ev_window False propertyChangeMask ev
-      XS.put $ NamedScratchpadSendEventWindows $ ev_window:ws
-  return (All True)
+keepWindowSizeHandleEventHook query e@(ConfigureRequestEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_x ev_y ev_width ev_height ev_border_width ev_above ev_detail ev_value_mask) = withDisplay $ \dpy -> do
+  ws <- gets windowset
+  bw <- asks (borderWidth . config)
+  isTarget <- runQuery query ev_window
+  spawn $ "echo '"++ (show isTarget) ++"' >> /tmp/xmonad.debug.event"
 
+  if (M.member ev_window (W.floating ws)) && (W.member ev_window ws) && isTarget && (testBit ev_value_mask 0 || testBit ev_value_mask 1 || testBit ev_value_mask 2 || testBit ev_value_mask 3) then do
+    let w = ev_window
+    withWindowAttributes dpy w $ \wa -> io $ allocaXEvent $ \ev -> do
+                 setEventType ev configureNotify
+                 setConfigureEvent ev w w
+                     (wa_x wa) (wa_y wa) (wa_width wa)
+                     (wa_height wa) (ev_border_width) none (wa_override_redirect wa)
+                 sendEvent dpy w False 0 ev
+    io $ sync dpy False
+    return (All False)
+  else return (All True)
 keepWindowSizeHandleEventHook _ _ = return (All True)
 
 myNamedScratchpadActionInternal scratchpads n = do

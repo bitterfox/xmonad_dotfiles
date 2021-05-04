@@ -19,7 +19,7 @@ import qualified Data.Text as T
 
 import Control.Concurrent
 import Control.Exception.Extensible as E
-import Control.Monad (foldM, filterM, mapM, forM, forever, mplus, msum)
+import Control.Monad (foldM, filterM, mapM, forM, forever, mplus, msum, when)
 
 import Text.Parsec
 import Text.Parsec.String (Parser)
@@ -148,7 +148,7 @@ myManageHookAll = manageHook gnomeConfig -- defaultConfig
                        <+> terminalManageHook myTerminal myTerminalActions
                        <+> ((fmap (L.isSuffixOf ".onBottom") appName) --> onBottom)
                        <+> (stringProperty "WM_WINDOW_ROLE" =? "GtkFileChooserDialog" --> onCenter' 0.1)
-                       <+> (stringProperty "WM_WINDOW_ROLE" =? "gimp-file-open" --> onCenter' 0.1)
+                       <+> ((isDialog <&&> (className =? "Gimp")) --> onCenter' 0.1)
                        <+> ((className =? "jetbrains-idea") <&&> (title =? "win0") --> doFloat)
                        <+> intelliJTerminalManageHook intelliJTerminalEnv
 
@@ -186,21 +186,36 @@ xmobarLogHook xmprocs = withWindowSet (\s ->
 myHandleEventHook =
     handleEventHook gnomeConfig <+>
     docksEventHook <+>
+    (\e -> do
+             logCurrentMouseLocation
+             return (All True)) <+>
     myScratchpadsHandleEventHook <+>
     myTerminalActionHandleEventHook <+>
     (\e ->
       case e of
         (ConfigureRequestEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_x ev_y ev_width ev_height ev_border_width ev_above ev_detail ev_value_mask) -> do
---             spawn $ "echo '" ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
+             n <- runQuery className ev_window
+             spawn $ "echo '" ++ n ++ ":" ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
+             withWindowSet $ \ws -> do
+               let pairs = M.assocs $ W.floating ws
+               forM pairs $ \(win, rect) -> do
+                 n <- runQuery title win
+                 spawn $ "echo '" ++ n ++ ":" ++ (show rect) ++ "' >> /tmp/xmonad.debug.event"
+             spawn $ "echo '' >> /tmp/xmonad.debug.event"
              ifX (testBit ev_value_mask 6) $ windows (\s -> W.focusWindow ev_window s)
              return (All True)
         _ -> return (All True)) <+>
     (\e -> do
-             logCurrentMouseLocation
-             return (All True)) <+>
-    (\e -> do
 --             spawn $ "echo '" ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
-             return (All True))
+--             withWindowSet $ \ws -> do
+--               let pairs = M.assocs $ W.floating ws
+--               forM pairs $ \(win, rect) -> do
+--                 n <- runQuery title win
+--                 spawn $ "echo '" ++ n ++ ":" ++ (show rect) ++ "' >> /tmp/xmonad.debug.event"
+--             spawn $ "echo '' >> /tmp/xmonad.debug.event"
+             return (All True)) <+>
+    (keepWindowSizeHandleEventHook $ stringProperty "WM_WINDOW_ROLE" =? "GtkFileChooserDialog") <+>
+    (keepWindowSizeHandleEventHook $ (isDialog <&&> (className =? "Gimp")))
 
 myStartupHook =
     startupHook gnomeConfig <+> docksStartupHook <+> myDocksStartupHook <+> configureMouse <+>  myrescreen priorityDisplayEDIDs
@@ -266,9 +281,15 @@ main = do
         -- System actions
           ((mod4Mask, xK_q), runActionSelectedTerminalAction systemActions)
         , ((mod1Mask .|. mod4Mask, xK_q), runActionSelected hidpiGSConfig systemActions)
-        , ((mod4Mask, xK_r), withWindowSet (\ws -> do
-                                                     let sid = W.screen $ W.current ws
-                                                     viewScreen 0 >> refresh >> myrescreen priorityDisplayEDIDs >> docksStartupHook >> myDocksStartupHook >> viewScreen sid)) -- rescreen >>
+        , ((mod4Mask, xK_r), withWindowSet $ \ws -> do
+                               let sid = W.screen $ W.current ws
+                               viewScreen 0
+                               refresh
+                               myrescreen priorityDisplayEDIDs
+                               docksStartupHook
+                               myDocksStartupHook
+                               resetVirtualScreens
+                               viewScreen sid) -- rescreen >>
 --        , ((mod4Mask .|. shiftMask, xK_l), spawn "gnome-screensaver-command --lock") -- Lock
 --        , ((mod4Mask .|. shiftMask, xK_s), spawn "systemctl suspend") -- Lock & Suspend
 --        , ((mod4Mask .|. controlMask .|. shiftMask, xK_l), io (exitWith ExitSuccess)) -- Logout
@@ -542,6 +563,12 @@ caseMaybeJust m f =
 
 doForJust f m = caseMaybeJust m f
 
+isDialog = ask >>= \w -> liftX $ do
+  desk <- getAtom "_NET_WM_WINDOW_TYPE_DIALOG"
+  mbr <- getProp32s "_NET_WM_WINDOW_TYPE" w
+  case mbr of
+    Just rs -> return $ any (== desk) (map fromIntegral rs)
+    _       -> return False
 ------------------------------------------------------------------------------------------
 -- XMonad utils
 ------------------------------------------------------------------------------------------
@@ -1006,16 +1033,19 @@ logCurrentMouseLocation =
       )
 
 moveMouseToLastPosition :: X ()
-moveMouseToLastPosition =
-    withWindowSet $ \ws -> do
-      let rect = screenRect $ W.screenDetail $ W.current ws
-      xconf <- ask
-      let maybeMousePos = mousePosition xconf
-      case maybeMousePos of
-        Just (x, y) -> do
-            if pointWithin x y rect then return ()
-            else moveMouseToLastPosition' ws
-        _ -> moveMouseToLastPosition' ws
+moveMouseToLastPosition = do
+    xstate <- get
+    if isNothing $ dragging xstate then
+      withWindowSet $ \ws -> do
+        let rect = screenRect $ W.screenDetail $ W.current ws
+        xconf <- ask
+        let maybeMousePos = mousePosition xconf
+        case maybeMousePos of
+          Just (x, y) -> do
+              if pointWithin x y rect then return ()
+              else moveMouseToLastPosition' ws
+          _ -> moveMouseToLastPosition' ws
+    else return ()
 moveMouseToLastPosition' ws = do
   MousePositionMap lastMousePositions <- XS.get
   let s = W.current ws
@@ -1857,6 +1887,8 @@ data VirtualScreen = VirtualScreen {
 data VirtualScreens = VirtualScreens [VirtualScreen] deriving (Typeable, Show)
 instance ExtensionClass VirtualScreens where
   initialValue = VirtualScreens []
+
+resetVirtualScreens = XS.put $ VirtualScreens []
 
 findVirtualScreen :: VirtualScreens -> ScreenId -> Maybe VirtualScreen
 findVirtualScreen (VirtualScreens virtualScreens) sid =
