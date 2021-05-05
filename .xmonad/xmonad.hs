@@ -19,7 +19,7 @@ import qualified Data.Text as T
 
 import Control.Concurrent
 import Control.Exception.Extensible as E
-import Control.Monad (foldM, filterM, mapM, forM, forever, mplus, msum, when)
+import Control.Monad (mfilter, foldM, filterM, mapM, forM, forever, mplus, msum, when)
 
 import Text.Parsec
 import Text.Parsec.String (Parser)
@@ -1002,51 +1002,27 @@ data MousePosition = MousePosition (Maybe (Position, Position)) deriving Typeabl
 instance ExtensionClass MousePosition where
   initialValue = MousePosition Nothing
 logCurrentMouseLocation :: X ()
-logCurrentMouseLocation =
-    withWindowSet (\ws ->
-      do
-        MousePosition maybeLastMousePosition <- XS.get
-        xconf <- ask
-        let maybeMousePos = mousePosition xconf
-        if maybeLastMousePosition == maybeMousePos then
-          def
-        else
-          do
-            MousePositionMap lastMousePositions <- XS.get
-            case maybeMousePos of
-              Just (x, y) -> do
-                               maybeScreen <- pointScreen x y
-                               let screen = case maybeScreen of
-                                              Just s -> if ((W.screen (W.current ws)) == W.screen s) then
-                                                          Just $ W.screen s
-                                                        else
-                                                          Nothing
-                                              Nothing -> Nothing
-                               case screen of
-                                 Just s ->
-                                     (XS.put $ MousePositionMap $ M.insert s (x, y) lastMousePositions) >>
-                                     (XS.put $ MousePosition $ maybeMousePos) -- >>
---                                     (spawn ("echo '" ++ (show lastMousePositions) ++ "' >> /tmp/xmonad.debug"))
---                                     (spawn ("echo '" ++ (show x) ++ " " ++ (show y) ++ "' >> " ++ mouseLogDir ++ "/" ++ s))
---                                     >> (spawn ("echo '" ++ (show x) ++ " " ++ (show y) ++ "' >> " ++ "/tmp/xmonad.debug"))
-                                 Nothing -> def
-              Nothing -> def
-      )
+logCurrentMouseLocation = withWindowSet $ \ws -> do
+  MousePosition maybeLastMousePosition <- XS.get
+  xconf <- ask
+  let maybeMousePos = mousePosition xconf
+  ifX (maybeLastMousePosition /= maybeMousePos) $ do
+    MousePositionMap lastMousePositions <- XS.get
+    whenJust maybeMousePos $ \(x, y) -> do
+      maybeScreen <- pointScreen x y
+      whenJust (mfilter ((W.screen $ W.current ws) ==) $ fmap W.screen maybeScreen) $ \s -> do
+        XS.put $ MousePositionMap $ M.insert s (x, y) lastMousePositions
+        XS.put $ MousePosition $ maybeMousePos
 
 moveMouseToLastPosition :: X ()
-moveMouseToLastPosition = do
-    xstate <- get
-    if isNothing $ dragging xstate then
-      withWindowSet $ \ws -> do
-        let rect = screenRect $ W.screenDetail $ W.current ws
-        xconf <- ask
-        let maybeMousePos = mousePosition xconf
-        case maybeMousePos of
-          Just (x, y) -> do
-              if pointWithin x y rect then return ()
-              else moveMouseToLastPosition' ws
-          _ -> moveMouseToLastPosition' ws
-    else return ()
+moveMouseToLastPosition =
+  whenX (isNothing <$> dragging <$> get) $
+    withWindowSet $ \ws -> do
+      let rect = screenRect $ W.screenDetail $ W.current ws
+      maybeMousePos <- mousePosition <$> ask
+      case maybeMousePos of
+        Just (x, y) -> ifX (not $ pointWithin x y rect) $ moveMouseToLastPosition' ws
+        _ -> moveMouseToLastPosition' ws
 moveMouseToLastPosition' ws = do
   MousePositionMap lastMousePositions <- XS.get
   let s = W.current ws
@@ -1063,7 +1039,7 @@ moveMouseToLastPosition' ws = do
 
 moveMouseTo x y = do
   rootw <- asks theRoot
-  withDisplay $ \d -> do
+  withDisplay $ \d ->
     io $ warpPointer d none rootw 0 0 0 0 (fromIntegral x) (fromIntegral y)
 
 configureMouse = do
