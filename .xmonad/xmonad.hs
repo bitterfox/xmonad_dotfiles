@@ -1061,8 +1061,9 @@ moveMouseToLastPosition' ws = do
 --        setMouseSpeedForScreen $ fromIntegral $ W.screen s
 
 moveMouseTo x y = do
---  runProcessWithInputAndWait "sh" ["-c", "xdotool mousemove " ++ (show x) ++ " " ++ (show y) ++ "; find-cursor -c '" ++ red ++ "' -s 400 -d 30 -r 1 -g -l 8"] "" (seconds 1) -- Can we move mouse within XMonad?
-  runProcessWithInputAndWait "sh" ["-c", "xdotool mousemove " ++ (show x) ++ " " ++ (show y)] "" (seconds 1) -- Can we move mouse within XMonad?
+  rootw <- asks theRoot
+  withDisplay $ \d -> do
+    io $ warpPointer d none rootw 0 0 0 0 (fromIntegral x) (fromIntegral y)
 
 configureMouse = do
   moveMouseToLastPosition
