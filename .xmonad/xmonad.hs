@@ -46,6 +46,7 @@ import qualified XMonad.Actions.FlexibleResize as Flex
 import XMonad.Actions.IntelliJTerminal
 import XMonad.Actions.Volume
 import XMonad.Actions.GridSelect
+import qualified XMonad.Actions.MouseResize as MR
 import XMonad.Actions.Search (selectSearchBrowser, google)
 import XMonad.Actions.Submap
 import XMonad.Actions.TerminalAction
@@ -511,7 +512,7 @@ main = do
 --        , (mod4Mask, xK_q)
         ] `additionalMouseBindings` [
           ((mod4Mask, button1), \w -> focus w >> mouseMoveWindow w)
-        , ((mod4Mask .|. controlMask, button1), \w -> focus w >> Flex.mouseResizeWindow w
+        , ((mod4Mask .|. controlMask, button1), \w -> focus w >> MR.mouseResizeWindow w
                                                               >> windows W.shiftMaster)
         , ((mod4Mask, button3), \w -> do
             ws <- gets windowset
