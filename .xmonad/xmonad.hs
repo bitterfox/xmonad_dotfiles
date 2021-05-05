@@ -195,26 +195,30 @@ myHandleEventHook =
     (\e ->
       case e of
         (ConfigureRequestEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_x ev_y ev_width ev_height ev_border_width ev_above ev_detail ev_value_mask) -> do
-             n <- runQuery className ev_window
-             spawn $ "echo '" ++ n ++ ":" ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
-             withWindowSet $ \ws -> do
-               let pairs = M.assocs $ W.floating ws
-               forM pairs $ \(win, rect) -> do
-                 n <- runQuery title win
-                 spawn $ "echo '" ++ n ++ ":" ++ (show rect) ++ "' >> /tmp/xmonad.debug.event"
-             spawn $ "echo '' >> /tmp/xmonad.debug.event"
-             ifX (testBit ev_value_mask 6) $ windows (\s -> W.focusWindow ev_window s)
-             return (All True)
-        _ -> return (All True)) <+>
-    (\e -> do
---             spawn $ "echo '" ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
+--             n <- runQuery className ev_window
+--             spawn $ "echo '" ++ n ++ ":" ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
 --             withWindowSet $ \ws -> do
 --               let pairs = M.assocs $ W.floating ws
 --               forM pairs $ \(win, rect) -> do
 --                 n <- runQuery title win
 --                 spawn $ "echo '" ++ n ++ ":" ++ (show rect) ++ "' >> /tmp/xmonad.debug.event"
 --             spawn $ "echo '' >> /tmp/xmonad.debug.event"
-             return (All True)) <+>
+             ifX (testBit ev_value_mask 6) $ windows (\s -> W.focusWindow ev_window s)
+             return (All True)
+        _ -> return (All True)) <+>
+--    (\e ->
+--        case e of
+--          (PropertyEvent ev_event_type ev_serial ev_send_event ev_event_display ev_window ev_atom ev_time ev_propstate) -> do
+--               names <- withDisplay $ \d -> io $ getAtomNames d [ev_atom]
+--               spawn $ "echo '" ++ (show e) ++ "," ++ (show names) ++ "' >> /tmp/xmonad.debug.event"
+--               return (All True)
+--          (ClientMessageEvent {ev_message_type = mt}) -> do
+--               names <- withDisplay $ \d -> io $ getAtomNames d [mt]
+--               spawn $ "echo '" ++ (show e) ++ "," ++ (show names) ++ "' >> /tmp/xmonad.debug.event"
+--               return (All True)
+--          _ -> do
+--               spawn $ "echo '" ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
+--               return (All True)) <+>
     (keepWindowSizeHandleEventHook $ stringProperty "WM_WINDOW_ROLE" =? "GtkFileChooserDialog") <+>
     (keepWindowSizeHandleEventHook $ (isDialog <&&> (className =? "Gimp")))
 
