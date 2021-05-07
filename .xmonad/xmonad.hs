@@ -93,6 +93,7 @@ import XMonad.Util.MyNamedScratchpad
 import XMonad.Util.NamedWindows
 import qualified XMonad.Util.ExtensibleState as XS
 import XMonad.Util.WindowProperties (getProp32s)
+import XMonad.Util.HandleEventHooks
 
 black = "#4E4B42"
 brightBlack = "#635F54"
@@ -212,15 +213,28 @@ myHandleEventHook =
 --               names <- withDisplay $ \d -> io $ getAtomNames d [ev_atom]
 --               spawn $ "echo '" ++ (show e) ++ "," ++ (show names) ++ "' >> /tmp/xmonad.debug.event"
 --               return (All True)
---          (ClientMessageEvent {ev_message_type = mt}) -> do
+--          (ClientMessageEvent {ev_message_type = mt, ev_data = d, ev_window = w}) -> do
 --               names <- withDisplay $ \d -> io $ getAtomNames d [mt]
---               spawn $ "echo '" ++ (show e) ++ "," ++ (show names) ++ "' >> /tmp/xmonad.debug.event"
+--               if (not $ L.null names) && (head names == "_NET_WM_STATE") then do
+--                 ns <- withDisplay $ \dpy -> io $ getAtomNames dpy [fromIntegral $ d!!1]
+--                 spawn $ "echo '" ++ (show e) ++ "," ++ (show names) ++ "," ++ (show ns) ++ "' >> /tmp/xmonad.debug.event"
+--                 if (not $ L.null ns) && (head ns == "_NET_WM_STATE_FULLSCREEN") then
+--                   withDisplay $ \dpy -> withWindowAttributes dpy w $ \wa -> io $ allocaXEvent $ \ev -> do
+--                     setEventType ev configureNotify
+--                     setConfigureEvent ev w w
+--                         (wa_x wa) (wa_y wa) (wa_width wa)
+--                         (wa_height wa) (wa_border_width wa) none (wa_override_redirect wa)
+--                     sendEvent dpy w False 0 ev
+--                 else return ()
+--               else
+--                 spawn $ "echo '" ++ (show e) ++ "," ++ (show names) ++ "' >> /tmp/xmonad.debug.event"
 --               return (All True)
 --          _ -> do
 --               spawn $ "echo '" ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
 --               return (All True)) <+>
     (keepWindowSizeHandleEventHook $ stringProperty "WM_WINDOW_ROLE" =? "GtkFileChooserDialog") <+>
-    (keepWindowSizeHandleEventHook $ (isDialog <&&> (className =? "Gimp")))
+    (keepWindowSizeHandleEventHook $ (isDialog <&&> (className =? "Gimp"))) <+>
+    fullScreenEventHook
 
 myStartupHook =
     startupHook gnomeConfig <+> docksStartupHook <+> myDocksStartupHook <+> configureMouse <+>  myrescreen priorityDisplayEDIDs
