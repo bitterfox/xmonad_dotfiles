@@ -95,6 +95,9 @@ import qualified XMonad.Util.ExtensibleState as XS
 import XMonad.Util.WindowProperties (getProp32s)
 import XMonad.Util.HandleEventHooks
 
+import XMonad.Util.Performance
+import XMonad.Layout.CachedLayout
+
 black = "#4E4B42"
 brightBlack = "#635F54"
 gray = "#B4AF9A"
@@ -154,7 +157,7 @@ myManageHookAll = manageHook gnomeConfig -- defaultConfig
                        <+> ((className =? "jetbrains-idea") <&&> (title =? "win0") --> doFloat)
                        <+> intelliJTerminalManageHook intelliJTerminalEnv
 
-myLayout = compositeTall (3/100) wide
+myLayout = measureLayoutHook "myLayout" $ compositeTall (3/100) wide
   where wide = simpleWide (3/100)
 --myLayout = (ResizableTall 1 (3/100) (1/2) [])
 myLayoutHookAll = avoidStruts $ WindowViewableLayout Normal (
@@ -282,9 +285,9 @@ main = do
     xmonad $ gnomeConfig -- defaultConfig
         { manageHook = myManageHookAll
 --        , layoutHook =  myLayoutHookAll
-        , layoutHook =  myLayoutHookAll
-        , logHook = myLogHook xmprocs
-        , handleEventHook = myHandleEventHook
+        , layoutHook =  measureLayoutHook "layoutHook" $ myLayoutHookAll
+        , logHook = measure "logHook" $ myLogHook xmprocs
+        , handleEventHook = \e -> measure "handleEventHook" $ myHandleEventHook e
         , startupHook = myStartupHook
         , modMask = mod4Mask     -- Rebind Mod to the Windows key
         , borderWidth = 4
@@ -505,6 +508,9 @@ main = do
         , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_l), sendScreenMessage $ ResizeAnotherSide Shrink)
         , ((mod4Mask .|. mod1Mask, xK_b), prevChildScreen)
         , ((mod4Mask .|. mod1Mask, xK_f), nextChildScreen)
+
+        , ((mod4Mask, xK_c), getDurations >>= \d -> spawn $ "echo '" ++ (show d) ++ "' >> /tmp/xmonad.debug.perf")
+        , ((mod4Mask .|. controlMask, xK_c), resetDurations)
         ] `additionalKeysP`
         [
         -- 輝度・ボリューム周り
@@ -1462,7 +1468,7 @@ instance (LayoutClass l1 a, LayoutClass l2 a) => LayoutClass (WindowViewableLayo
       (ws, ml) <- runLayout (W.Workspace i l2' ms) r
       case ml of
         Just nl -> return (ws, Just (WindowViewableLayout Normal l1' nl))
-        Nothing -> return (ws, Just l)
+        Nothing -> return (ws, Nothing)
 
     runLayout (W.Workspace i l@(WindowViewableLayout WindowView l1' l2') ms) r = do
       (ws, ml) <- runLayout (W.Workspace i l1' ms) r
@@ -1627,33 +1633,44 @@ data SimpleWide a = SimpleWide {
       simpleWideRatio :: [Rational],
       simpleWideRatioIncrement :: Rational,
       simpleWideRatioCurrentIndex :: Int,
-      simpleWideRatioCurrentLength :: Int
+      simpleWideRatioCurrentLength :: Int,
+      simpleWideRectCache :: Maybe (Rectangle, [Rectangle])
 } deriving ( Read, Show )
 
-simpleWide ratioIncrement = SimpleWide [] ratioIncrement 0 0
+simpleWide ratioIncrement = SimpleWide [] ratioIncrement 0 0 Nothing
 
 instance LayoutClass SimpleWide a where
-    doLayout l@(SimpleWide ratio _ cidx clen) rect stack = do
+    doLayout l@(SimpleWide ratio _ cidx clen mcache) rect stack = do
       let rs = ratio ++ (L.replicate (len - L.length ratio) 1)
-      let list = zipWith (\w r -> ([w], r, l)) wins rs
-      let rects = splitRect list $ mirrorRect rect
-      return (L.map (\(ws, r, l) -> (head ws, mirrorRect r)) rects,
+      let mrs = case mcache of
+                 Just (r, cache) -> if clen == len && rect == r then Just cache else Nothing
+                 Nothing -> Nothing
+      let rects = case mrs of
+                 Just rs -> L.zip wins rs
+                 Nothing -> do
+                   let list = zipWith (\w r -> ([w], r, l)) wins rs
+                   let rects = splitRect list $ mirrorRect rect
+                   L.map (\(ws, r, l) -> (head ws, mirrorRect r)) rects
+      return (rects,
         modifyLayout [
           (\layout -> if cidx == idx then Nothing
-                      else Just $ l {simpleWideRatioCurrentIndex = idx})
+                      else Just $ layout {simpleWideRatioCurrentIndex = idx})
         , (\layout -> if rs == ratio then Nothing
-                      else Just $ l {simpleWideRatio = rs})
+                      else Just $ layout {simpleWideRatio = rs})
         , (\layout -> if clen == len then Nothing
-                      else Just $ l {simpleWideRatioCurrentLength = len})
+                      else Just $ layout {simpleWideRatioCurrentLength = len})
+        , (\layout -> if isNothing mrs then Just $ layout {simpleWideRectCache = Just (rect, L.map snd rects)}
+                      else Nothing)
         ] l)
       where idx = L.length $ W.up stack
             wins = W.integrate stack
             len = L.length wins
-    pureMessage l@(SimpleWide ratio ratioInc cidx clen) m =
+    pureMessage (SimpleWide ratio ratioInc cidx clen _) m = do
         msum [fmap (handleResize l cidx) (fromMessage m)
              ,fmap handleResizeAnotherSide (fromMessage m)
              ,fmap handleResetSize (fromMessage m)]
-      where rs layout = (simpleWideRatio layout) ++ (L.replicate (cidx - (L.length $ simpleWideRatio layout)) 1)
+      where l = SimpleWide ratio ratioInc cidx clen Nothing -- Evict cache
+            rs layout = (simpleWideRatio layout) ++ (L.replicate (cidx - (L.length $ simpleWideRatio layout)) 1)
             handleResize layout i Shrink = do
               let (f, s) = splitAt (min (clen -2) i) $ rs layout
               if L.null s then layout
@@ -1761,7 +1778,7 @@ assignWindows layout@(CompositeTall cells inc template rest) windows =
   else do
     let CompositeCell wins ratio layout = head cells
     let (f, s) = splitAt wins windows
-    [(f, ratio, layout)] ++ (assignWindows (CompositeTall (tail cells) inc template rest) s)
+    (f, ratio, layout):(assignWindows (CompositeTall (tail cells) inc template rest) s)
 
 splitRect :: [([a], Rational, layout a)] -> Rectangle -> [([a], Rectangle, layout a)]
 splitRect list rect = splitRect' list rect (L.length list) 0
@@ -1774,7 +1791,7 @@ splitRect' ((wins, ratio, layout):list) rect len currentWidth =
       if currentWidth + fromIntegral w >= fromIntegral mw then
           [(wins, (rect {rect_x = x, rect_width = mw - currentWidth}), layout)] ++ (splitRect' list rect len $ mw)
       else
-          [(wins, (rect {rect_x = x, rect_width = fromIntegral w}), layout)] ++ (splitRect' list rect len $ currentWidth + w)
+          (wins, (rect {rect_x = x, rect_width = fromIntegral w}), layout):(splitRect' list rect len $ currentWidth + w)
     where x = rect_x rect + (fromIntegral currentWidth)
           mw = rect_width rect
           width = (fromIntegral $ mw) `div` len
