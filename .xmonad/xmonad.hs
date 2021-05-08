@@ -571,6 +571,10 @@ main = do
 -- XMonad utils
 ------------------------------------------------------------------------------------------
 
+-- | Modify the @WindowSet@ in state with no special handling.
+modifyWindowSet :: (WindowSet -> WindowSet) -> X ()
+modifyWindowSet f = modify $ \xst -> xst { windowset = f (windowset xst) }
+
 ifX :: Bool -> X() -> X()
 ifX cond whenTrue = if cond then whenTrue else return ()
 
@@ -809,7 +813,7 @@ floatOnUp' = do
 --  before <- gets windowset
 --  caseMaybeJust (W.stack $ W.workspace $ W.current before) $
 --    \(W.Stack t ls rs) -> spawn $ "echo 'Before: " ++ (show t) ++ ", " ++ (show ls) ++ ", " ++ (show rs) ++ "' >> /tmp/xmonad.debug.floating"
-  windows (\s -> W.modify' (\stack@(W.Stack t ls rs) -> do
+  modifyWindowSet (\s -> W.modify' (\stack@(W.Stack t ls rs) -> do
     let (rf, rs') = L.partition (isFloat s) $ L.reverse rs
     let lf' = L.takeWhile (isFloat s) ls
     let (lf, ls') = L.partition (isFloat s) $ L.dropWhile (isFloat s) ls
