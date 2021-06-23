@@ -509,8 +509,8 @@ main = do
         , ((mod4Mask .|. mod1Mask, xK_b), prevChildScreen)
         , ((mod4Mask .|. mod1Mask, xK_f), nextChildScreen)
 
-        , ((mod4Mask, xK_c), getDurations >>= \d -> spawn $ "echo '" ++ (show d) ++ "' >> /tmp/xmonad.debug.perf")
-        , ((mod4Mask .|. controlMask, xK_c), resetDurations)
+--        , ((mod4Mask, xK_c), getDurations >>= \d -> spawn $ "echo '" ++ (show d) ++ "' >> /tmp/xmonad.debug.perf")
+--        , ((mod4Mask .|. controlMask, xK_c), resetDurations)
         ] `additionalKeysP`
         [
         -- 輝度・ボリューム周り
@@ -578,8 +578,8 @@ main = do
 ------------------------------------------------------------------------------------------
 
 -- | Modify the @WindowSet@ in state with no special handling.
-modifyWindowSet :: (WindowSet -> WindowSet) -> X ()
-modifyWindowSet f = modify $ \xst -> xst { windowset = f (windowset xst) }
+--modifyWindowSet :: (WindowSet -> WindowSet) -> X ()
+--modifyWindowSet f = modify $ \xst -> xst { windowset = f (windowset xst) }
 
 ifX :: Bool -> X() -> X()
 ifX cond whenTrue = if cond then whenTrue else return ()

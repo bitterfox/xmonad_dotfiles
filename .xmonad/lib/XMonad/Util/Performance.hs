@@ -3,8 +3,8 @@
 module XMonad.Util.Performance (
   measure,
   measureLayoutHook,
-  getDurations,
-  resetDurations
+--  getDurations,
+--  resetDurations
 ) where
 
 import System.Clock
@@ -46,9 +46,9 @@ instance (LayoutClass l a) => LayoutClass (PerformanceMonitoringLayout l) a wher
 
     description (PerformanceMonitoringLayout name l) = description l
 
-resetDurations = XS.put $ Durations $ M.empty
-getDurations = do
-  Durations map <- XS.get
-  return map
+-- resetDurations = XS.put $ Durations $ M.empty
+-- getDurations = do
+--  Durations map <- XS.get
+--  return map
 
 getMonotonicTimeNSec = toNanoSecs <$> getTime Monotonic
