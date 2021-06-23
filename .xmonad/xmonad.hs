@@ -135,7 +135,7 @@ systemActions = [
 
 priorityDisplayEDIDs :: [EDID]
 priorityDisplayEDIDs = [
- "00ffffffffffff004d10cc1400000000",
+ "00ffffffffffff00061044a000000000",
  "00ffffffffffff0010acb5414c323332",
  "00ffffffffffff0010acb7414c323332",
  "00ffffffffffff0010acb5414c333232"]
@@ -247,7 +247,7 @@ watch cmd interval = spawn $ "while :; do " ++ cmd ++ "; sleep " ++ interval ++ 
 
 main = do
     -- Display
-    runProcessWithInputAndWait "sh" ["-c", "sh '/home/bitterfox/.xmonad/auto_detect_display.sh' >> /tmp/debug"] "" (seconds 1)
+    runProcessWithInputAndWait "sh" ["-c", "sh '/home/jp21734/.xmonad/auto_detect_display.sh' >> /tmp/debug"] "" (seconds 1)
 
     -- Keyboard and Mouse
     spawn $ "mkdir -p " ++ mouseLogDir
