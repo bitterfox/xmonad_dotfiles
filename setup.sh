@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DOT_FILES=(.xmobarrc .xmonad .wishes.xml .comptonrc .Xresources .config/dunst/dunstrc .config/libinput-gestures.conf config.py)
+DOT_FILES=(.xmobarrc .xmonad .wishes.xml .comptonrc .Xresources .config/dunst/dunstrc config.py)
 
 DISCARD_FILES= # 現状なし
 
@@ -27,3 +27,5 @@ fi
 EOF
 
 sudo cp `pwd`/xorg.conf/* /usr/share/X11/xorg.conf.d/
+
+sudo cp `pwd`/.config/libinput-gestures.conf /etc/
