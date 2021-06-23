@@ -301,7 +301,8 @@ main = do
         } `additionalKeys`
         [
         -- System actions
-          ((mod4Mask, xK_q), runActionSelectedTerminalAction systemActions)
+--          ((mod4Mask, xK_q), runActionSelectedTerminalAction systemActions)
+          ((mod4Mask, xK_q), io (exitWith ExitSuccess))
         , ((mod1Mask .|. mod4Mask, xK_q), runActionSelected hidpiGSConfig systemActions)
         , ((mod4Mask, xK_r), withWindowSet $ \ws -> do
                                let sid = W.screen $ W.current ws
