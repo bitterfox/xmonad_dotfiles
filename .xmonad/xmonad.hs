@@ -369,10 +369,10 @@ main = do
         , ((mod4Mask .|. controlMask, xK_n), nextWS')
 --        , ((mod4Mask .|. controlMask .|. shiftMask, xK_p), shiftToPrevWS' >> prevWS') -- TODO Fix
 --        , ((mod4Mask .|. controlMask .|. shiftMask, xK_n), shiftToNextWS' >> nextWS') -- TODO Fix
-        , ((mod4Mask .|. mod1Mask, xK_p), prevRootScreen >> moveMouseToLastPosition)
-        , ((mod4Mask .|. mod1Mask, xK_n), nextRootScreen >> moveMouseToLastPosition)
-        , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_p), shiftPrevRootScreen >> prevRootScreen >> moveMouseToLastPosition)
-        , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_n), shiftNextRootScreen >> nextRootScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. mod1Mask, xK_p), prevVirtualScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. mod1Mask, xK_n), nextVirtualScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_p), shiftPrevRootScreen >> prevVirtualScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_n), shiftNextRootScreen >> nextVirtualScreen >> moveMouseToLastPosition)
 
         , ((mod4Mask, xK_o), windows W.swapMaster)
         , ((mod4Mask .|. shiftMask, xK_o), windows W.shiftMaster)
@@ -385,8 +385,8 @@ main = do
 --        , ((mod4Mask .|. controlMask .|. shiftMask, xK_j), shiftToNextWS' >> nextWS')
 --        , ((mod4Mask .|. controlMask .|. shiftMask, xK_k), shiftToPrevWS' >> prevWS')
         -- スクリーンの移動
-        , ((mod4Mask .|. mod1Mask, xK_j), nextRootScreen >> moveMouseToLastPosition)
-        , ((mod4Mask .|. mod1Mask, xK_k), prevRootScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. mod1Mask, xK_j), nextVirtualScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. mod1Mask, xK_k), prevVirtualScreen >> moveMouseToLastPosition)
 
         -- Arrow key
         -- フォーカスの移動
@@ -418,8 +418,8 @@ main = do
         , ((mod4Mask .|. controlMask .|. shiftMask, xK_Down), shiftToNextWS' >> nextWS')
         , ((mod4Mask .|. controlMask .|. shiftMask, xK_Right), shiftToNextWS' >> nextWS')
 
-        , ((mod4Mask, xK_space),               nextRootScreen >> moveMouseToLastPosition)
-        , ((mod4Mask .|. shiftMask, xK_space), prevRootScreen >> moveMouseToLastPosition)
+        , ((mod4Mask, xK_space),               nextVirtualScreen >> moveMouseToLastPosition)
+        , ((mod4Mask .|. shiftMask, xK_space), prevVirtualScreen >> moveMouseToLastPosition)
 
         , ((mod4Mask, xK_t), do
                                withWindowSet $ \s -> spawn $ "echo '" ++ (show $ sortedFloats' s) ++ "' >> /tmp/xmonad.debug.floats"
@@ -2032,12 +2032,32 @@ focusRootScreen f = do
   windows $ \ws -> do
     let rootSids' = rootSids virtualScreens ws
     let currentRoot = currentRootSid virtualScreens ws
-    let prevSid = head $ tail $ dropWhile (currentRoot /=) $ cycle $ f rootSids'
-    let (up, focus:down) = L.span ((prevSid /=) . W.screen) $ W.screens ws
+    let nextSid = head $ tail $ dropWhile (currentRoot /=) $ cycle $ f rootSids'
+    let (up, focus:down) = L.span ((nextSid /=) . W.screen) $ W.screens ws
     ws {
       W.current = focus,
       W.visible = up ++ down
     }
+
+nextVirtualScreen = focusVirtualScreen id
+prevVirtualScreen = focusVirtualScreen L.reverse
+focusVirtualScreen f = do
+  virtualScreens <- XS.get
+  withWindowSet $ \ws -> do
+    let sid = W.screen $ W.current ws
+    whenJust (findVirtualScreen virtualScreens sid) $ \vs ->
+      whenJust (focusIt sid $ screenStack vs) $ \s ->
+        XS.put $ replaceVirtualScreen virtualScreens $ vs {screenStack = s}
+    windows $ \ws -> do
+      let rootSids' = rootSids virtualScreens ws
+      let currentRoot = currentRootSid virtualScreens ws
+      let nextRootSid = head $ tail $ dropWhile (currentRoot /=) $ cycle $ f rootSids'
+      let focusSid = fromMaybe nextRootSid $ W.focus <$> screenStack <$> findVirtualScreen virtualScreens nextRootSid
+      let (up, focus:down) = L.span ((focusSid /=) . W.screen) $ W.screens ws
+      ws {
+        W.current = focus,
+        W.visible = up ++ down
+      }
 
 shiftNextRootScreen = shiftRootScreen id
 shiftPrevRootScreen = shiftRootScreen L.reverse
