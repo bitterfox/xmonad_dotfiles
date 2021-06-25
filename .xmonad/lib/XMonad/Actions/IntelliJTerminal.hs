@@ -30,18 +30,15 @@ intelliJTerminalManageHook env = intelliJTerminalQuery --> hook env
 
 intelliJTerminalAppId name = "xmonad.intellij." ++ name
 
-intelliJTerminalQuery = appName >>= return . L.isPrefixOf "xmonad.intellij."
+intelliJTerminalQuery = className >>= return . L.isPrefixOf "xmonad.intellij."
 
 intelliJScrachpad :: String -> String -> ManageHook -> NamedScratchpad
 intelliJScrachpad name workingDir manageHook =
     NS name
-       ("/usr/lib/gnome-terminal/gnome-terminal-server" ++
-           " --app-id " ++ appId ++
-           " --name=" ++ appId ++ " --class=" ++ "intellij-terminal" ++
-           " & gnome-terminal --app-id " ++ appId ++
+       ("gnome-terminal --class " ++ appId ++
            " --working-directory=" ++ workingDir
        )
-       (appName =? ("xmonad.intellij." ++ name))
+       (className =? ("xmonad.intellij." ++ name))
        manageHook
   where appId = intelliJTerminalAppId name
 
@@ -61,9 +58,9 @@ launchIntelliJTerminal env =
     )
 
 hideIntelliJTerminal env exclude w = do
-  aname <- runQuery appName w
+  cname <- runQuery className w
   whenX (runQuery intelliJTerminalQuery w) $ do
-    let name = L.drop (L.length "xmonad.intellij.") aname
+    let name = L.drop (L.length "xmonad.intellij.") cname
     whenX (return $ name /= exclude) $ runScratchpadAction $ intelliJScrachpad name (homeDirectory env) (hook env)
 
 intelliJInfo :: Parser [String]

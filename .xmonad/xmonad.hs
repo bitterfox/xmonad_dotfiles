@@ -112,7 +112,7 @@ applications = [
  ("Vivaldi (Web browser)", "vivaldi"),
  ("Nautilus (File browser)", "nautilus"),
  ("Emacs (Editor)", "emacs"),
- ("LINE", "wine '/home/bitterfox/.wine/drive_c/users/bitterfox/Local Settings/Application Data/LINE/bin/LineLauncher.exe'"),
+ ("LINE", "wine '/home/jp21734/.wine/drive_c/users/jp21734/Local Settings/Application Data/LINE/bin/LineLauncher.exe'"),
  ("Configuration", "XDG_CURRENT_DESKTOP=GNOME gnome-control-center"),
  ("LibreOffice", "libreoffice"),
  ("JetBrains ToolBox", "~/bin/jetbrains-toolbox-1.14.5179/jetbrains-toolbox"),
@@ -142,7 +142,7 @@ priorityDisplayEDIDs = [
 
 intelliJTerminalEnv =
   IntelliJTerminalEnvironment {
-    homeDirectory = "/home/bitterfox",
+    homeDirectory = "/home/jp21734",
     XMonad.Actions.IntelliJTerminal.hook = onBottom
   }
 
@@ -301,8 +301,8 @@ main = do
         } `additionalKeys`
         [
         -- System actions
---          ((mod4Mask, xK_q), runActionSelectedTerminalAction systemActions)
-          ((mod4Mask, xK_q), io (exitWith ExitSuccess))
+          ((mod4Mask, xK_q), runActionSelectedTerminalAction systemActions)
+--          ((mod4Mask, xK_q), io (exitWith ExitSuccess))
         , ((mod1Mask .|. mod4Mask, xK_q), runActionSelected hidpiGSConfig systemActions)
         , ((mod4Mask, xK_r), withWindowSet $ \ws -> do
                                let sid = W.screen $ W.current ws
