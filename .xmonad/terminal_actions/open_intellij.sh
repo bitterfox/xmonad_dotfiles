@@ -6,7 +6,7 @@
 in="$1"
 out="$2"
 
-project=`~/scripts/list_intellij_projects.sh 2020.2 100 | fzf`
+project=`~/scripts/list_intellij_projects.sh 2021.1 100 | fzf`
 
 if [ -n "$project" ]; then
     echo "$project" > $out
