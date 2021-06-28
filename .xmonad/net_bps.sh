@@ -1,8 +1,10 @@
 . ~/.xmonad/color.sh
 
+nic="usb0"
+
 last_info=`cat /tmp/xmobar_net_bps_util_last.$PPID`
-cur_rx_bytes=`cat /sys/class/net/wlp0s20f3/statistics/rx_bytes`
-cur_tx_bytes=`cat /sys/class/net/wlp0s20f3/statistics/tx_bytes`
+cur_rx_bytes=`cat /sys/class/net/$nic/statistics/rx_bytes`
+cur_tx_bytes=`cat /sys/class/net/$nic/statistics/tx_bytes`
 cur_millis=`echo $(($(date +%s%N)/1000000))`
 echo $cur_rx_bytes $cur_tx_bytes $cur_millis > /tmp/xmobar_net_bps_util_last.$PPID
 
