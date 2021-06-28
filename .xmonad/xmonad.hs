@@ -117,7 +117,7 @@ applications = [
  ("LibreOffice", "libreoffice"),
  ("JetBrains ToolBox", "~/bin/jetbrains-toolbox-1.14.5179/jetbrains-toolbox"),
  ("IntelliJ Idea", intellijCommand),
- ("PulseSecure", "/usr/local/pulse/pulseUi"),
+ ("PulseSecure", "/opt/pulsesecure/bin/pulseUI"),
  ("Slack", "slack"),
  ("Tweetdeck", webApplication "https://tweetdeck.twitter.com/"),
  ("YouTube", webApplication "https://youtube.com/"),
