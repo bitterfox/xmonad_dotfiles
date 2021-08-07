@@ -460,6 +460,8 @@ main = do
         , ((mod4Mask, xK_at), runDmenuRunTerminalAction)
         , ((mod4Mask .|. shiftMask, xK_at), spawn "gmrun")
         , ((mod4Mask, xK_colon), openIntelliJTerminalAction)
+        , ((mod4Mask, xK_semicolon), runOpenBrowserHistoryTerminalAction)
+        , ((mod4Mask, xK_c), runCopyFromClipboardHistoryTerminalAction)
 
         -- Scratchpad
         , ((mod4Mask, xK_Return), myNamedScratchpadAction "mainterm")
@@ -1819,11 +1821,18 @@ selectActionTerminalActionTemplate =
 dmenuRunTerminalAction =
   (terminalActionTemplate "dmenu.run" "~/.xmonad/terminal_actions/dmenu_run.sh" terminalActionManageHook)
   .| withFirstLine .>> spawn
+openBrowserHistoryTerminalAction =
+  (terminalActionTemplate "open.history" "~/.xmonad/terminal_actions/select_browser_history.sh" $ onCenter'' 0.1 0.2)
+  .| withFirstLine .|| ("xdg-open " ++) .>> spawn
+copyFromClipboardHistoryTerminalAction =
+  (terminalActionTemplate "copy.from.clipboard.history" "~/.xmonad/terminal_actions/select_clipboard.sh" $ terminalActionManageHook) .>| ()
 
 myTerminalActions = [
    (terminalActionTemplate "open.intellij" "~/.xmonad/terminal_actions/open_intellij.sh" terminalActionManageHook)
    .| withFirstLine .|| ((intellijCommand ++ " ") ++) .>> spawn
   , dmenuRunTerminalAction
+  , openBrowserHistoryTerminalAction
+  , copyFromClipboardHistoryTerminalAction
   , selectWindowTerminalActionTemplate .>| ()
   , selectActionTerminalActionTemplate .>| ()]
 
@@ -1831,6 +1840,12 @@ myTerminalActionHandleEventHook = keepWindowSizeHandleEventHook $ L.foldr (<||>)
 
 openIntelliJTerminalAction = do
   runNamedTerminalAction myTerminal myTerminalActions "open.intellij"
+
+runOpenBrowserHistoryTerminalAction = do
+  runNamedTerminalAction myTerminal myTerminalActions "open.history"
+
+runCopyFromClipboardHistoryTerminalAction = do
+  runNamedTerminalAction myTerminal myTerminalActions "copy.from.clipboard.history"
 
 data SelectedWindowTerminalActionState = SelectedWindowTerminalActionState String Int deriving (Typeable)
 instance ExtensionClass SelectedWindowTerminalActionState where
