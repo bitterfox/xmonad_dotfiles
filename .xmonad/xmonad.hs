@@ -251,11 +251,11 @@ main = do
 
     -- Keyboard and Mouse
     spawn $ "mkdir -p " ++ mouseLogDir
-    spawn "xhost +SI:localuser:root; sleep 1; sudo xkeysnail --watch -q ~/config.py & sleep 1; xset r rate 250 50"
+    spawn "xhost +SI:localuser:root; sleep 1; sudo xkeysnail --watch -q ~/config.py & sleep 3; xset r rate 250 50; xset q >> /tmp/xset.debug"
     spawn "sudo libinput-gestures"
 
     -- Desktop
-    spawn "nautilus-desktop --force" -- デスクトップを読み込む
+--    spawn "nautilus-desktop --force" -- デスクトップを読み込む
 
     -- Applets
     spawn "nm-applet" -- ネット接続のアプレットを起動
