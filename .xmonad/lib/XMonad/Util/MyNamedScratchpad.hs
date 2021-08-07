@@ -24,11 +24,10 @@ import XMonad.Util.HandleEventHooks
 terminalScratchpad :: String -> Maybe String -> ManageHook -> NamedScratchpad
 terminalScratchpad name execMaybe manageHook =
     NS name
---       ("/usr/libexec/gnome-terminal/gnome-terminal-server" ++
---           " --app-id bitter_fox.xmonad." ++ name ++
---           " --name=" ++ name ++ " --class=" ++ name ++
---           " & gnome-terminal --app-id bitter_fox.xmonad." ++ name ++
-         ("gnome-terminal --class " ++ name ++
+       ("~/.xmonad/gnome-terminal-server" ++
+           " --app-id bitter_fox.xmonad." ++ name ++
+           " --name=" ++ name ++ " --class=" ++ name ++
+           " & gnome-terminal --app-id bitter_fox.xmonad." ++ name ++
            (case execMaybe of
               Just exec -> " -e " ++ exec
               Nothing -> ""
