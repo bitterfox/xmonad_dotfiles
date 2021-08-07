@@ -11,19 +11,27 @@ define_modmap({
     Key.LEFT_META: Key.LEFT_ALT
 })
 
-define_keymap(lambda wm_class: wm_class not in ("Emacs", "Gnome-terminal", "jetbrains-idea", "term1", "term2", "mainterm", "intellij-terminal"), {
+define_keymap(lambda wm_class: ((wm_class not in ("Emacs", "Gnome-terminal", "gnome-terminal-server", "jetbrains-idea", "term1", "term2", "mainterm", "intellij-terminal")) and (not wm_class.startswith("xmonad.intellij")) and (not wm_class.startswith("xmonad.terminal"))), {
     # Cursor
     K("C-b"): with_mark(K("left")),
     K("C-f"): with_mark(K("right")),
+    K("C-Shift-b"): with_mark(K("Shift-left")),
+    K("C-Shift-f"): with_mark(K("Shift-right")),
     K("C-p"): with_mark(K("up")),
     K("C-n"): with_mark(K("down")),
+    K("C-Shift-p"): with_mark(K("Shift-up")),
+    K("C-Shift-n"): with_mark(K("Shift-down")),
     K("C-h"): with_mark(K("backspace")),
     # Forward/Backward word
     K("M-b"): with_mark(K("C-left")),
     K("M-f"): with_mark(K("C-right")),
+    K("M-Shift-b"): with_mark(K("C-Shift-left")),
+    K("M-Shift-f"): with_mark(K("C-Shift-right")),
     # Beginning/End of line
     K("C-a"): with_mark(K("home")),
     K("C-e"): with_mark(K("end")),
+    K("C-Shift-a"): with_mark(K("Shift-home")),
+    K("C-Shift-e"): with_mark(K("Shift-end")),
     # Page up/down
     K("M-v"): with_mark(K("page_up")),
     K("C-v"): with_mark(K("page_down")),
