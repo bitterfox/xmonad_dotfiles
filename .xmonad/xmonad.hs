@@ -281,6 +281,8 @@ main = do
 
     spawn "xrandr --output eDP-1 --brightness 1 --gamma 1.05:1.05:1.095"
 
+    spawn "CM_DIR=$HOME CM_SELECTIONS=clipboard CM_IGNORE_WINDOW=xmonad.terminal.action.one.password clipmenud"
+
 --    spawn $ "echo '" ++ (show $ mkToggleInitial (single TitleTransformer) TitleTransformer $ myLayout) ++ "' >> /tmp/xmonad.debug.layout"
     xmonad $ gnomeConfig -- defaultConfig
         { manageHook = myManageHookAll
@@ -462,6 +464,7 @@ main = do
         , ((mod4Mask, xK_colon), openIntelliJTerminalAction)
         , ((mod4Mask, xK_semicolon), runOpenBrowserHistoryTerminalAction)
         , ((mod4Mask, xK_c), runCopyFromClipboardHistoryTerminalAction)
+        , ((mod4Mask .|. controlMask, xK_c), runOnePasswordTerminalAction)
 
         -- Scratchpad
         , ((mod4Mask, xK_Return), myNamedScratchpadAction "mainterm")
@@ -1823,9 +1826,12 @@ dmenuRunTerminalAction =
   .| withFirstLine .>> spawn
 openBrowserHistoryTerminalAction =
   (terminalActionTemplate "open.history" "~/.xmonad/terminal_actions/select_browser_history.sh" $ onCenter'' 0.1 0.2)
-  .| withFirstLine .|| ("xdg-open " ++) .>> spawn
+  .| withFirstLine .|| (\s -> "xdg-open '" ++ s ++ "'") .>> spawn
 copyFromClipboardHistoryTerminalAction =
   (terminalActionTemplate "copy.from.clipboard.history" "~/.xmonad/terminal_actions/select_clipboard.sh" $ terminalActionManageHook) .>| ()
+onePasswordTerminalAction =
+  (terminalActionTemplate "one.password" "~/.xmonad/terminal_actions/one_password.sh" $ terminalActionManageHook)
+  .| withFirstLine .|| (\s -> "xdotool type '" ++ (T.unpack $ T.replace (T.pack "'") (T.pack "'\"'\"'") (T.pack s)) ++ "'") .>> spawn
 
 myTerminalActions = [
    (terminalActionTemplate "open.intellij" "~/.xmonad/terminal_actions/open_intellij.sh" terminalActionManageHook)
@@ -1833,6 +1839,7 @@ myTerminalActions = [
   , dmenuRunTerminalAction
   , openBrowserHistoryTerminalAction
   , copyFromClipboardHistoryTerminalAction
+  , onePasswordTerminalAction
   , selectWindowTerminalActionTemplate .>| ()
   , selectActionTerminalActionTemplate .>| ()]
 
@@ -1846,6 +1853,9 @@ runOpenBrowserHistoryTerminalAction = do
 
 runCopyFromClipboardHistoryTerminalAction = do
   runNamedTerminalAction myTerminal myTerminalActions "copy.from.clipboard.history"
+
+runOnePasswordTerminalAction = do
+  runNamedTerminalAction myTerminal myTerminalActions "one.password"
 
 data SelectedWindowTerminalActionState = SelectedWindowTerminalActionState String Int deriving (Typeable)
 instance ExtensionClass SelectedWindowTerminalActionState where
