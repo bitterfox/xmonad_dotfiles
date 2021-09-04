@@ -7,11 +7,15 @@ module XMonad.Actions.TerminalAction (
   (.>|),
   (.>>),
   (.>?),
-  (.||),
   (.|),
+  (.||),
+  (.||=),
   withFirstLine,
   withoutEmpty,
   terminalActionTemplate,
+  selectedXTerminalAction,
+  spawnSelectedAppTerminalAction,
+  runSelectedXTerminalAction
 ) where
 
 import System.Directory
@@ -66,6 +70,20 @@ ta .| handler = ta {
     return $ handler o
 }
 
+(.||) :: TerminalAction (Maybe a) -> (a -> b) -> TerminalAction (Maybe b)
+ta .|| handler = ta {
+  actionOutputsHandler = \outputs -> do
+    mo <- actionOutputsHandler ta outputs
+    return $ mo >>= (Just . handler)
+}
+
+(.||=) :: TerminalAction (Maybe a) -> (a -> Maybe b) -> TerminalAction (Maybe b)
+ta .||= handler = ta {
+  actionOutputsHandler = \outputs -> do
+    mo <- actionOutputsHandler ta outputs
+    return $ mo >>= handler
+}
+
 (.>>) :: TerminalAction (Maybe a) -> (a -> X ()) -> TerminalAction ()
 ta .>> handler = ta {
   actionOutputsHandler = \outputs -> actionOutputsHandler ta outputs >>= doForJust handler
@@ -80,13 +98,6 @@ ta .>? handler = ta {
       Nothing -> handler
       _ -> return ()
     return mo
-}
-
-(.||) :: TerminalAction (Maybe a) -> (a -> b) -> TerminalAction (Maybe b)
-ta .|| handler = ta {
-  actionOutputsHandler = \outputs -> do
-    mo <- actionOutputsHandler ta outputs
-    return $ mo >>= (Just . handler)
 }
 
 withoutEmpty outputs
@@ -173,6 +184,17 @@ class Terminal t where
             killMatchedWindow query =
               withWindowSet $ \ws ->
                 L.foldr (>>) (return ()) $ L.map (\w -> whenX (runQuery query w) $ killWindow w) $ W.allWindows ws
+
+selectedXTerminalAction template xs =
+    template .<. (return $ L.map fst xs)
+             .||= (\a -> L.find ((a ==) . fst) xs)
+             .>> snd
+
+spawnSelectedAppTerminalAction template apps =
+    selectedXTerminalAction template $ L.map (\(a, b) -> (a, spawn b)) apps
+
+runSelectedXTerminalAction terminal template xs =
+    runTerminalAction terminal $ selectedXTerminalAction template xs
 
 ------------------------------------------------------------------------------------------
 -- Terminal actions

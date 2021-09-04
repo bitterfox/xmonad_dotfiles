@@ -303,7 +303,7 @@ main = do
         } `additionalKeys`
         [
         -- System actions
-          ((mod4Mask, xK_q), runSelectedXTerminalAction systemActions)
+          ((mod4Mask, xK_q), myRunSelectedXTerminalAction systemActions)
 --          ((mod4Mask, xK_q), io (exitWith ExitSuccess))
         , ((mod1Mask .|. mod4Mask, xK_q), runActionSelected hidpiGSConfig systemActions)
         , ((mod4Mask, xK_r), withWindowSet $ \ws -> do
@@ -1905,18 +1905,13 @@ instance ExtensionClass SpawnAppTerminalActionState where
 spawnAppSelectedTerminalAction' apps = do
   s@(SpawnAppTerminalActionState count) <- XS.get
   let actions = [
-       selectedXTerminalAction $ L.map (\(a, b) -> (a, spawn b)) apps, dmenuRunTerminalAction]
+       mySpawnSelectedAppTerminalAction apps, dmenuRunTerminalAction]
   runTerminalAction myTerminal $ (actions !! (count `mod` (L.length actions))) .>. (\_ -> XS.remove s)
   XS.put $ SpawnAppTerminalActionState $ count + 1
 
-spawnAppSelectedTerminalAction apps = runSelectedXTerminalAction $ L.map (\(a, b) -> (a, spawn b)) apps
-
-runSelectedXTerminalAction actions =
-    runTerminalAction myTerminal $ selectedXTerminalAction actions
-selectedXTerminalAction xs =
-    selectActionTerminalActionTemplate
-                                     .<. (return $ L.map fst xs)
-                                     .>> (\a -> doForJust snd $ L.find ((a ==) . fst) xs)
+myRunSelectedXTerminalAction = runSelectedXTerminalAction myTerminal selectActionTerminalActionTemplate
+mySpawnSelectedAppTerminalAction = spawnSelectedAppTerminalAction selectActionTerminalActionTemplate
+mySelectedXTerminalAction = selectedXTerminalAction selectActionTerminalActionTemplate
 
 runDmenuRunTerminalAction = runTerminalAction myTerminal dmenuRunTerminalAction
 
