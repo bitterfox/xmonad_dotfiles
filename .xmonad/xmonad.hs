@@ -303,7 +303,7 @@ main = do
         } `additionalKeys`
         [
         -- System actions
-          ((mod4Mask, xK_q), runActionSelectedTerminalAction systemActions)
+          ((mod4Mask, xK_q), runSelectedXTerminalAction systemActions)
 --          ((mod4Mask, xK_q), io (exitWith ExitSuccess))
         , ((mod1Mask .|. mod4Mask, xK_q), runActionSelected hidpiGSConfig systemActions)
         , ((mod4Mask, xK_r), withWindowSet $ \ws -> do
@@ -444,7 +444,8 @@ main = do
                                                ("Visible workspaces", visibleWorkspacesPredicate),
                                                ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate),
                                                ("All workspaces", anyWorkspacePredicate)] !!))
-        , ((mod4Mask, xK_e),                 spawnAppSelectedTerminalAction applications)
+        , ((mod4Mask, xK_e),                 spawnAppSelectedTerminalAction' applications)
+        , ((mod4Mask .|. shiftMask, xK_e), spawn "gmrun")
         -- GridSelected
         , ((mod1Mask .|. mod4Mask, xK_w),                               goToSelected'  anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
         , ((mod1Mask .|. mod4Mask .|. controlMask, xK_w),               goToSelected'  anyWorkspacePredicate                         hidpiGSConfig)
@@ -459,8 +460,6 @@ main = do
 --                                                   let lines = show $ truncate $ (fromIntegral $ rect_height rect) / 30 - 1
 --                                                   spawn $ "dmenu_run -i -fn monospace-10:bold -l " ++ lines ++ " -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖'"))
 --                                                   spawn $ "dmenu_run -i -fn monospace-10:bold -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖'"))
-        , ((mod4Mask, xK_at), runDmenuRunTerminalAction)
-        , ((mod4Mask .|. shiftMask, xK_at), spawn "gmrun")
         , ((mod4Mask, xK_colon), openIntelliJTerminalAction)
         , ((mod4Mask, xK_semicolon), runOpenBrowserHistoryTerminalAction)
         , ((mod4Mask, xK_c), runCopyFromClipboardHistoryTerminalAction)
@@ -1899,12 +1898,25 @@ greedyViewWindow' screenAware w  = do
       windows $ (W.focusWindow w) . (W.greedyView tag)
     Nothing -> windows $ W.focusWindow w
 
-spawnAppSelectedTerminalAction apps = runActionSelectedTerminalAction $ L.map (\(a, b) -> (a, spawn b)) apps
 
-runActionSelectedTerminalAction actions =
-    runTerminalAction myTerminal $ selectActionTerminalActionTemplate
-                                     .<. (return $ L.map fst actions)
-                                     .>> (\a -> doForJust snd $ L.find ((a ==) . fst) actions)
+data SpawnAppTerminalActionState = SpawnAppTerminalActionState Int deriving (Typeable)
+instance ExtensionClass SpawnAppTerminalActionState where
+  initialValue = SpawnAppTerminalActionState 0
+spawnAppSelectedTerminalAction' apps = do
+  s@(SpawnAppTerminalActionState count) <- XS.get
+  let actions = [
+       selectedXTerminalAction $ L.map (\(a, b) -> (a, spawn b)) apps, dmenuRunTerminalAction]
+  runTerminalAction myTerminal $ (actions !! (count `mod` (L.length actions))) .>. (\_ -> XS.remove s)
+  XS.put $ SpawnAppTerminalActionState $ count + 1
+
+spawnAppSelectedTerminalAction apps = runSelectedXTerminalAction $ L.map (\(a, b) -> (a, spawn b)) apps
+
+runSelectedXTerminalAction actions =
+    runTerminalAction myTerminal $ selectedXTerminalAction actions
+selectedXTerminalAction xs =
+    selectActionTerminalActionTemplate
+                                     .<. (return $ L.map fst xs)
+                                     .>> (\a -> doForJust snd $ L.find ((a ==) . fst) xs)
 
 runDmenuRunTerminalAction = runTerminalAction myTerminal dmenuRunTerminalAction
 
