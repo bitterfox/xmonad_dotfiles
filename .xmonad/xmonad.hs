@@ -446,6 +446,7 @@ main = do
                                                ("All workspaces", anyWorkspacePredicate)])
         , ((mod4Mask, xK_e),                 spawnAppSelectedTerminalAction' applications)
         , ((mod4Mask .|. shiftMask, xK_e), spawn "gmrun")
+        , ((mod4Mask, xK_at), runOpenDashboardTerminalAction)
         -- GridSelected
         , ((mod1Mask .|. mod4Mask, xK_w),                               goToSelected'  anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
         , ((mod1Mask .|. mod4Mask .|. controlMask, xK_w),               goToSelected'  anyWorkspacePredicate                         hidpiGSConfig)
@@ -1831,6 +1832,16 @@ copyFromClipboardHistoryTerminalAction =
 onePasswordTerminalAction =
   (terminalActionTemplate "one.password" "~/.xmonad/terminal_actions/one_password.sh" $ terminalActionManageHook)
   .| withFirstLine .|| (\s -> "xdotool type '" ++ (T.unpack $ T.replace (T.pack "'") (T.pack "'\"'\"'") (T.pack s)) ++ "'") .>> spawn
+openDashboardTerminalAction =
+  (terminalActionTemplate "open.dashboard" "" terminalActionManageHook)
+  .| withoutEmpty .|| (\outputs ->
+                           if head outputs == "alt-enter" then
+                               (False, tail outputs)
+                           else
+                               (True, outputs))
+  .|| (\(appMode, urls) -> L.map (\url -> (if appMode then "vivaldi --app='" else "xdg-open '") ++ url ++ "'") urls)
+  .|| L.map spawn
+  .>> L.foldr (>>) (return ())
 
 myTerminalActions = [
    (terminalActionTemplate "open.intellij" "~/.xmonad/terminal_actions/open_intellij.sh" terminalActionManageHook)
@@ -1840,7 +1851,8 @@ myTerminalActions = [
   , copyFromClipboardHistoryTerminalAction
   , onePasswordTerminalAction
   , selectWindowTerminalActionTemplate .>| ()
-  , selectActionTerminalActionTemplate .>| ()]
+  , selectActionTerminalActionTemplate .>| ()
+  , openDashboardTerminalAction]
 
 myTerminalActionHandleEventHook = keepWindowSizeHandleEventHook $ L.foldr (<||>) (return False) $ L.map (terminalQuery myTerminal) myTerminalActions
 
@@ -1902,6 +1914,11 @@ mySpawnSelectedAppTerminalAction = spawnSelectedAppTerminalAction selectActionTe
 mySelectedXTerminalAction = selectedXTerminalAction selectActionTerminalActionTemplate
 
 runDmenuRunTerminalAction = runTerminalAction myTerminal dmenuRunTerminalAction
+
+runOpenDashboardTerminalAction = do
+  runCyclicTerminalAction myTerminal "open.dashboard" $ L.map (\script -> openDashboardTerminalAction { actionScript = script }) [
+                                  "~/.xmonad/terminal_actions/open_cluster_dashboard.sh",
+                                  "~/.xmonad/terminal_actions/open_host_dashboard.sh"]
 
 ------------------------------------------------------------------------------------------
 -- Terminal actions
