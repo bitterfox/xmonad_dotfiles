@@ -1848,8 +1848,14 @@ myTerminalActionHandleEventHook = keepWindowSizeHandleEventHook $ L.foldr (<||>)
 openIntelliJTerminalAction = do
   runNamedTerminalAction myTerminal myTerminalActions "open.intellij"
 
+data BrowserHistoryTerminalActionState = BrowserHistoryTerminalActionState Int deriving (Typeable)
+instance ExtensionClass BrowserHistoryTerminalActionState where
+  initialValue = BrowserHistoryTerminalActionState 0
 runOpenBrowserHistoryTerminalAction = do
-  runNamedTerminalAction myTerminal myTerminalActions "open.history"
+  s@(BrowserHistoryTerminalActionState count) <- XS.get
+  let sort = ["often", "recent"]
+  runTerminalAction myTerminal $ openBrowserHistoryTerminalAction .<. (return $ [sort !! (count `mod` (L.length sort))]) .>. (\_ -> XS.remove s)
+  XS.put $ BrowserHistoryTerminalActionState $ count + 1
 
 runCopyFromClipboardHistoryTerminalAction = do
   runNamedTerminalAction myTerminal myTerminalActions "copy.from.clipboard.history"
