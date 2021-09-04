@@ -432,18 +432,18 @@ main = do
 --        , ((mod4Mask .|. controlMask, xK_t), withDisplay $ \dpy -> withWindowSet $ \ws -> io $ setWindowBorderWidth dpy (head $ W.integrate' $ W.stack $ W.workspace $ W.current ws) 0)
 
         -- TerminalAction
-        , ((mod4Mask, xK_w),                 smartGreedyViewSelectedWindowTerminalAction (cycle [
+        , ((mod4Mask, xK_w),                 smartGreedyViewSelectedWindowTerminalAction [
                                                ("Visible workspaces", visibleWorkspacesPredicate),
                                                ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate),
-                                               ("All workspaces", anyWorkspacePredicate)] !!))
-        , ((mod4Mask .|. controlMask, xK_w), greedyViewSelectedWindowTerminalAction      (cycle [
+                                               ("All workspaces", anyWorkspacePredicate)])
+        , ((mod4Mask .|. controlMask, xK_w), greedyViewSelectedWindowTerminalAction      [
                                                ("Visible workspaces", visibleWorkspacesPredicate),
                                                ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate),
-                                               ("All workspaces", anyWorkspacePredicate)] !!))
-        , ((mod4Mask .|. shiftMask, xK_w),   shiftSelectedWindowTerminalAction            (cycle [
+                                               ("All workspaces", anyWorkspacePredicate)])
+        , ((mod4Mask .|. shiftMask, xK_w),   shiftSelectedWindowTerminalAction            [
                                                ("Visible workspaces", visibleWorkspacesPredicate),
                                                ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate),
-                                               ("All workspaces", anyWorkspacePredicate)] !!))
+                                               ("All workspaces", anyWorkspacePredicate)])
         , ((mod4Mask, xK_e),                 spawnAppSelectedTerminalAction' applications)
         , ((mod4Mask .|. shiftMask, xK_e), spawn "gmrun")
         -- GridSelected
@@ -1851,10 +1851,9 @@ data BrowserHistoryTerminalActionState = BrowserHistoryTerminalActionState Int d
 instance ExtensionClass BrowserHistoryTerminalActionState where
   initialValue = BrowserHistoryTerminalActionState 0
 runOpenBrowserHistoryTerminalAction = do
-  s@(BrowserHistoryTerminalActionState count) <- XS.get
   let sort = ["often", "recent"]
-  runTerminalAction myTerminal $ openBrowserHistoryTerminalAction .<. (return $ [sort !! (count `mod` (L.length sort))]) .>. (\_ -> XS.remove s)
-  XS.put $ BrowserHistoryTerminalActionState $ count + 1
+  runCyclicTerminalAction myTerminal "open.browser.history" $
+                          L.map (openBrowserHistoryTerminalAction .<) sort
 
 runCopyFromClipboardHistoryTerminalAction = do
   runNamedTerminalAction myTerminal myTerminalActions "copy.from.clipboard.history"
@@ -1875,12 +1874,9 @@ greedyViewSelectedWindowTerminalAction =
 shiftSelectedWindowTerminalAction =
   runSelectedWindowTerminalAction "shift" $ \w -> windows $ \s -> W.shiftMaster $ W.focusWindow w $ W.shiftWin (W.currentTag s) w s
 
-runSelectedWindowTerminalAction myname handler predicateSelector = do
-  s@(SelectedWindowTerminalActionState name count) <- XS.get
-  let n = if name == myname then count + 1 else 0
-  let (header, predicate) = predicateSelector n
-  runTerminalAction myTerminal $ selectWindowTerminalAction header predicate .>> handler .>. (\_ -> XS.remove s)
-  XS.put $ SelectedWindowTerminalActionState myname $ n
+runSelectedWindowTerminalAction myname handler predicates =
+    runCyclicTerminalAction myTerminal myname $
+                            L.map (\(header, predicate) -> selectWindowTerminalAction header predicate .>> handler) predicates
 
 selectWindowTerminalAction header predicate  =
   selectWindowTerminalActionTemplate .<. ((windowMap' predicate) >>= (\l -> return $ ("0 " ++ header):(L.map (\(s, w) -> (show w) ++ " " ++ s) l)))
@@ -1898,16 +1894,8 @@ greedyViewWindow' screenAware w  = do
       windows $ (W.focusWindow w) . (W.greedyView tag)
     Nothing -> windows $ W.focusWindow w
 
-
-data SpawnAppTerminalActionState = SpawnAppTerminalActionState Int deriving (Typeable)
-instance ExtensionClass SpawnAppTerminalActionState where
-  initialValue = SpawnAppTerminalActionState 0
-spawnAppSelectedTerminalAction' apps = do
-  s@(SpawnAppTerminalActionState count) <- XS.get
-  let actions = [
-       mySpawnSelectedAppTerminalAction apps, dmenuRunTerminalAction]
-  runTerminalAction myTerminal $ (actions !! (count `mod` (L.length actions))) .>. (\_ -> XS.remove s)
-  XS.put $ SpawnAppTerminalActionState $ count + 1
+spawnAppSelectedTerminalAction' apps =
+    runCyclicTerminalAction myTerminal "spawn.app" [mySpawnSelectedAppTerminalAction apps, dmenuRunTerminalAction]
 
 myRunSelectedXTerminalAction = runSelectedXTerminalAction myTerminal selectActionTerminalActionTemplate
 mySpawnSelectedAppTerminalAction = spawnSelectedAppTerminalAction selectActionTerminalActionTemplate

@@ -3,6 +3,7 @@ module XMonad.Actions.TerminalAction (
   Terminal(..),
   TerminalAction(..),
   (.<.),
+  (.<),
   (.>.),
   (.>|),
   (.>>),
@@ -15,7 +16,8 @@ module XMonad.Actions.TerminalAction (
   terminalActionTemplate,
   selectedXTerminalAction,
   spawnSelectedAppTerminalAction,
-  runSelectedXTerminalAction
+  runSelectedXTerminalAction,
+  runCyclicTerminalAction
 ) where
 
 import System.Directory
@@ -45,6 +47,9 @@ data TerminalAction o = TerminalAction {
       actionOutputsHandler :: [String] -> X o,
       actionManageHook :: ManageHook
 } deriving Typeable
+
+(.<) :: TerminalAction a -> String -> TerminalAction a
+ta .< input = ta .<. (return [input])
 
 (.<.) :: TerminalAction a -> X [String] -> TerminalAction a
 ta .<. inputs = ta { actionInputs = inputs }
@@ -195,6 +200,16 @@ spawnSelectedAppTerminalAction template apps =
 
 runSelectedXTerminalAction terminal template xs =
     runTerminalAction terminal $ selectedXTerminalAction template xs
+
+
+data TerminalActionCounter = TerminalActionCounter String Int deriving (Typeable)
+instance ExtensionClass TerminalActionCounter where
+  initialValue = TerminalActionCounter "" 0
+runCyclicTerminalAction terminal identifier actions = do
+  s@(TerminalActionCounter identifier' count) <- XS.get
+  let n = if identifier' == identifier then count else 0
+  runTerminalAction terminal $ (actions !! (n `mod` (L.length actions))) .>. (\_ -> XS.remove s)
+  XS.put $ TerminalActionCounter identifier $ n + 1
 
 ------------------------------------------------------------------------------------------
 -- Terminal actions
