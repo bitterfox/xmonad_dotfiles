@@ -1,6 +1,6 @@
 #!/bin/sh
 
-. ~/.xmonad/color.sh
+. $(dirname $0)/color.sh
 
 info=`pacmd list-sinks | grep -e index -e "^\s*volume:" -e muted -e name: | grep -A3 '\*'`
 

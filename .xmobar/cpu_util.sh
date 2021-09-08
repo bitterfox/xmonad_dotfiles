@@ -1,4 +1,4 @@
-. ~/.xmonad/color.sh
+. $(dirname $0)/color.sh
 
 last_info=`cat /tmp/xmobar_cpu_util_last.$PPID`
 cur_info=`cat /proc/stat | head -n 1`

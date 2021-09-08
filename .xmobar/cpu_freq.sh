@@ -1,5 +1,5 @@
 #!/bin/bash
-. ~/.xmonad/color.sh
+. $(dirname $0)/color.sh
 
 freq=`lscpu | grep "CPU MHz" | awk '{print $3}'`
 

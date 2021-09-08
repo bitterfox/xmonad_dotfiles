@@ -503,8 +503,8 @@ main = do
         , ((mod4Mask, xK_F3), spawn "sh ~/.xmonad/audio_up.sh")
         , ((mod4Mask .|. shiftMask, xK_F2), spawn "sh ~/.xmonad/audio_prev.sh")
         , ((mod4Mask .|. shiftMask, xK_F3), spawn "sh ~/.xmonad/audio_next.sh")
-        , ((mod4Mask, xK_F6), spawn "sh ~/.xmonad/bright_down.sh")
-        , ((mod4Mask, xK_F7), spawn "sh ~/.xmonad/bright_up.sh")
+        , ((mod4Mask, xK_F6), spawn "sh ~/.xmonad/system_scripts/bright/down.sh")
+        , ((mod4Mask, xK_F7), spawn "sh ~/.xmonad/system_scripts/bright/up.sh")
 
         , ((mod4Mask, xK_x), createVirtualScreen $ ((Mirror $ simpleWide (3/100)) ||| (simpleWide (3/100))))
         , ((mod4Mask .|. mod1Mask, xK_d), sendScreenMessage NextLayout)
@@ -520,8 +520,8 @@ main = do
         ] `additionalKeysP`
         [
         -- 輝度・ボリューム周り
-          ("<XF86MonBrightnessDown>", spawn "sh ~/.xmonad/bright_down.sh")
-        , ("<XF86MonBrightnessUp>", spawn "sh ~/.xmonad/bright_up.sh")
+          ("<XF86MonBrightnessDown>", spawn "sh ~/.xmonad/system_scripts/bright/down.sh")
+        , ("<XF86MonBrightnessUp>", spawn "sh ~/.xmonad/system_scripts/bright/up.sh")
         , ("<XF86KbdBrightnessDown>", spawn "sh ~/.xmonad/kbd_bright_down.sh")
         , ("<XF86KbdBrightnessUp>", spawn "sh ~/.xmonad/kbd_bright_up.sh")
         , ("<XF86AudioLowerVolume>", spawn "sh ~/.xmonad/audio_down.sh")

@@ -1,4 +1,4 @@
-. ~/.xmonad/color.sh
+. $(dirname $0)/color.sh
 speed1=`cat /sys/devices/virtual/hwmon/hwmon2/fan1_input`
 speed2=`cat /sys/devices/virtual/hwmon/hwmon2/fan2_input`
 

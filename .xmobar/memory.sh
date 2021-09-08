@@ -1,4 +1,4 @@
-. ~/.xmonad/color.sh
+. $(dirname $0)/color.sh
 
 mem=$1
 label=$2

@@ -1,6 +1,6 @@
-. ~/.xmonad/color.sh
+. $(dirname $0)/color.sh
 
-nic="usb0"
+nic="enx00e04c0a135f"
 
 last_info=`cat /tmp/xmobar_net_bps_util_last.$PPID`
 cur_rx_bytes=`cat /sys/class/net/$nic/statistics/rx_bytes`

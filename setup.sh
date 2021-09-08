@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DOT_FILES=(.xmobarrc .xmonad .wishes.xml .comptonrc .Xresources .config/dunst/dunstrc config.py)
+DOT_FILES=(.xmonad .xmobar .xmobarrc .wishes.xml .comptonrc .Xresources .config/dunst/dunstrc config.py)
 
 DISCARD_FILES= # 現状なし
 

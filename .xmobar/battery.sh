@@ -1,4 +1,4 @@
-. ~/.xmonad/color.sh
+. $(dirname $0)/color.sh
 
 bat="BAT0"
 

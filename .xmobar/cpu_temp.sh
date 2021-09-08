@@ -1,4 +1,4 @@
-. ~/.xmonad/color.sh
+. $(dirname $0)/color.sh
 
 temp=`cat /sys/devices/platform/coretemp.0/hwmon/hwmon*/temp1_input | xargs -i% echo -e 'scale=1\n%/1000' | bc`
 

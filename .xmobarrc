@@ -4,16 +4,16 @@ Config { font = "xft:monospace-10:bold,Symbola-10:bold"
        , position = TopW L 95
        , lowerOnStart = False
        , commands = [
-		      Run Com "sh" [".xmonad/battery.sh"] "bat" 20
-		    , Run Com "sh" [".xmonad/cpu_util.sh"] "cpu" 20
-		    , Run Com "sh" [".xmonad/cpu_freq.sh"] "freq" 20
-		    , Run Com "sh" [".xmonad/cpu_temp.sh"] "temp" 20
-		    , Run Com "sh" [".xmonad/fan_speed.sh"] "fan" 20
-		    , Run Com "sh" [".xmonad/memory.sh", "Mem", "🍫"] "mem" 20
-		    , Run Com "sh" [".xmonad/memory.sh", "Swap", "🔃"] "swap" 20
-		    , Run Com "sh" [".xmonad/net_bps.sh"] "net" 10
-		    , Run Com "sh" [".xmonad/bright_get.sh"] "brightness" 6
-		    , Run Com "sh" [".xmonad/audio_get.sh"] "volume" 6
+		      Run Com "sh" [".xmobar/battery.sh"] "bat" 20
+		    , Run Com "sh" [".xmobar/cpu_util.sh"] "cpu" 20
+		    , Run Com "sh" [".xmobar/cpu_freq.sh"] "freq" 20
+		    , Run Com "sh" [".xmobar/cpu_temp.sh"] "temp" 20
+		    , Run Com "sh" [".xmobar/fan_speed.sh"] "fan" 20
+		    , Run Com "sh" [".xmobar/memory.sh", "Mem", "🍫"] "mem" 20
+		    , Run Com "sh" [".xmobar/memory.sh", "Swap", "🔃"] "swap" 20
+		    , Run Com "sh" [".xmobar/net_bps.sh"] "net" 10
+		    , Run Com "sh" [".xmobar/bright_get.sh"] "brightness" 6
+		    , Run Com "sh" [".xmobar/audio_get.sh"] "volume" 6
 		    , Run Com "date" ["+%_m/%_d(%a) %H:%M"] "jadate" 100
                     , Run StdinReader
                     ]
