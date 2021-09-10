@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN" "http://www.freedesktop.org/standards/PolicyKit/1.0/policyconfig.dtd">
+<policyconfig>
+  <!--
+    Policy definitions for xmonad system-wide actions.
+  -->
+  <vendor>bitter_fox</vendor>
+  <vendor_url>https://github.com/bitterfox/xmonad_dotfiles</vendor_url>
+  <action id="xmonad.pkexec.clock_up_max">
+    <!-- SECURITY:
+          - A normal active user on the local machine does not need permission to change intel pstate
+    -->
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">$HOME/.xmonad/system_scripts/pstate/clock_up_max.sh</annotate>
+  </action>
+  <action id="xmonad.pkexec.clock_down_max">
+    <!-- SECURITY:
+          - A normal active user on the local machine does not need permission to change intel pstate
+    -->
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">$HOME/.xmonad/system_scripts/pstate/clock_down_max.sh</annotate>
+  </action>
+  <action id="xmonad.pkexec.clock_up_min">
+    <!-- SECURITY:
+          - A normal active user on the local machine does not need permission to change intel pstate
+    -->
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">$HOME/.xmonad/system_scripts/pstate/clock_up_min.sh</annotate>
+  </action>
+  <action id="xmonad.pkexec.clock_down_min">
+    <!-- SECURITY:
+          - A normal active user on the local machine does not need permission to change intel pstate
+    -->
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">$HOME/.xmonad/system_scripts/pstate/clock_down_min.sh</annotate>
+  </action>
+</policyconfig>

@@ -29,3 +29,6 @@ EOF
 sudo cp `pwd`/xorg.conf/* /usr/share/X11/xorg.conf.d/
 
 sudo cp `pwd`/.config/libinput-gestures.conf /etc/
+
+sudo cp `pwd`/polkit/xmonad.policy /usr/share/polkit-1/actions/
+sudo sed -i -e "s#\$HOME#$HOME#g" /usr/share/polkit-1/actions/xmonad.policy

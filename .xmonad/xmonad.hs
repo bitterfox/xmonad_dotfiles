@@ -469,7 +469,6 @@ main = do
         -- Scratchpad
         , ((mod4Mask, xK_Return), myNamedScratchpadAction "mainterm")
         , ((mod4Mask, xK_F4), myNamedScratchpadAction "rhythmbox")
-        , ((mod4Mask, xK_F8), myNamedScratchpadAction "rhythmbox")
         , ((mod4Mask, xK_F9), myNamedScratchpadAction "艦これ")
         , ((mod4Mask, xK_F10), myNamedScratchpadAction "bunnaru")
         , ((mod4Mask, xK_F11), myNamedScratchpadAction "term1")
@@ -481,10 +480,10 @@ main = do
         , ((mod4Mask .|. controlMask, xK_bracketleft), myNamedScratchpadAction "jshell1")
         , ((mod4Mask .|. controlMask, xK_bracketright), myNamedScratchpadAction "jshell2")
 
-        , ((mod4Mask .|. controlMask, xK_F7), toggleScrachpadAction $ L.reverse myScratchpads)
-        , ((mod4Mask .|. controlMask, xK_F8), showOrHideScratchpads myScratchpads True)
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_F8), showOrHideScratchpads myScratchpads False)
-        , ((mod4Mask .|. controlMask, xK_F9), toggleScrachpadAction myScratchpads)
+--        , ((mod4Mask .|. controlMask, xK_F7), toggleScrachpadAction $ L.reverse myScratchpads)
+--        , ((mod4Mask .|. controlMask, xK_F8), showOrHideScratchpads myScratchpads True)
+--        , ((mod4Mask .|. controlMask .|. shiftMask, xK_F8), showOrHideScratchpads myScratchpads False)
+--        , ((mod4Mask .|. controlMask, xK_F9), toggleScrachpadAction myScratchpads)
 
         , ((mod4Mask, xK_backslash), launchIntelliJTerminal intelliJTerminalEnv)
 --        , ((mod4Mask, xK_s), scratchpadSelected hidpiGSConfig myScratchpads)
@@ -503,8 +502,13 @@ main = do
         , ((mod4Mask, xK_F3), spawn "sh ~/.xmonad/audio_up.sh")
         , ((mod4Mask .|. shiftMask, xK_F2), spawn "sh ~/.xmonad/audio_prev.sh")
         , ((mod4Mask .|. shiftMask, xK_F3), spawn "sh ~/.xmonad/audio_next.sh")
-        , ((mod4Mask, xK_F6), spawn "sh ~/.xmonad/system_scripts/bright/down.sh")
-        , ((mod4Mask, xK_F7), spawn "sh ~/.xmonad/system_scripts/bright/up.sh")
+        , ((mod4Mask, xK_F5), spawn "sh ~/.xmonad/system_scripts/bright/down.sh")
+        , ((mod4Mask, xK_F6), spawn "sh ~/.xmonad/system_scripts/bright/up.sh")
+
+        , ((mod4Mask, xK_F7), spawn "pkexec ~/.xmonad/system_scripts/pstate/clock_up_min.sh")
+        , ((mod4Mask .|. shiftMask, xK_F7), spawn "pkexec ~/.xmonad/system_scripts/pstate/clock_down_min.sh")
+        , ((mod4Mask, xK_F8), spawn "pkexec ~/.xmonad/system_scripts/pstate/clock_up_max.sh")
+        , ((mod4Mask .|. shiftMask, xK_F8), spawn "pkexec ~/.xmonad/system_scripts/pstate/clock_down_max.sh")
 
         , ((mod4Mask, xK_x), createVirtualScreen $ ((Mirror $ simpleWide (3/100)) ||| (simpleWide (3/100))))
         , ((mod4Mask .|. mod1Mask, xK_d), sendScreenMessage NextLayout)
