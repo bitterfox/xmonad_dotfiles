@@ -433,17 +433,17 @@ main = do
 
         -- TerminalAction
         , ((mod4Mask, xK_w),                 smartGreedyViewSelectedWindowTerminalAction [
+                                               ("All workspaces", anyWorkspacePredicate),
                                                ("Visible workspaces", visibleWorkspacesPredicate),
-                                               ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate),
-                                               ("All workspaces", anyWorkspacePredicate)])
+                                               ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate)])
         , ((mod4Mask .|. controlMask, xK_w), greedyViewSelectedWindowTerminalAction      [
+                                               ("All workspaces", anyWorkspacePredicate),
                                                ("Visible workspaces", visibleWorkspacesPredicate),
-                                               ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate),
-                                               ("All workspaces", anyWorkspacePredicate)])
+                                               ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate)])
         , ((mod4Mask .|. shiftMask, xK_w),   shiftSelectedWindowTerminalAction            [
+                                               ("All workspaces", anyWorkspacePredicate),
                                                ("Visible workspaces", visibleWorkspacesPredicate),
-                                               ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate),
-                                               ("All workspaces", anyWorkspacePredicate)])
+                                               ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate)])
         , ((mod4Mask, xK_e),                 spawnAppSelectedTerminalAction' applications)
         , ((mod4Mask .|. shiftMask, xK_e), spawn "gmrun")
         , ((mod4Mask, xK_at), runOpenDashboardTerminalAction)
