@@ -156,6 +156,15 @@ myManageHookAll = manageHook gnomeConfig -- defaultConfig
                        <+> ((isDialog <&&> (className =? "Gimp")) --> onCenter' 0.1)
                        <+> ((className =? "jetbrains-idea") <&&> (title =? "win0") --> doFloat)
                        <+> intelliJTerminalManageHook intelliJTerminalEnv
+                       <+> ((appName =? "gnome-screenshot") --> doIgnore)
+                       <+> (ask >>= \w -> liftX (debugWindow w))
+
+debugWindow w = do
+  appName <- runQuery appName w
+  className <- runQuery className w
+  spawn $ "echo '" ++ appName ++ ", " ++ className ++ "' >> /tmp/xmonad.managehook.debug"
+  spawn $ "xprop -id " ++ (show w) ++ "' >> /tmp/xmonad.managehook.debug"
+  return $ Endo $ \a -> a
 
 myLayout = measureLayoutHook "myLayout" $ compositeTall (3/100) wide
   where wide = simpleWide (3/100)
