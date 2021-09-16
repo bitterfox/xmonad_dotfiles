@@ -34,13 +34,13 @@ fi
 SESSION_EXPIRE=`date -d "10 minutes" +%s`
 
 run() {
-    items=`op list items`
+    items="`$basedir/one_password_list_items.sh`"
     if [ $? -ne 0 ]; then
         login
-        items=`op list items`
+        items=`$basedir/one_password_list_items.sh`
     fi
-    items=`jq -r '.[] | (.uuid + " " + .overview.title + " " + .overview.ainfo + " " + .overview.url)' <<< $items`
-    echo "$items" | fzf --preview 'op get item {1} | jq' \
+    echo "$items" | fzf --preview 'op --cache get item {1} | jq' --preview-window=hidden \
+                        --bind "ctrl-r:reload($basedir/one_password_list_items.sh --evict-cache)" \
                         --bind "enter:execute-and-exit-on-success($basedir/one_password_item.sh {1} $output)" \
                         --with-nth=2..
 }

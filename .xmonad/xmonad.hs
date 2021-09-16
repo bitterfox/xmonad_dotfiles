@@ -157,14 +157,14 @@ myManageHookAll = manageHook gnomeConfig -- defaultConfig
                        <+> ((className =? "jetbrains-idea") <&&> (title =? "win0") --> doFloat)
                        <+> intelliJTerminalManageHook intelliJTerminalEnv
                        <+> ((appName =? "gnome-screenshot") --> doIgnore)
-                       <+> (ask >>= \w -> liftX (debugWindow w))
+--                       <+> (ask >>= \w -> liftX (debugWindow w))
 
-debugWindow w = do
-  appName <- runQuery appName w
-  className <- runQuery className w
-  spawn $ "echo '" ++ appName ++ ", " ++ className ++ "' >> /tmp/xmonad.managehook.debug"
-  spawn $ "xprop -id " ++ (show w) ++ "' >> /tmp/xmonad.managehook.debug"
-  return $ Endo $ \a -> a
+--debugWindow w = do
+--  appName <- runQuery appName w
+--  className <- runQuery className w
+--  spawn $ "echo '" ++ appName ++ ", " ++ className ++ "' >> /tmp/xmonad.managehook.debug"
+--  spawn $ "xprop -id " ++ (show w) ++ "' >> /tmp/xmonad.managehook.debug"
+--  return $ Endo $ \a -> a
 
 myLayout = measureLayoutHook "myLayout" $ compositeTall (3/100) wide
   where wide = simpleWide (3/100)
@@ -1843,7 +1843,7 @@ openBrowserHistoryTerminalAction =
 copyFromClipboardHistoryTerminalAction =
   (terminalActionTemplate "copy.from.clipboard.history" "~/.xmonad/terminal_actions/select_clipboard.sh" $ terminalActionManageHook) .>| ()
 onePasswordTerminalAction =
-  (terminalActionTemplate "one.password" "~/.xmonad/terminal_actions/one_password.sh" $ terminalActionManageHook)
+  (terminalActionTemplate "one.password" "~/.xmonad/terminal_actions/one_password.sh" $ onCenter'' 0.1 0.2)
   .| withFirstLine .|| (\s -> "xdotool type '" ++ (T.unpack $ T.replace (T.pack "'") (T.pack "'\"'\"'") (T.pack s)) ++ "'") .>> spawn
 openDashboardTerminalAction =
   (terminalActionTemplate "open.dashboard" "" terminalActionManageHook)

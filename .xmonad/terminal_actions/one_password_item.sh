@@ -1,11 +1,20 @@
 #!/bin/bash
 
+basedir=`dirname $0`
+
 item_uuid=$1
 output=$2
 
-item=`op get item $item_uuid`
+#item=`op --cache get item $item_uuid`
+item=`$basedir/one_password_get_item.sh $item_uuid`
 
 username=`jq -r '.details.fields[] | select(.name == "username") | .value' <<< $item`
+
+if [ $? -ne 0 ]; then
+item=`$basedir/one_password_get_item.sh --evict-cache $item_uuid`
+username=`jq -r '.details.fields[] | select(.name == "username") | .value' <<< $item`
+fi
+
 password=`jq -r '.details.fields[] | select(.name == "password") | .value' <<< $item`
 
 title=`jq -r '.overview.title' <<< $item`
@@ -17,8 +26,7 @@ if [ -n "$tags" ]; then
 fi
 
 header="$tags$title $url"
-
-result=`cat <<EOF | fzf --preview "echo '$password'" --bind 'alt-p:toggle-preview' --preview-window=down:hidden --header "$header"
+result=`cat <<EOF | fzf --preview "echo '$password'" --bind 'alt-p:toggle-preview' --preview-window=down:hidden --header "$header" --bind 'ctrl-r:reload($basedir/one_password_get_item.sh $item_uuid)'
 Fill username: $username
 Fill password
 Copy username: $username
