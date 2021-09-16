@@ -17,7 +17,7 @@ fi
 CACHE_FILE=$CACHE_DIR/list_items
 
 if [ $evict_cache -eq 1 ] || [ ! -s $CACHE_FILE ]; then
-    rm $CACHE_FILE 2>&1 > /dev/null || true
+    rm $CACHE_FILE > /dev/null 2>&1 || true
 fi
 
 if [ ! -f $CACHE_FILE ]; then
