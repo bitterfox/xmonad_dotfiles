@@ -10,9 +10,8 @@ else
     last_active=`echo $last_info | awk '{print $2 + $3 + $4}'`
     cur_active=`echo $cur_info | awk '{print $2 + $3 + $4}'`
 
-    last_sum=`echo $last_info | awk 'a=0;{for(i=2;i<=NF;i++){a+=$i};print a}'`
-    cur_sum=`echo $cur_info | awk 'a=0;{for(i=2;i<=NF;i++){a+=$i};print a}'`
-#    echo $last_active $last_idle $cur_active $cur_idle
+    last_sum=`echo $last_info | awk 'BEGIN { ORS="" };{for(i=2;i<=NF;i++){print $i"+"}}; {print "0\n"}' | bc `
+    cur_sum=`echo $cur_info | awk 'BEGIN { ORS="" };{for(i=2;i<=NF;i++){print $i"+"}}; {print "0\n"}' | bc `
 
     percent=`echo "100 * ($cur_active - $last_active) / ($cur_sum - $last_sum)" | bc`
 fi
