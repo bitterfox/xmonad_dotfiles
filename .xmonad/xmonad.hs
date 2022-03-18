@@ -292,6 +292,8 @@ main = do
 
     spawn "CM_DIR=$HOME CM_SELECTIONS=clipboard CM_IGNORE_WINDOW=xmonad.terminal.action.one.password clipmenud"
 
+    spawn "~/.xmonad/system_scripts/bright/workaround_monitor_bright.sh"
+
 --    spawn $ "echo '" ++ (show $ mkToggleInitial (single TitleTransformer) TitleTransformer $ myLayout) ++ "' >> /tmp/xmonad.debug.layout"
     xmonad $ gnomeConfig -- defaultConfig
         { manageHook = myManageHookAll
