@@ -458,6 +458,7 @@ main = do
         , ((mod4Mask, xK_e),                 spawnAppSelectedTerminalAction' applications)
         , ((mod4Mask .|. shiftMask, xK_e), spawn "gmrun")
         , ((mod4Mask, xK_at), runOpenDashboardTerminalAction)
+        , ((mod4Mask .|. shiftMask, xK_at), runOpenITerminalAction)
         -- GridSelected
         , ((mod1Mask .|. mod4Mask, xK_w),                               goToSelected'  anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
         , ((mod1Mask .|. mod4Mask .|. controlMask, xK_w),               goToSelected'  anyWorkspacePredicate                         hidpiGSConfig)
@@ -1933,7 +1934,13 @@ runDmenuRunTerminalAction = runTerminalAction myTerminal dmenuRunTerminalAction
 runOpenDashboardTerminalAction = do
   runCyclicTerminalAction myTerminal "open.dashboard" $ L.map (\script -> openDashboardTerminalAction { actionScript = script }) [
                                   "~/.xmonad/terminal_actions/open_cluster_dashboard.sh",
-                                  "~/.xmonad/terminal_actions/open_host_dashboard.sh"]
+                                  "~/.xmonad/terminal_actions/open_host_dashboard.sh",
+                                  "~/.xmonad/terminal_actions/open_I.sh",
+                                  "~/.xmonad/terminal_actions/open_I_K.sh"]
+runOpenITerminalAction = do
+  runCyclicTerminalAction myTerminal "open.dashboard" $ L.map (\script -> openDashboardTerminalAction { actionScript = script }) [
+                                  "~/.xmonad/terminal_actions/open_I.sh",
+                                  "~/.xmonad/terminal_actions/open_I_K.sh"]
 
 ------------------------------------------------------------------------------------------
 -- Terminal actions
