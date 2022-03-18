@@ -19,8 +19,8 @@ instance Terminal GnomeTerminal where
     startTerminal (GnomeTerminal prefix) (TerminalAction name _ script _ _) inFile outFile = do
       GnomeTerminalUniqueCount count <- XS.get
       XS.put $ GnomeTerminalUniqueCount $ count + 1
-      let appId = prefix ++ "." ++ name
-      spawn $ "~/.xmonad/gnome-terminal-server" ++
+      let appId = prefix ++ "." ++ name ++ ".id" ++ (show count)
+      spawn $ "/usr/libexec/gnome-terminal-server" ++
            " --app-id " ++ appId ++
            " --name=" ++ appId ++ " --class=" ++ appId ++
            " & gnome-terminal --profile=55afc181-baa2-40e5-975a-cfc014b8cf08 --app-id " ++ appId ++ " -- " ++ script ++ " " ++ inFile ++ " " ++ outFile

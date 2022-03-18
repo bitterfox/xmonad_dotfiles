@@ -132,17 +132,22 @@ class Terminal t where
     runTerminalAction :: t -> TerminalAction () -> X ()
     runTerminalAction t a@TerminalAction{actionName = name, actionInputs = inputs} = do
       CurrentTerminalAction ma <- XS.get
-      case ma of
-        Just (a', i', o', Initialize) -> XS.put $ CurrentTerminalAction Nothing
-        Just (a', i', o', Started) -> closeTerminalAction t a' i' o' True
-        _ -> return ()
-      let inFile = "/tmp/xmonad.terminal.action." ++ name ++ ".in"
-      let outFile = "/tmp/xmonad.terminal.action." ++ name ++ ".out"
---      XS.put $ CurrentTerminalAction $ Just (actionName a, inFile, outFile, Initialize)
-      XS.put $ CurrentTerminalAction $ Just (a, inFile, outFile, Initialize)
-      lines <- inputs
-      io $ writeFile inFile $ unlines lines
-      startTerminal t a inFile outFile
+      q <- case ma of
+        Just (a', i', o', Initialize) ->
+          return False
+        Just (a', i', o', Started) -> do
+            closeTerminalAction t a' i' o' False
+            return True
+        _ -> return True
+
+      if q then do
+        let inFile = "/tmp/xmonad.terminal.action." ++ name ++ ".in"
+        let outFile = "/tmp/xmonad.terminal.action." ++ name ++ ".out"
+        XS.put $ CurrentTerminalAction $ Just (a, inFile, outFile, Initialize)
+        lines <- inputs
+        io $ writeFile inFile $ unlines lines
+        startTerminal t a inFile outFile
+      else return ()
 
     startTerminal :: t -> TerminalAction () -> FilePath -> FilePath -> X ()
 
@@ -156,8 +161,8 @@ class Terminal t where
         Just (action, inFile, outFile, Initialize) ->
           withFocused $ \fw -> do
             whenX (runQuery (terminalQuery t action) fw) $ do
-              XS.put $ CurrentTerminalAction $ Just (action, inFile, outFile, Started)
               dontBorder fw
+              XS.put $ CurrentTerminalAction $ Just (action, inFile, outFile, Started)
         Just (action, inFile, outFile, Started) ->
           withWindowSet $ \ws -> do
             let stack = W.stack $ W.workspace $ W.current ws
@@ -166,6 +171,8 @@ class Terminal t where
                 isTarget <- runQuery (terminalQuery t action) fw
                 whenX (return $ not isTarget) $ do
                   closeTerminalAction t action inFile outFile True
+                whenX (return $ isTarget) $ do
+                  dontBorder fw
               Nothing -> closeTerminalAction t action inFile outFile True
         _ -> return ()
        where findTerminalAction as name = L.find ((name ==) . actionName) as
