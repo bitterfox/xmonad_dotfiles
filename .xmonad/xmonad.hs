@@ -1938,7 +1938,7 @@ runOpenDashboardTerminalAction = do
                                   "~/.xmonad/terminal_actions/open_I.sh",
                                   "~/.xmonad/terminal_actions/open_I_K.sh"]
 runOpenITerminalAction = do
-  runCyclicTerminalAction myTerminal "open.dashboard" $ L.map (\script -> openDashboardTerminalAction { actionScript = script }) [
+  runCyclicTerminalAction myTerminal "open.I" $ L.map (\script -> openDashboardTerminalAction { actionScript = script }) [
                                   "~/.xmonad/terminal_actions/open_I.sh",
                                   "~/.xmonad/terminal_actions/open_I_K.sh"]
 
