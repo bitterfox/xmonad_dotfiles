@@ -254,6 +254,234 @@ myStartupHook =
 watch :: String -> String -> IO ()
 watch cmd interval = spawn $ "while :; do " ++ cmd ++ "; sleep " ++ interval ++ "; done"
 
+meta = mod4Mask
+altMask = mod1Mask
+alt = altMask
+shft = shiftMask
+ctrl = controlMask
+
+bindKeys :: [(KeyMask, KeySym)] -> X () -> [((KeyMask, KeySym), X ())]
+bindKeys keys x = L.map (\k -> (k, x)) keys
+
+bindKey :: KeyMask -> KeySym -> X () -> [((KeyMask, KeySym), X ())]
+bindKey mask key x = [((mask, key), x)]
+
+systemKeys = [
+  -- System actions
+    ((mod4Mask, xK_q), myRunSelectedXTerminalAction systemActions)
+  , ((mod1Mask .|. mod4Mask, xK_q), runActionSelected hidpiGSConfig systemActions)
+  , ((mod4Mask, xK_r), withWindowSet $ \ws -> do
+                         let sid = W.screen $ W.current ws
+                         viewScreen 0
+                         refresh
+                         myrescreen priorityDisplayEDIDs
+                         docksStartupHook
+                         myDocksStartupHook
+                         resetVirtualScreens
+                         viewScreen sid) -- rescreen >>
+  -- Screenshot
+  , ((0, xK_Print), spawn "sh ~/.xmonad/screenshot.sh")
+--         , ((controlMask, xK_Print), spawn "gnome-screenshot -c")
+  , ((mod4Mask, xK_s), spawn "sh ~/.xmonad/screenshot.sh")
+  , ((mod4Mask .|. shiftMask, xK_s), spawn "sh ~/.xmonad/screenshot.sh -a")
+  ]
+
+windowKeys = L.concat $ [
+  -- Emacs binding
+  -- Window $ Workspace
+  -- Focus window
+    bindKeys [(meta, xK_p)
+             ,(meta, xK_Up)] $ windows floatAvoidFocusUp
+  , bindKeys [(meta, xK_n)
+             ,(meta, xK_Down)] $ windows floatAvoidFocusDown
+  -- Focus workspace
+  , bindKeys [(mod4Mask, xK_b)
+             ,(mod4Mask, xK_Left)] $ do
+      windowViewState <- XS.get
+      case windowViewState of
+        Normal -> prevWS'
+        WindowView -> windows floatAvoidFocusUp
+  , bindKeys [(mod4Mask, xK_f)
+             ,(mod4Mask, xK_Right)] $ do
+      windowViewState <- XS.get
+      case windowViewState of
+        Normal -> nextWS'
+        WindowView -> windows floatAvoidFocusDown
+  -- Shift window
+  , bindKeys [(meta .|. shft, xK_p)
+             ,(meta .|. shft, xK_Up)] $ windows floatAvoidSwapUp
+  , bindKeys [(mod4Mask .|. shiftMask, xK_n)
+             ,(mod4Mask .|. shiftMask, xK_Down)] $ windows W.swapDown
+  , bindKeys [(meta .|. shft, xK_b)
+             ,(meta .|. shft, xK_Left)] $ shiftToPrevWS' >> prevWS'
+  , bindKeys [(meta .|. shft, xK_f)
+             ,(meta .|. shft, xK_Right)] $ shiftToNextWS' >> nextWS'
+  -- Master
+  , bindKey meta xK_m $ windows W.focusMaster
+  , bindKey (meta .|. shft) xK_m $ windows W.shiftMaster
+  , bindKey (meta .|. shft .|. ctrl) xK_m $ windows W.swapMaster
+
+  , [((mod4Mask .|. m, k), f i)
+      | (i, k) <- zip originalWorkspaces $ [xK_1 .. xK_9] ++ [xK_0]
+      , (f, m) <- [(greedyViewToWorkspace, 0), (shiftToWorkspace, shiftMask)]
+    ]
+  , [((mod4Mask .|. m, k), f i)
+      | (i, k) <- zip workspaceFamilies $ [xK_1 .. xK_9] ++ [xK_0]
+      , (f, m) <- [
+        (\family -> submap . M.fromList $
+                      [((0, subkey), greedyViewToFamilyWorkspace family workspace)
+                        | (workspace, subkey)  <- zip originalWorkspaces $ [xK_1 .. xK_9] ++ [xK_0]
+                      ], controlMask)
+      , (\family -> submap . M.fromList $
+                      [((0, subkey), shiftToFamilyWorkspace family workspace)
+                        | (workspace, subkey) <- zip originalWorkspaces $ [xK_1 .. xK_9] ++ [xK_0]
+                      ], (controlMask .|. shiftMask))
+      ]
+    ]
+  ]
+
+floatWindowKeys = [
+    ((mod4Mask, xK_t), do
+                         withWindowSet $ \s -> spawn $ "echo '" ++ (show $ sortedFloats' s) ++ "' >> /tmp/xmonad.debug.floats"
+                         windows floatFocusDown
+                         withWindowSet $ \s -> spawn $ "echo '" ++ (show $ W.integrate' $ W.stack $ W.workspace $ W.current s) ++ "' >> /tmp/xmonad.debug.floats")
+  , ((mod4Mask .|. shiftMask, xK_t), windows floatFocusUp)
+  , ((mod4Mask .|. controlMask, xK_t), withFocused $ windows . W.sink) -- %! Push window back into tiling
+  ]
+
+screenKeys = L.concat $ [
+    bindKeys [(meta .|. alt, xK_p)
+             ,(meta .|. shft, xK_space)] $ prevVirtualScreen >> moveMouseToLastPosition
+  , bindKeys [(meta .|. alt, xK_n)
+             ,(meta, xK_space)] $ nextVirtualScreen >> moveMouseToLastPosition
+  , bindKey (meta .|. shft .|. alt) xK_p $ shiftPrevRootScreen >> prevVirtualScreen >> moveMouseToLastPosition
+  , bindKey (meta .|. shft .|. alt) xK_n $ shiftNextRootScreen >> nextVirtualScreen >> moveMouseToLastPosition
+  -- M+Alt 1~0: View screen
+  -- M+Alt+Ctrl 1~0: Greedy view to screen
+  -- M+Alt+Shift 1~0: Shift to screen
+  , [
+          ((mod4Mask .|. m, k), f i)
+            | (i, k) <- zip [1..9] [xK_1 .. xK_9]
+            , (f, m) <-[(viewToScreen, mod1Mask), (greedyViewToScreen, mod1Mask .|. controlMask), (shiftToScreen, mod1Mask .|. shiftMask)]
+    ]
+  ]
+
+virtualScreenKeys = [
+    ((mod4Mask, xK_x), createVirtualScreen $ ((Mirror $ simpleWide (3/100)) ||| (simpleWide (3/100))))
+  , ((mod4Mask .|. shiftMask, xK_x), resetVirtualScreen)
+  , ((mod4Mask .|. mod1Mask, xK_d), sendScreenMessage NextLayout)
+  , ((mod4Mask .|. mod1Mask, xK_j), sendScreenMessage Shrink)
+  , ((mod4Mask .|. mod1Mask, xK_l), sendScreenMessage Expand)
+  , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_j), sendScreenMessage $ ResizeAnotherSide Expand)
+  , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_l), sendScreenMessage $ ResizeAnotherSide Shrink)
+  , ((mod4Mask .|. mod1Mask, xK_b), prevChildScreen)
+  , ((mod4Mask .|. mod1Mask, xK_f), nextChildScreen)
+  ]
+
+layoutKeys = [
+  -- Layout
+    ((mod4Mask, xK_d), sendMessage NextLayout)
+  , ((mod4Mask .|. shiftMask, xK_comma ), sendMessage NewCellAtLeft)
+  , ((mod4Mask .|. shiftMask, xK_period), sendMessage NewCellAtRight)
+  -- Struts
+  , ((mod4Mask, xK_h), docksOnBottom >> (sendMessage ToggleStruts))
+  , ((mod4Mask .|. shiftMask, xK_h), sendMessage $ XMonad.Layout.MyMultiToggle.Toggle TitleTransformer)
+
+  -- Window view
+  , ((mod4Mask, xK_v), do
+      windowViewState <- XS.get
+      XS.put Normal
+      case windowViewState of
+        WindowView -> broadcastMessage Focus >> refresh
+        -- Full screen
+        Normal -> sendMessage ToggleLayout)
+  , ((mod4Mask .|. shiftMask, xK_v), do
+        broadcastMessage View
+        XS.put WindowView
+        refresh)
+  ]
+
+sizingKeys = [
+    ((meta,          xK_j), sendMessage Shrink)
+  , ((meta,          xK_l), sendMessage Expand)
+  , ((meta,          xK_i), sendMessage $ DelegateMessage $ SomeMessage Shrink)
+  , ((meta,          xK_k), sendMessage $ DelegateMessage $ SomeMessage Expand)
+
+  , ((meta .|. shft, xK_i), sendMessage $ DelegateMessage $ SomeMessage $ ResizeAnotherSide Expand)
+  , ((meta .|. shft, xK_k), sendMessage $ DelegateMessage $ SomeMessage $ ResizeAnotherSide Shrink)
+  , ((meta .|. shft, xK_j), sendMessage $ ResizeAnotherSide Expand)
+  , ((meta .|. shft, xK_l), sendMessage $ ResizeAnotherSide Shrink)
+
+  , ((meta .|. shft, xK_r), sendMessage ResetSize)
+  ]
+
+scratchpadKeys = [
+  -- Scratchpad
+    ((mod4Mask, xK_F4), myNamedScratchpadAction "rhythmbox")
+  , ((mod4Mask, xK_Return), myNamedScratchpadAction "mainterm")
+  , ((mod4Mask, xK_F9), myNamedScratchpadAction "艦これ")
+  , ((mod4Mask, xK_F10), myNamedScratchpadAction "bunnaru")
+  , ((mod4Mask, xK_bracketleft), myNamedScratchpadAction "term1")
+  , ((mod4Mask, xK_bracketright), myNamedScratchpadAction "term2")
+  , ((mod4Mask .|. controlMask, xK_bracketleft), myNamedScratchpadAction "jshell1")
+  , ((mod4Mask .|. controlMask, xK_bracketright), myNamedScratchpadAction "jshell2")
+
+  , ((mod4Mask .|. controlMask, xK_F7), toggleScrachpadAction $ L.reverse myScratchpads)
+  , ((mod4Mask .|. controlMask, xK_F8), showOrHideScratchpads myScratchpads True)
+  , ((mod4Mask .|. controlMask .|. shiftMask, xK_F8), showOrHideScratchpads myScratchpads False)
+  , ((mod4Mask .|. controlMask, xK_F9), toggleScrachpadAction myScratchpads)
+  ]
+
+terminalActionKeys = [
+  -- TerminalAction
+    ((meta, xK_w),           smartGreedyViewSelectedWindowTerminalAction windowPredicates)
+  , ((meta .|. ctrl, xK_w),  greedyViewSelectedWindowTerminalAction      windowPredicates)
+  , ((meta .|. shft, xK_w),  shiftSelectedWindowTerminalAction           windowPredicates)
+  , ((meta, xK_e),           spawnAppSelectedTerminalAction' applications)
+  , ((meta, xK_at),          runOpenDashboardTerminalAction)
+  , ((meta .|. shft, xK_at), runOpenITerminalAction)
+  , ((meta, xK_colon),       openIntelliJTerminalAction)
+  , ((meta, xK_semicolon),   runOpenBrowserHistoryTerminalAction)
+  , ((meta, xK_c),           runCopyFromClipboardHistoryTerminalAction)
+  , ((meta .|. ctrl, xK_c),  runOnePasswordTerminalAction)
+  ]
+  where windowPredicates = [
+          ("All workspaces", anyWorkspacePredicate),
+          ("Visible workspaces", visibleWorkspacesPredicate),
+          ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate)]
+
+functionKeys = [
+  -- Functions
+    ((mod4Mask              , xK_F1), spawn "sh ~/.xmonad/audio_mute.sh")
+  , ((mod4Mask              , xK_F2), spawn "sh ~/.xmonad/audio_down.sh")
+  , ((mod4Mask              , xK_F3), spawn "sh ~/.xmonad/audio_up.sh")
+  , ((mod4Mask .|. shiftMask, xK_F2), spawn "sh ~/.xmonad/audio_prev.sh")
+  , ((mod4Mask .|. shiftMask, xK_F3), spawn "sh ~/.xmonad/audio_next.sh")
+  -- F4: rhythmbox
+  , ((mod4Mask              , xK_F5), spawn "sh ~/.xmonad/system_scripts/bright/down.sh")
+  , ((mod4Mask              , xK_F6), spawn "sh ~/.xmonad/system_scripts/bright/up.sh")
+  , ((mod4Mask              , xK_F7), spawn "pkexec ~/.xmonad/system_scripts/pstate/clock_up_min.sh")
+  , ((mod4Mask .|. shiftMask, xK_F7), spawn "pkexec ~/.xmonad/system_scripts/pstate/clock_down_min.sh")
+  , ((mod4Mask              , xK_F8), spawn "pkexec ~/.xmonad/system_scripts/pstate/clock_up_max.sh")
+  , ((mod4Mask .|. shiftMask, xK_F8), spawn "pkexec ~/.xmonad/system_scripts/pstate/clock_down_max.sh")
+  -- F9: 艦これ
+  -- F10: 文ある
+  ]
+
+utilKeys = [
+  -- GridSelected
+    ((mod1Mask .|. mod4Mask, xK_w),                               goToSelected'  anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
+  , ((mod1Mask .|. mod4Mask .|. controlMask, xK_w),               goToSelected'  anyWorkspacePredicate                         hidpiGSConfig)
+  , ((mod1Mask .|. mod4Mask .|. shiftMask, xK_w),                 shiftSelected' anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
+  , ((mod1Mask .|. mod4Mask .|. controlMask .|. shiftMask, xK_w), shiftSelected' anyWorkspacePredicate                         hidpiGSConfig)
+  , ((mod1Mask .|. mod4Mask, xK_e),                               spawnAppSelected hidpiGSConfig applications)
+  ------------------------------------------------------------------------------------------------------------------------------------
+
+  , ((mod4Mask .|. shiftMask, xK_e), spawn "gmrun")
+  , ((mod4Mask, xK_g), selectSearchBrowser "/usr/bin/vivaldi" google)
+  , ((mod4Mask, xK_backslash), launchIntelliJTerminal intelliJTerminalEnv)
+  ]
+
 main = do
     -- Display
     runProcessWithInputAndWait "sh" ["-c", "sh '/home/jp21734/.xmonad/auto_detect_display.sh' >> /tmp/debug"] "" (seconds 1)
@@ -309,227 +537,50 @@ main = do
         , focusFollowsMouse = False -- マウスの移動でフォーカスが映らないように
         , clickJustFocuses = False
         , XMonad.Core.workspaces = myWorkspaces
---        , clientMask = 64
---        , rootMask = 64
-        } `additionalKeys`
+        } `additionalKeys` (L.concat $ [
+          systemKeys
+        , windowKeys
+        , floatWindowKeys
+        , screenKeys
+        , virtualScreenKeys
+        , layoutKeys
+        , sizingKeys
+        , functionKeys
+        , terminalActionKeys
+        , scratchpadKeys
+        , utilKeys
+        ]) `additionalKeys`
         [
-        -- System actions
-          ((mod4Mask, xK_q), myRunSelectedXTerminalAction systemActions)
---          ((mod4Mask, xK_q), io (exitWith ExitSuccess))
-        , ((mod1Mask .|. mod4Mask, xK_q), runActionSelected hidpiGSConfig systemActions)
-        , ((mod4Mask, xK_r), withWindowSet $ \ws -> do
-                               let sid = W.screen $ W.current ws
-                               viewScreen 0
-                               refresh
-                               myrescreen priorityDisplayEDIDs
-                               docksStartupHook
-                               myDocksStartupHook
-                               resetVirtualScreens
-                               viewScreen sid) -- rescreen >>
---        , ((mod4Mask .|. shiftMask, xK_l), spawn "gnome-screensaver-command --lock") -- Lock
---        , ((mod4Mask .|. shiftMask, xK_s), spawn "systemctl suspend") -- Lock & Suspend
---        , ((mod4Mask .|. controlMask .|. shiftMask, xK_l), io (exitWith ExitSuccess)) -- Logout
---        , ((mod4Mask .|. controlMask .|. shiftMask, xK_s), spawn "/usr/lib/indicator-session/gtk-logout-helper --shutdown") -- Shutdown
-
-        -- Screenshot
-        , ((0, xK_Print), spawn "sh ~/.xmonad/screenshot.sh")
---         , ((controlMask, xK_Print), spawn "gnome-screenshot -c")
-        , ((mod4Mask, xK_s), spawn "sh ~/.xmonad/screenshot.sh")
-        , ((mod4Mask .|. shiftMask, xK_s), spawn "sh ~/.xmonad/screenshot.sh -a")
-        ------------------------------------------------------------------------------------------------------------------------------------
-
-        -- Layout
-        , ((mod4Mask, xK_d), sendMessage NextLayout)
-        -- Full screen
-        , ((mod4Mask, xK_f), sendMessage ToggleLayout)
-        -- Struts
-        , ((mod4Mask, xK_b), docksOnBottom >> (sendMessage ToggleStruts))
-        , ((mod4Mask .|. shiftMask, xK_b), sendMessage $ XMonad.Layout.MyMultiToggle.Toggle TitleTransformer)
-
-        -- Window view
-        , ((mod4Mask, xK_v), do
-                               broadcastMessage View
-                               XS.put WindowView
-                               refresh)
-        , ((mod4Mask .|. shiftMask, xK_v), do
-                               windowViewState <- XS.get
-                               XS.put Normal
-                               case windowViewState of
-                                 WindowView -> broadcastMessage Focus >> refresh
-                                 Normal -> sendMessage ToggleLayout)
-
-        -- 水平のサイズ変更
-        , ((mod4Mask, xK_i), sendMessage $ DelegateMessage $ SomeMessage Shrink)
-        , ((mod4Mask, xK_m), sendMessage $ DelegateMessage $ SomeMessage Expand)
-        , ((mod4Mask .|. shiftMask, xK_i), sendMessage $ DelegateMessage $ SomeMessage $ ResizeAnotherSide Expand)
-        , ((mod4Mask .|. shiftMask, xK_m), sendMessage $ DelegateMessage $ SomeMessage $ ResizeAnotherSide Shrink)
-
-        , ((mod4Mask .|. shiftMask, xK_h), sendMessage $ ResizeAnotherSide Expand)
-        , ((mod4Mask .|. shiftMask, xK_l), sendMessage $ ResizeAnotherSide Shrink)
-
-        , ((mod4Mask .|. shiftMask, xK_r), sendMessage ResetSize)
-
-        , ((mod4Mask .|. shiftMask, xK_comma ), sendMessage NewCellAtLeft)
-        , ((mod4Mask .|. shiftMask, xK_period), sendMessage NewCellAtRight)
-        ------------------------------------------------------------------------------------------------------------------------------------
-
-        -- Window $ Workspace
-        -- Emacs binding
-        , ((mod4Mask, xK_p), windows floatAvoidFocusUp)
-        , ((mod4Mask, xK_n), windows floatAvoidFocusDown)
-        , ((mod4Mask .|. shiftMask, xK_p), windows floatAvoidSwapUp)
-        , ((mod4Mask .|. shiftMask, xK_n), windows W.swapDown)
-        , ((mod4Mask .|. controlMask, xK_p), prevWS')
-        , ((mod4Mask .|. controlMask, xK_n), nextWS')
---        , ((mod4Mask .|. controlMask .|. shiftMask, xK_p), shiftToPrevWS' >> prevWS') -- TODO Fix
---        , ((mod4Mask .|. controlMask .|. shiftMask, xK_n), shiftToNextWS' >> nextWS') -- TODO Fix
-        , ((mod4Mask .|. mod1Mask, xK_p), prevVirtualScreen >> moveMouseToLastPosition)
-        , ((mod4Mask .|. mod1Mask, xK_n), nextVirtualScreen >> moveMouseToLastPosition)
-        , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_p), shiftPrevRootScreen >> prevVirtualScreen >> moveMouseToLastPosition)
-        , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_n), shiftNextRootScreen >> nextVirtualScreen >> moveMouseToLastPosition)
-
-        , ((mod4Mask, xK_o), windows W.swapMaster)
-        , ((mod4Mask .|. shiftMask, xK_o), windows W.shiftMaster)
-
-        -- Vim binding
-        -- ワークスペースの移動
-        , ((mod4Mask .|. controlMask, xK_j), nextWS')
-        , ((mod4Mask .|. controlMask, xK_k), prevWS')
-        -- ワークスペース間のスワップ
---        , ((mod4Mask .|. controlMask .|. shiftMask, xK_j), shiftToNextWS' >> nextWS')
---        , ((mod4Mask .|. controlMask .|. shiftMask, xK_k), shiftToPrevWS' >> prevWS')
-        -- スクリーンの移動
-        , ((mod4Mask .|. mod1Mask, xK_j), nextVirtualScreen >> moveMouseToLastPosition)
-        , ((mod4Mask .|. mod1Mask, xK_k), prevVirtualScreen >> moveMouseToLastPosition)
 
         -- Arrow key
         -- フォーカスの移動
-        , ((mod4Mask, xK_Up), windows floatAvoidFocusUp)
-        , ((mod4Mask, xK_Left), do
-                                  windowViewState <- XS.get
-                                  case windowViewState of
-                                    Normal -> prevWS'
-                                    WindowView -> windows floatAvoidFocusUp)
-        , ((mod4Mask, xK_Down), windows floatAvoidFocusDown)
-        , ((mod4Mask, xK_Right), do
-                                  windowViewState <- XS.get
-                                  case windowViewState of
-                                    Normal -> nextWS'
-                                    WindowView -> windows floatAvoidFocusDown)
         -- スワップ
-        , ((mod4Mask .|. shiftMask, xK_Up), windows floatAvoidSwapUp)
-        , ((mod4Mask .|. shiftMask, xK_Left), shiftToPrevWS' >> prevWS')
-        , ((mod4Mask .|. shiftMask, xK_Down), windows W.swapDown)
-        , ((mod4Mask .|. shiftMask, xK_Right), shiftToNextWS' >> nextWS')
         -- ワーススペースの移動
-        , ((mod4Mask .|. controlMask, xK_Up), prevWS')
-        , ((mod4Mask .|. controlMask, xK_Left), prevWS')
-        , ((mod4Mask .|. controlMask, xK_Down), nextWS')
-        , ((mod4Mask .|. controlMask, xK_Right), nextWS')
+--        , ((mod4Mask .|. controlMask, xK_Up), prevWS')
+--        , ((mod4Mask .|. controlMask, xK_Left), prevWS')
+--        , ((mod4Mask .|. controlMask, xK_Down), nextWS')
+--        , ((mod4Mask .|. controlMask, xK_Right), nextWS')
         -- ワーススペース間のスワップ
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Up), shiftToPrevWS' >> prevWS')
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Left), shiftToPrevWS' >> prevWS')
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Down), shiftToNextWS' >> nextWS')
-        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Right), shiftToNextWS' >> nextWS')
+--        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Up), shiftToPrevWS' >> prevWS')
+--        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Left), shiftToPrevWS' >> prevWS')
+--        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Down), shiftToNextWS' >> nextWS')
+--        , ((mod4Mask .|. controlMask .|. shiftMask, xK_Right), shiftToNextWS' >> nextWS')
 
-        , ((mod4Mask, xK_space),               nextVirtualScreen >> moveMouseToLastPosition)
-        , ((mod4Mask .|. shiftMask, xK_space), prevVirtualScreen >> moveMouseToLastPosition)
 
-        , ((mod4Mask, xK_t), do
-                               withWindowSet $ \s -> spawn $ "echo '" ++ (show $ sortedFloats' s) ++ "' >> /tmp/xmonad.debug.floats"
-                               windows floatFocusDown
-                               withWindowSet $ \s -> spawn $ "echo '" ++ (show $ W.integrate' $ W.stack $ W.workspace $ W.current s) ++ "' >> /tmp/xmonad.debug.floats")
-        , ((mod4Mask .|. shiftMask, xK_t), windows floatFocusUp)
---        , ((mod4Mask .|. controlMask, xK_t), withDisplay $ \dpy -> withWindowSet $ \ws -> io $ setWindowBorderWidth dpy (head $ W.integrate' $ W.stack $ W.workspace $ W.current ws) 0)
 
-        -- TerminalAction
-        , ((mod4Mask, xK_w),                 smartGreedyViewSelectedWindowTerminalAction [
-                                               ("All workspaces", anyWorkspacePredicate),
-                                               ("Visible workspaces", visibleWorkspacesPredicate),
-                                               ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate)])
-        , ((mod4Mask .|. controlMask, xK_w), greedyViewSelectedWindowTerminalAction      [
-                                               ("All workspaces", anyWorkspacePredicate),
-                                               ("Visible workspaces", visibleWorkspacesPredicate),
-                                               ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate)])
-        , ((mod4Mask .|. shiftMask, xK_w),   shiftSelectedWindowTerminalAction            [
-                                               ("All workspaces", anyWorkspacePredicate),
-                                               ("Visible workspaces", visibleWorkspacesPredicate),
-                                               ("Workspace for current family", anyWorkspaceInCurrentWorkspaceFamilyPredicate)])
-        , ((mod4Mask, xK_e),                 spawnAppSelectedTerminalAction' applications)
-        , ((mod4Mask .|. shiftMask, xK_e), spawn "gmrun")
-        , ((mod4Mask, xK_at), runOpenDashboardTerminalAction)
-        , ((mod4Mask .|. shiftMask, xK_at), runOpenITerminalAction)
-        -- GridSelected
-        , ((mod1Mask .|. mod4Mask, xK_w),                               goToSelected'  anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
-        , ((mod1Mask .|. mod4Mask .|. controlMask, xK_w),               goToSelected'  anyWorkspacePredicate                         hidpiGSConfig)
-        , ((mod1Mask .|. mod4Mask .|. shiftMask, xK_w),                 shiftSelected' anyWorkspaceInCurrentWorkspaceFamilyPredicate hidpiGSConfig)
-        , ((mod1Mask .|. mod4Mask .|. controlMask .|. shiftMask, xK_w), shiftSelected' anyWorkspacePredicate                         hidpiGSConfig)
-        , ((mod1Mask .|. mod4Mask, xK_e),                               spawnAppSelected hidpiGSConfig applications)
-        ------------------------------------------------------------------------------------------------------------------------------------
 
---        , ((mod4Mask, xK_at), withWindowSet (\s ->
---                                                 do
---                                                   let rect = screenRect $ W.screenDetail $ W.current s
---                                                   let lines = show $ truncate $ (fromIntegral $ rect_height rect) / 30 - 1
---                                                   spawn $ "dmenu_run -i -fn monospace-10:bold -l " ++ lines ++ " -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖'"))
---                                                   spawn $ "dmenu_run -i -fn monospace-10:bold -nb '" ++ white ++ "' -nf '" ++ black ++ "' -sb '" ++ black ++ "' -p '❖'"))
-        , ((mod4Mask, xK_colon), openIntelliJTerminalAction)
-        , ((mod4Mask, xK_semicolon), runOpenBrowserHistoryTerminalAction)
-        , ((mod4Mask, xK_c), runCopyFromClipboardHistoryTerminalAction)
-        , ((mod4Mask .|. controlMask, xK_c), runOnePasswordTerminalAction)
 
-        -- Scratchpad
-        , ((mod4Mask, xK_Return), myNamedScratchpadAction "mainterm")
-        , ((mod4Mask, xK_F4), myNamedScratchpadAction "rhythmbox")
-        , ((mod4Mask, xK_F9), myNamedScratchpadAction "艦これ")
-        , ((mod4Mask, xK_F10), myNamedScratchpadAction "bunnaru")
-        , ((mod4Mask, xK_F11), myNamedScratchpadAction "term1")
-        , ((mod4Mask, xK_F12), myNamedScratchpadAction "term2")
-        , ((mod4Mask .|. controlMask, xK_F11), myNamedScratchpadAction "jshell1")
-        , ((mod4Mask .|. controlMask, xK_F12), myNamedScratchpadAction "jshell2")
-        , ((mod4Mask, xK_bracketleft), myNamedScratchpadAction "term1")
-        , ((mod4Mask, xK_bracketright), myNamedScratchpadAction "term2")
-        , ((mod4Mask .|. controlMask, xK_bracketleft), myNamedScratchpadAction "jshell1")
-        , ((mod4Mask .|. controlMask, xK_bracketright), myNamedScratchpadAction "jshell2")
 
---        , ((mod4Mask .|. controlMask, xK_F7), toggleScrachpadAction $ L.reverse myScratchpads)
---        , ((mod4Mask .|. controlMask, xK_F8), showOrHideScratchpads myScratchpads True)
---        , ((mod4Mask .|. controlMask .|. shiftMask, xK_F8), showOrHideScratchpads myScratchpads False)
---        , ((mod4Mask .|. controlMask, xK_F9), toggleScrachpadAction myScratchpads)
-
-        , ((mod4Mask, xK_backslash), launchIntelliJTerminal intelliJTerminalEnv)
 --        , ((mod4Mask, xK_s), scratchpadSelected hidpiGSConfig myScratchpads)
         ------------------------------------------------------------------------------------------------------------------------------------
 
-        , ((mod4Mask, xK_g), selectSearchBrowser "/usr/bin/vivaldi" google)
 
         -- CopyWindow WIP
-        , ((mod4Mask, xK_a), windows copyToAll)
-        , ((mod4Mask .|. shiftMask, xK_a), killAllOtherCopies)
-        , ((mod4Mask, xK_z), showAllWindow)
+--        , ((mod4Mask, xK_a), windows copyToAll)
+--        , ((mod4Mask .|. shiftMask, xK_a), killAllOtherCopies)
+--        , ((mod4Mask, xK_z), showAllWindow)
 
-        -- Functions
-        , ((mod4Mask, xK_F1),        spawn "sh ~/.xmonad/audio_mute.sh")
-        , ((mod4Mask, xK_F2), spawn "sh ~/.xmonad/audio_down.sh")
-        , ((mod4Mask, xK_F3), spawn "sh ~/.xmonad/audio_up.sh")
-        , ((mod4Mask .|. shiftMask, xK_F2), spawn "sh ~/.xmonad/audio_prev.sh")
-        , ((mod4Mask .|. shiftMask, xK_F3), spawn "sh ~/.xmonad/audio_next.sh")
-        , ((mod4Mask, xK_F5), spawn "sh ~/.xmonad/system_scripts/bright/down.sh")
-        , ((mod4Mask, xK_F6), spawn "sh ~/.xmonad/system_scripts/bright/up.sh")
 
-        , ((mod4Mask, xK_F7), spawn "pkexec ~/.xmonad/system_scripts/pstate/clock_up_min.sh")
-        , ((mod4Mask .|. shiftMask, xK_F7), spawn "pkexec ~/.xmonad/system_scripts/pstate/clock_down_min.sh")
-        , ((mod4Mask, xK_F8), spawn "pkexec ~/.xmonad/system_scripts/pstate/clock_up_max.sh")
-        , ((mod4Mask .|. shiftMask, xK_F8), spawn "pkexec ~/.xmonad/system_scripts/pstate/clock_down_max.sh")
-
-        , ((mod4Mask, xK_x), createVirtualScreen $ ((Mirror $ simpleWide (3/100)) ||| (simpleWide (3/100))))
-        , ((mod4Mask .|. mod1Mask, xK_d), sendScreenMessage NextLayout)
-        , ((mod4Mask .|. mod1Mask, xK_h), sendScreenMessage Shrink)
-        , ((mod4Mask .|. mod1Mask, xK_l), sendScreenMessage Expand)
-        , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_h), sendScreenMessage $ ResizeAnotherSide Expand)
-        , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_l), sendScreenMessage $ ResizeAnotherSide Shrink)
-        , ((mod4Mask .|. mod1Mask, xK_b), prevChildScreen)
-        , ((mod4Mask .|. mod1Mask, xK_f), nextChildScreen)
 
 --        , ((mod4Mask, xK_c), getDurations >>= \d -> spawn $ "echo '" ++ (show d) ++ "' >> /tmp/xmonad.debug.perf")
 --        , ((mod4Mask .|. controlMask, xK_c), resetDurations)
@@ -570,27 +621,6 @@ main = do
                         (nw:_) -> W.Stack nw (L.delete nw ls) $ (L.delete nw rs) ++ [w]
                         _ -> stack
                     else W.Stack t (L.delete w ls) $ (L.delete w rs) ++ [w])
-        ] `additionalKeys` [
-          ((mod4Mask .|. m, k), f i)
-            | (i, k) <- zip originalWorkspaces $ [xK_1 .. xK_9] ++ [xK_0]
-            , (f, m) <- [(greedyViewToWorkspace, 0), (shiftToWorkspace, shiftMask)]
-        ] `additionalKeys` [
-          ((mod4Mask .|. m, k), f i)
-            | (i, k) <- zip workspaceFamilies $ [xK_1 .. xK_9] ++ [xK_0]
-            , (f, m) <- [
-              (\family -> submap . M.fromList $
-                         [ ((0, subkey), greedyViewToFamilyWorkspace family workspace)
-                               | (workspace, subkey)  <- zip originalWorkspaces $ [xK_1 .. xK_9] ++ [xK_0]
-                         ], controlMask)
-            , (\family -> submap . M.fromList $
-                          [ ((0, subkey), shiftToFamilyWorkspace family workspace)
-                                | (workspace, subkey) <- zip originalWorkspaces $ [xK_1 .. xK_9] ++ [xK_0]
-                          ], (controlMask .|. shiftMask))
-            ]
-        ] ` additionalKeys` [
-          ((mod4Mask .|. m, k), f i)
-            | (i, k) <- zip [1..9] [xK_1 .. xK_9]
-            , (f, m) <-[(viewToScreen, mod1Mask), (greedyViewToScreen, mod1Mask .|. controlMask), (shiftToScreen, mod1Mask .|. shiftMask)]
         ]
 
 -- Libraries
