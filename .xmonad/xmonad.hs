@@ -1238,16 +1238,19 @@ withSelectedWindow' callback predicate conf = gridselectWindow' predicate conf >
 windowMap' :: (WindowSet -> WindowSpace -> Bool) -> X [(String,Window)]
 windowMap' predicate = do
     ws <- gets windowset
-    wins <- mapM keyValuePair (foldr (++) [] $ map (W.integrate' . W.stack) $ filter (predicate ws) $ W.workspaces ws)
+    wins <- mapM (keyValuePair ws) (foldr (++) [] $ map (W.integrate' . W.stack) $ filter (predicate ws) $ W.workspaces ws)
     return wins
- where keyValuePair w = flip (,) w `fmap` decorateName' w
+ where keyValuePair ws w = flip (,) w `fmap` (decorateName' ws w)
 
-decorateName' :: Window -> X String
-decorateName' w = do
+decorateName' :: WindowSet -> Window -> X String
+decorateName' ws w = do
   name <- getName' w
   clazz <- getClass' w
   workspace <- getWorkspace' w
-  return ("[" ++ workspace ++ "] " ++ clazz ++ " : " ++ name)
+  let workspaces = W.workspaces ws
+  let focuses = L.map W.focus $ catMaybes $ L.map (W.stack) workspaces
+  let classifier = if L.elem w focuses then "* " else "  "
+  return ("[" ++ workspace ++ "] " ++ classifier ++ clazz ++ " : " ++ name)
 
 getName' :: Window -> X String
 getName' w = withDisplay $ \d -> do
@@ -1860,7 +1863,7 @@ terminalActionManageHook = onCenter'' 0.3 0.2
 
 myTerminal = GnomeTerminal "xmonad.terminal.action"
 selectWindowTerminalActionTemplate =
-  (terminalActionTemplate "select.window" "~/.xmonad/terminal_actions/select_window.sh" terminalActionManageHook)
+  (terminalActionTemplate "select.window" "~/.xmonad/terminal_actions/select_window.sh" $ onCenter'' 0.1 0.2)
   .| withFirstLine .|| words .|| head .|| read
 selectActionTerminalActionTemplate =
   (terminalActionTemplate "select.action" "~/.xmonad/terminal_actions/select_action.sh" terminalActionManageHook)
