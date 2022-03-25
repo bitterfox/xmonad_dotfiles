@@ -2003,6 +2003,31 @@ replaceVirtualScreen :: VirtualScreens -> VirtualScreen -> VirtualScreens
 replaceVirtualScreen (VirtualScreens vss) vs =
   VirtualScreens $ vs:(L.filter ((rootSid vs /=) . rootSid) vss)
 
+resetVirtualScreen :: X()
+resetVirtualScreen = do
+  virtualScreens <- XS.get
+  withWindowSet $ \ws -> do
+    let current = W.current ws
+    let sid = W.screen current
+    case findVirtualScreen virtualScreens $ sid of
+      Just vs -> do
+        let sids = L.delete sid $ W.integrate $ screenStack vs
+        let newVisible = L.filter (\e -> L.notElem (W.screen e) sids) $ W.visible ws
+        let workspaces = L.map W.workspace $ L.filter (\e -> L.elem (W.screen e) sids) $ W.visible ws
+        XS.put $ replaceVirtualScreen virtualScreens $ vs {
+                                                         screenStack = W.Stack { W.focus = rootSid vs, W.up = [], W.down = [] }
+                                                       }
+        windows $ \_ -> ws {
+          W.current = current {
+                        W.screen = rootSid vs,
+                        W.screenDetail = SD $ originalRect vs
+                      },
+          W.visible = newVisible,
+          W.hidden = (W.hidden ws) ++ workspaces
+        }
+      Nothing -> return ()
+
+
 createVirtualScreen :: (LayoutClass l ScreenId, Read (l ScreenId)) => (l ScreenId) -> X ()
 createVirtualScreen defaultLayout = do
   virtualScreens <- XS.get
