@@ -491,7 +491,7 @@ main = do
     spawn "sudo libinput-gestures"
 
     -- Desktop
---    spawn "nautilus-desktop --force" -- デスクトップを読み込む
+    spawn "sleep 3; feh --bg-fill ~/Pictures/Lza1qCX.png"
 
     -- Applets
     spawn "nm-applet" -- ネット接続のアプレットを起動
