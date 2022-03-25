@@ -487,7 +487,6 @@ main = do
     runProcessWithInputAndWait "sh" ["-c", "sh '/home/jp21734/.xmonad/auto_detect_display.sh' >> /tmp/debug"] "" (seconds 1)
 
     -- Keyboard and Mouse
-    spawn $ "mkdir -p " ++ mouseLogDir
     spawn "xhost +SI:localuser:root; sleep 1; sudo xkeysnail --watch -q ~/config.py & sleep 3; xset r rate 250 50; xset q >> /tmp/xset.debug"
     spawn "sudo libinput-gestures"
 
@@ -703,13 +702,13 @@ docksOnBottom = withDisplay $ \dpy -> do
     (_,_,wins) <- io $ queryTree dpy rootw
     docks <- filterM (runQuery checkDockOnly) wins
     desks <- filterM (runQuery $ checkDesktopOnly <&&> checkBackgroundDesktop) wins
-    forM (docks ++ desks) $ \win -> do
-      name <- runQuery className win
-      withWindowAttributes dpy win $ \(WindowAttributes {wa_x = x, wa_y = y, wa_width = w, wa_height = h}) -> do
-        (_, p, cs) <- io $ queryTree dpy win
-        let s = (show x) ++ "," ++ (show y) ++ "," ++ (show w) ++ "," ++ (show h)
-        pn <- runQuery className p
-        spawn $ "echo '" ++ ((show p) ++ "," ++ (show pn)) ++ " -> " ++ (show win) ++ ":" ++ (show name) ++ "," ++ s ++ (" -> " ++ (show cs)) ++ "' >> /tmp/xmonad.debug.docks"
+--    forM (docks ++ desks) $ \win -> do
+--      name <- runQuery className win
+--      withWindowAttributes dpy win $ \(WindowAttributes {wa_x = x, wa_y = y, wa_width = w, wa_height = h}) -> do
+--        (_, p, cs) <- io $ queryTree dpy win
+--        let s = (show x) ++ "," ++ (show y) ++ "," ++ (show w) ++ "," ++ (show h)
+--        pn <- runQuery className p
+--        spawn $ "echo '" ++ ((show p) ++ "," ++ (show pn)) ++ " -> " ++ (show win) ++ ":" ++ (show name) ++ "," ++ s ++ (" -> " ++ (show cs)) ++ "' >> /tmp/xmonad.debug.docks"
     io $ L.foldr (>>) (return ()) $ L.map (lowerWindow dpy) $ L.reverse docks
     io $ L.foldr (>>) (return ()) $ L.map (lowerWindow dpy) $ L.reverse desks
 
@@ -956,7 +955,7 @@ greedyViewToFamily familyId =
         Nothing -> greedyViewToFamilyWorkspace familyId $ currentWorkspaceId s
     )
 greedyViewToFamilyWorkspace familyId workspaceId = do
-    io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ familyId
+--    io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ familyId
     windows $ W.greedyView $ workspaceId ++ "_" ++ familyId
 shiftToWorkspace workspaceId =
     withWindowSet(\s -> do
@@ -967,7 +966,7 @@ shiftToWorkspace workspaceId =
 shiftToFamily familyId =
     withWindowSet(\s -> shiftToFamilyWorkspace familyId $ currentWorkspaceId s)
 shiftToFamilyWorkspace familyId workspaceId = do
-    io $ appendFile "/tmp/xmonad.debug2" $ workspaceId ++ "_" ++ familyId
+--    io $ appendFile "/tmp/xmonad.debug2" $ workspaceId ++ "_" ++ familyId
     windows (W.shift (workspaceId ++ "_" ++ familyId))
 
 multiScreenXMobarPP windowSet screenId xmproc = xmobarPP
@@ -1134,7 +1133,6 @@ mouseSpeed :: Int -> String
 mouseSpeed n = ["0.791367", "0.791367", "0.791367"] !! n
 mouseDeviceId = "12"
 
-mouseLogDir = "/tmp/xmonad/mouse"
 ------------------------------------------------------------------------------------------
 -- MousePosition
 ------------------------------------------------------------------------------------------
