@@ -8,10 +8,13 @@ output="$2"
 basedir=`dirname $0`
 
 login() {
-    OP_SESSION_my=""
-    while [ -z "$OP_SESSION_my" ]; do
-        eval $(op signin my)
+    myid=`op user get --me --format=json | jq -r '.id'`
+    while [ -z "$myid" ] || [ -z "${(P)${:-OP_SESSION_$myid}}" ]; do
+        eval $(op signin)
+    myid=`op user get --me --format=json | jq -r '.id'`
+    read
     done
+    export $myid
 }
 
 session_path="/tmp/last_op_session_${USER}"
@@ -56,8 +59,9 @@ fi
 
 echo $i
 
+myid=`op user get --me --format=json | jq -r '.id'`
 cat > $session_path <<EOF
 export SESSION_EXPIRE="$SESSION_EXPIRE"
-export OP_SESSION_my="$OP_SESSION_my"
+export OP_SESSION_${myid}="${(P)${:-OP_SESSION_$myid}}"
 export LAST_ITEM="$i"
 EOF

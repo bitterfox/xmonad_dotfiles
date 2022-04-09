@@ -25,7 +25,9 @@ if [ $evict_cache -eq 1 ] || [ ! -s $CACHE_FILE ]; then
 fi
 
 if [ ! -f $CACHE_FILE ]; then
-    item=`op get item $uuid`
+#    read
+    item=`op item get $uuid --format=json`
+#    read
     cat > $CACHE_FILE <<< $item
 fi
 

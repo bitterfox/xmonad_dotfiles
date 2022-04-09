@@ -3,38 +3,27 @@
 basedir=`dirname $0`
 
 item_uuid=$1
-output=$2
+export output=$2
 
-#item=`op --cache get item $item_uuid`
 item=`$basedir/one_password_get_item.sh $item_uuid`
-
-#fields=`jq '.details.fields + [.details.sections[].fields[]]' <<< $item`
-fields=`jq '.details.fields' <<< $item`
+fields=`jq '.fields' <<< $item`
 
 if [ $? -ne 0 ]; then
 item=`$basedir/one_password_get_item.sh --evict-cache $item_uuid`
-#fields=`jq '.details.fields + [.details.sections[].fields[]]' <<< $item`
-fields=`jq '.details.fields' <<< $item`
+fields=`jq '.fields' <<< $item`
 fi
 
-username=`jq -r '.[] | select(.designation == "username") | .value' <<< $fields`
-password=`jq -r '.[] | select(.designation == "password") | .value' <<< $fields`
-
-title=`jq -r '.overview.title' <<< $item`
-url=`jq -r '.overview.url' <<< $item`
-tags=`jq -r '.overview.tags | join(",")' <<< $item`
+title=`jq -r '.title' <<< $item`
+url=`jq -r '(.urls // []) | .[] | select(.primary) | .href' <<< $item`
+tags=`jq -r '(.tags // []) | join(",")' <<< $item`
 
 if [ -n "$tags" ]; then
     tags="[$tags] "
 fi
 
 show_fields() {
-    fill_username
-    fill_password
-    fill_section
-    copy_username
-    copy_password
-#    copy_other
+    show_fields_action "Fill"
+    show_fields_action "Copy"
 }
 
 fill_username() {
@@ -48,18 +37,21 @@ fill_password() {
     fi
 }
 
-fill_section() {
-    jq -c '.details.sections[].fields[]' <<< $item | while read field; do
-        n=`jq -r '.n' <<< $field`
-        k=`jq -r '.k' <<< $field`
-        label=`jq -r '.t' <<< $field`
-        value=`jq -r '.v' <<< $field`
-        if [ "$k" == "concealed" ]; then
-            concealed_value=`jq -r '(.v | length)*"*"' <<< $field`
-            echo "Fill $label($n): $concealed_value"
-        else
-            echo "Fill $label($n): $value"
+show_fields_action() {
+    action="$1"
+    i=0
+    jq -c '.[]' <<< $fields | while read field; do
+#        n=`jq -r '.id' <<< $field`
+#        k=`jq -r '.type' <<< $field`
+        value=`jq -r '((. | select(.type == "CONCEALED") | ((.value // "") | length)*"*") // .value) // ""' <<< $field`
+#        if [ "$k" == "CONCEALED" ]; then
+#            concealed_value=`jq -r '(.value | length)*"*"' <<< $field`
+#            echo "$i $action $label: $value"
+        if [ -n "$value" ]; then
+            label=`jq -r '.label' <<< $field`
+            echo "$i $action $label: $value"
         fi
+        i=$((i+1))
     done
 }
 
@@ -75,17 +67,33 @@ copy_password() {
 }
 
 header="$tags$title $url"
-result=`show_fields | fzf --preview "echo '$password'" --bind 'alt-p:toggle-preview' --preview-window=down:hidden --header "$header" --bind "ctrl-r:reload($basedir/one_password_get_item.sh --evict-cache $item_uuid)"`
+result=`show_fields | fzf --with-nth=2.. --preview "echo '$password'" --bind 'alt-p:toggle-preview' --preview-window=down:hidden --header "$header" --bind "ctrl-r:reload($basedir/one_password_get_item.sh --evict-cache $item_uuid)"`
+
+#show_fields
 
 if [ $? -ne 0 ]; then
     exit 1
 fi
 
-case "$result" in
-    "Fill username: $username" ) echo -n "$username" > "$output" ;;
-    "Fill password: ***" ) echo -n "$password" > "$output" ;;
-    "Copy username: $username" ) echo -n "$username" | xsel -b -i ;;
-    "Copy password" ) echo -n "$password" | xsel -b -i ;;
-esac
+do_action() {
+    id=$1
+    action=$2
+
+    value=`jq -r -c ".fields[$id].value // \"\"" <<< $item`
+
+    if [ -n "$value" ]; then
+        case "$action" in
+            "Fill" ) echo -n "$value" > "$output" ;;
+            "Copy" ) echo -n "$value" | xsel -b -i ;;
+        esac
+    fi
+}
+
+if [ -n "$result" ]; then
+    id="`echo "$result" | awk '{print $1}'`"
+    action="`echo "$result" | awk '{print $2}'`"
+
+    do_action $id $action
+fi
 
 echo -n $item_uuid
