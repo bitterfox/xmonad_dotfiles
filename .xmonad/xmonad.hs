@@ -475,10 +475,14 @@ layoutKeys = [
   ]
 
 sizingKeys = [
-    ((meta,          xK_j), sendMessage Shrink)
-  , ((meta,          xK_l), sendMessage Expand)
-  , ((meta,          xK_i), sendMessage $ DelegateMessage $ SomeMessage Shrink)
-  , ((meta,          xK_k), sendMessage $ DelegateMessage $ SomeMessage Expand)
+    ((meta,          xK_j), whenX (xnot $ locateFloat $ avoidStrutsFloat <+> onLeftTest)
+                              $ sendMessage Shrink)
+  , ((meta,          xK_l), whenX (xnot $ locateFloat $ avoidStrutsFloat <+> onRightTest)
+                              $ sendMessage Expand)
+  , ((meta,          xK_i), whenX (xnot $ locateFloat $ avoidStrutsFloat <+> onTopTest)
+                              $ sendMessage $ DelegateMessage $ SomeMessage Shrink)
+  , ((meta,          xK_k), whenX (xnot $ locateFloat $ onBottom)
+                              $ sendMessage $ DelegateMessage $ SomeMessage Expand)
 
   , ((meta .|. shft, xK_i), sendMessage $ DelegateMessage $ SomeMessage $ ResizeAnotherSide Expand)
   , ((meta .|. shft, xK_k), sendMessage $ DelegateMessage $ SomeMessage $ ResizeAnotherSide Shrink)
@@ -708,6 +712,9 @@ main = do
 ifX :: Bool -> X() -> X()
 ifX cond whenTrue = if cond then whenTrue else return ()
 
+xnot :: X Bool -> X Bool
+xnot x = not <$> x
+
 caseMaybeJust :: Maybe a -> (a -> X ()) -> X ()
 caseMaybeJust m f =
   case m of
@@ -743,6 +750,12 @@ onCenter' spaceRatio = onCenter'' spaceRatio spaceRatio
 onCenter'' spaceRatioV spaceRatioH = (customFloating $ W.RationalRect spaceRatioV (spaceRatioH + strutsOffsetRatioTop) (1-spaceRatioV*2) (1-spaceRatioH*2-strutsOffsetRatioTop))
 
 onTopTest = customFloating $ W.RationalRect 0 0 1 0.5
+
+onLeft = onLeft' 0
+onLeft' spaceRatio = onLeft'' spaceRatio spaceRatio
+onLeft'' spaceRatioV spaceRatioH = (customFloating $ W.RationalRect spaceRatioV (spaceRatioH + strutsOffsetRatioTop) (0.5-spaceRatioV*2) (1-spaceRatioH*2-strutsOffsetRatioTop))
+onLeftTest = customFloating $ W.RationalRect 0 0 0.5 1
+onRightTest = customFloating $ W.RationalRect 0.5 0 0.5 1
 
 avoidStrutsFloat = do
   win <- ask
@@ -975,6 +988,19 @@ isFloat stackSet window = M.member window $ W.floating stackSet
 -- | reverse a stack: up becomes down and down becomes up.
 reverseStack :: W.Stack a -> W.Stack a
 reverseStack (W.Stack t ls rs) = W.Stack t rs ls
+
+locateFloat managehook = withWindowSet (\s -> do
+  case W.peek s of
+    Just t ->
+      if isFloat s t then do
+        endo <- runQuery managehook t
+        windows $ appEndo endo
+        return True
+      else
+        return False
+    Nothing -> return False
+  )
+
 
 ------------------------------------------------------------------------------------------
 -- WorkspaceFamily
