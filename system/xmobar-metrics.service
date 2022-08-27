@@ -1,0 +1,10 @@
+[Unit]
+Description=xmobar metrics daemon
+
+[Service]
+ExecStart=$HOME/.xmobar/xmobar_metrics_daemon.sh
+Restart=always
+Type=simple
+
+[Install]
+WantedBy=multi-user.target
