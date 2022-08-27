@@ -593,7 +593,7 @@ main = do
     runProcessWithInputAndWait "sh" ["-c", "sh '/home/jp21734/.xmonad/auto_detect_display.sh' >> /tmp/debug"] "" (seconds 1)
 
     -- Keyboard and Mouse
---    spawn "xhost +SI:localuser:root; sleep 1; sudo xkeysnail --watch -q ~/config.py & sleep 3; xset r rate 250 50; xset q >> /tmp/xset.debug"
+    spawn "xhost +SI:localuser:root; sleep 1; sudo xkeysnail --watch -q ~/config.py & sleep 3; xset r rate 250 50; xset q >> /tmp/xset.debug"
     spawn "sudo libinput-gestures"
 
     -- Desktop
