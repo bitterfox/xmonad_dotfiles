@@ -109,6 +109,7 @@ blue = "#3BA99F"
 intellijCommand = "~/bin/idea"
 
 applications = [
+-- ("Vivaldi (Web browser)", "export GDK_DPI_SCALE=1.02; vivaldi"),
  ("Vivaldi (Web browser)", "vivaldi"),
  ("Nautilus (File browser)", "nautilus"),
  ("Emacs (Editor)", "emacs"),
@@ -199,6 +200,29 @@ xmobarLogHook xmprocs = withWindowSet (\s ->
 
 --value_mask :: !CULong = (bit 2) (.|.) (bit 3)
 myHandleEventHook =
+   -- (\e ->
+       -- case e of
+         -- (ClientMessageEvent {ev_message_type = mt, ev_data = d, ev_window = w}) -> do
+              -- names <- withDisplay $ \d -> io $ getAtomNames d [mt]
+              -- if (not $ L.null names) && (head names == "_NET_ACTIVE_WINDOW") then do
+                -- spawn $ "echo 'Ignore " ++ (show e) ++ "," ++ (show names) ++ "' >> /tmp/xmonad.debug.event"
+                  -- withDisplay $ \dpy -> withWindowAttributes dpy w $ \wa -> io $ allocaXEvent $ \ev -> do
+                    -- setEventType ev configureNotify
+                    -- setConfigureEvent ev w w
+                        -- (wa_x wa) (wa_y wa) (wa_width wa)
+                        -- (wa_height wa) (wa_border_width wa) none (wa_override_redirect wa)
+                    -- sendEvent dpy w False 0 ev
+                -- return (All False)
+              -- else
+                -- return (All True)
+         -- (AnyEvent {}) -> do
+                -- spawn $ "echo 'Ignore " ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
+                -- return (All False)
+         -- (PropertyEvent {}) -> do
+                -- spawn $ "echo 'Ignore " ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
+                -- return (All False)
+         -- _ -> do
+              -- return (All True)) <+>
     handleEventHook gnomeConfig <+>
     docksEventHook <+>
     (\e -> do
@@ -220,29 +244,32 @@ myHandleEventHook =
              ifX (testBit ev_value_mask 6) $ windows (\s -> W.focusWindow ev_window s)
              return (All True)
         _ -> return (All True)) <+>
---    (\e ->
---        case e of
---          (PropertyEvent ev_event_type ev_serial ev_send_event ev_event_display ev_window ev_atom ev_time ev_propstate) -> do
---               names <- withDisplay $ \d -> io $ getAtomNames d [ev_atom]
---               spawn $ "echo '" ++ (show e) ++ "," ++ (show names) ++ "' >> /tmp/xmonad.debug.event"
---               return (All True)
---          (ClientMessageEvent {ev_message_type = mt, ev_data = d, ev_window = w}) -> do
---               names <- withDisplay $ \d -> io $ getAtomNames d [mt]
---               if (not $ L.null names) && (head names == "_NET_WM_STATE") then do
---                 ns <- withDisplay $ \dpy -> io $ getAtomNames dpy [fromIntegral $ d!!1]
---                 spawn $ "echo '" ++ (show e) ++ "," ++ (show names) ++ "," ++ (show ns) ++ "' >> /tmp/xmonad.debug.event"
---                 if (not $ L.null ns) && (head ns == "_NET_WM_STATE_FULLSCREEN") then
---                   withDisplay $ \dpy -> withWindowAttributes dpy w $ \wa -> io $ allocaXEvent $ \ev -> do
---                     setEventType ev configureNotify
---                     setConfigureEvent ev w w
---                         (wa_x wa) (wa_y wa) (wa_width wa)
---                         (wa_height wa) (wa_border_width wa) none (wa_override_redirect wa)
---                     sendEvent dpy w False 0 ev
---                 else return ()
---               else
---                 spawn $ "echo '" ++ (show e) ++ "," ++ (show names) ++ "' >> /tmp/xmonad.debug.event"
---               return (All True)
+    --(\e -> do
+       -- case e of
+         -- (PropertyEvent ev_event_type ev_serial ev_send_event ev_event_display ev_window ev_atom ev_time ev_propstate) -> do
+              -- withWindowSet (\ws -> spawn $ "echo '" ++ (show $ W.current ws) ++ "' >> /tmp/xmonad.debug.event")
+              -- names <- withDisplay $ \d -> io $ getAtomNames d [ev_atom]
+              -- spawn $ "echo '" ++ (show e) ++ "," ++ (show names) ++ "' >> /tmp/xmonad.debug.event"
+              -- return (All True)
+         -- (ClientMessageEvent {ev_message_type = mt, ev_data = d, ev_window = w}) -> do
+              -- withWindowSet (\ws -> spawn $ "echo '" ++ (show $ W.current ws) ++ "' >> /tmp/xmonad.debug.event")
+              -- names <- withDisplay $ \d -> io $ getAtomNames d [mt]
+              -- if (not $ L.null names) && (head names == "_NET_WM_STATE") then do
+                -- ns <- withDisplay $ \dpy -> io $ getAtomNames dpy [fromIntegral $ d!!1]
+                -- spawn $ "echo '" ++ (show e) ++ "," ++ (show names) ++ "," ++ (show ns) ++ "' >> /tmp/xmonad.debug.event"
+                -- if (not $ L.null ns) && (head ns == "_NET_WM_STATE_FULLSCREEN") then
+                  -- withDisplay $ \dpy -> withWindowAttributes dpy w $ \wa -> io $ allocaXEvent $ \ev -> do
+                    -- setEventType ev configureNotify
+                    -- setConfigureEvent ev w w
+                        -- (wa_x wa) (wa_y wa) (wa_width wa)
+                        -- (wa_height wa) (wa_border_width wa) none (wa_override_redirect wa)
+                    -- sendEvent dpy w False 0 ev
+                -- else return ()
+              -- else
+                -- spawn $ "echo '" ++ (show e) ++ "," ++ (show names) ++ "' >> /tmp/xmonad.debug.event"
+              -- return (All True)
 --          _ -> do
+--               withWindowSet (\ws -> spawn $ "echo '" ++ (show $ W.current ws) ++ "' >> /tmp/xmonad.debug.event")
 --               spawn $ "echo '" ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
 --               return (All True)) <+>
     (keepWindowSizeHandleEventHook $ stringProperty "WM_WINDOW_ROLE" =? "GtkFileChooserDialog") <+>
@@ -601,7 +628,7 @@ main = do
     spawn "~/.xmonad/system_scripts/bright/workaround_monitor_bright.sh"
 
 --    spawn $ "echo '" ++ (show $ mkToggleInitial (single TitleTransformer) TitleTransformer $ myLayout) ++ "' >> /tmp/xmonad.debug.layout"
-    xmonad $ gnomeConfig -- defaultConfig
+    xmonad $ gnomeConfig
         { manageHook = myManageHookAll
 --        , layoutHook =  myLayoutHookAll
         , layoutHook =  measureLayoutHook "layoutHook" $ myLayoutHookAll
