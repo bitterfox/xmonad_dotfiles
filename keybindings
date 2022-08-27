@@ -1,0 +1,67 @@
+Meta+
+q: system menu
+w: Greedy view window
+e: execute app
+r: refresh
+t: next float
+y: 
+u: 
+i: change size smaller (bottom)
+o: Shift to master
+p: prev window
+
+a: 
+s: screenshot
+d: change layout
+f: next workspace
+g: google
+h: change size left side
+j: prev window
+k: next window
+l: change size right side
+
+z: 
+x: split screen
+c: manage copy
+v: full screen
+b: previous workspace
+n: next window
+m: change size larger (bottom)
+
+Meta+Shift+
+q: 
+w: Shift window
+e: dmenu run
+r: reset size
+t: previous floating window
+y: 
+u: 
+i: change size larger (up)
+o: Shift to master
+p: shift to previous
+
+a: 
+s: screenshot
+d: 
+f: 
+g: 
+h: size bigger (right)
+j:
+k:
+l: size smaller (right)
+
+z: 
+x: reset split screen
+c: close window
+v: window view mode
+b: 
+n: shift to next
+m: size smaller (up)
+
+
+Meta+Control+
+qwertyuiop
+asdfghjkl
+zxcvbnm
+
+
