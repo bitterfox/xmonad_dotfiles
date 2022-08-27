@@ -596,7 +596,7 @@ main = do
 
     spawn "xrandr --output eDP-1 --brightness 1 --gamma 1.05:1.05:1.095"
 
-    spawn "CM_DIR=$HOME CM_SELECTIONS=clipboard CM_IGNORE_WINDOW=xmonad.terminal.action.one.password clipmenud"
+    spawn "CM_MAX_CLIPS=10000 CM_DIR=$HOME CM_SELECTIONS=clipboard CM_IGNORE_WINDOW=xmonad.terminal.action.one.password clipmenud"
 
     spawn "~/.xmonad/system_scripts/bright/workaround_monitor_bright.sh"
 
