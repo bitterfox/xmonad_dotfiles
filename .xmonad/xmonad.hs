@@ -820,7 +820,7 @@ checkBackgroundDesktop = className =? "Nautilus"
 ------------------------------------------------------------------------------------------
 -- Scratchpad
 ------------------------------------------------------------------------------------------
-javaHome = "~/bin/jdk-10.0.1/"
+javaHome = "~/.sdkman/candidates/java/current"
 jshellPath = javaHome ++ "/bin/jshell"
 
 myScratchpads :: [NamedScratchpad]
