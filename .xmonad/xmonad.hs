@@ -157,6 +157,7 @@ myManageHookAll = manageHook gnomeConfig -- defaultConfig
                        <+> ((className =? "jetbrains-idea") <&&> (title =? "win0") --> doFloat)
                        <+> intelliJTerminalManageHook intelliJTerminalEnv
                        <+> ((appName =? "gnome-screenshot") --> doIgnore)
+                       <+> ((className =? "Vivaldi-stable") <&&> (stringProperty "WM_WINDOW_ROLE" =? "pop-up") --> onCenter' 0.3)
 --                       <+> (ask >>= \w -> liftX (debugWindow w))
 
 --debugWindow w = do
