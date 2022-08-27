@@ -6,9 +6,10 @@
 in="$1"
 out="$2"
 
-project=`~/scripts/list_intellij_projects.sh 2021.1 100 | fzf`
+project=`$HOME/git-repos/github.com/bitterfox/fzflet/intellij/fzf_intellij_recent_projects.sh`
 
 if [ -n "$project" ]; then
     echo "$project" > $out
+    echo "$project" > /tmp/oi.debug
 #    nohup ~/bin/idea "$project"
 fi
