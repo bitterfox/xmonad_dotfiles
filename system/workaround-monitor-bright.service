@@ -1,0 +1,15 @@
+[Unit]
+Description=workaround monitor bright daemon
+
+[Service]
+#ExecStartPre=/usr/bin/xhost +SI:localuser:root
+ExecStart=$HOME/.xmonad/system_scripts/bright/workaround_monitor_bright.sh
+Restart=always
+RestartSec=10s
+Type=simple
+
+# Update DISPLAY to be the same as `echo $DISPLAY` on your graphical terminal.
+Environment=DISPLAY=:0
+
+[Install]
+WantedBy=default.target

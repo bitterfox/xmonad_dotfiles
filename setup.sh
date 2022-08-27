@@ -33,10 +33,12 @@ sudo cp `pwd`/.config/libinput-gestures.conf /etc/
 sudo cp `pwd`/polkit/xmonad.policy /usr/share/polkit-1/actions/
 sudo sed -i -e "s#\$HOME#$HOME#g" /usr/share/polkit-1/actions/xmonad.policy
 
-echo Install systemd service
-sudo cp `pwd`/system/xmobar-metrics.service /etc/systemd/system/
-sudo sed -i -e "s#\$HOME#$HOME#g" /etc/systemd/system/xmobar-metrics.service
+mkdir -p ~/.config/systemd/user
+ls $(dirname $0)/system | while read service; do
+    echo Install systemd user service $service
+    sudo cp $(dirname $0)/system/$service ~/.config/systemd/user/
+    sudo sed -i -e "s#\$HOME#$HOME#g" ~/.config/systemd/user/$service
 
-sudo systemctl enable xmobar-metrics
-sudo systemctl start xmobar-metrics
-sudo systemctl status xmobar-metrics
+    systemctl --user enable $service
+    systemctl --user start $service
+done

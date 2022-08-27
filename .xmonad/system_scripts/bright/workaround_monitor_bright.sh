@@ -1,6 +1,11 @@
 #!/bin/bash
+export DISPLAY=:0
 
-$HOME/.xmonad/system_scripts/bright/set.sh `$HOME/.xmonad/system_scripts/bright/get_current.sh`
+/usr/bin/xhost +SI:localuser:root
+
+basedir=$(dirname $0)
+
+$basedir/set.sh `$basedir/get_current.sh`
 
 while :; do
     # Wait monitor off
@@ -32,6 +37,6 @@ while :; do
     done
 
     # Reset monitor brightness
-    echo "Reset monitor brightness: `$HOME/.xmonad/system_scripts/bright/get_current.sh`"
-    $HOME/.xmonad/system_scripts/bright/set.sh `$HOME/.xmonad/system_scripts/bright/get_current.sh`
+    echo "Reset monitor brightness: `$basedir/get_current.sh`"
+    $basedir/set.sh `$basedir/get_current.sh`
 done
