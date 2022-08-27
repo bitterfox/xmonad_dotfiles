@@ -11,7 +11,7 @@ define_modmap({
     Key.LEFT_META: Key.LEFT_ALT
 })
 
-define_keymap(lambda wm_class: ((wm_class not in ("Emacs", "Gnome-terminal", "gnome-terminal-server", "jetbrains-idea", "term1", "term2", "mainterm", "intellij-terminal")) and (not wm_class.startswith("xmonad.intellij")) and (not wm_class.startswith("xmonad.terminal"))), {
+define_keymap(lambda wm_class: ((wm_class not in ("Emacs", "Gnome-terminal", "gnome-terminal-server", "jetbrains-idea", "term1", "term2", "mainterm", "intellij-terminal", "eDEX-UI")) and (not wm_class.startswith("xmonad.intellij")) and (not wm_class.startswith("xmonad.terminal"))), {
     # Cursor
     K("C-b"): with_mark(K("left")),
     K("C-f"): with_mark(K("right")),
