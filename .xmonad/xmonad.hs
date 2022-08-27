@@ -247,10 +247,82 @@ myHandleEventHook =
 --               return (All True)) <+>
     (keepWindowSizeHandleEventHook $ stringProperty "WM_WINDOW_ROLE" =? "GtkFileChooserDialog") <+>
     (keepWindowSizeHandleEventHook $ (isDialog <&&> (className =? "Gimp"))) <+>
-    fullScreenEventHook
+    fullScreenEventHook <+>
+    handleDoubleKeyPress [xK_Super_L, xK_Super_R] 300 (myNamedScratchpadAction "fzf_actions")
+
+handleDoubleKeyPress metaKeys interval x e@(KeyEvent {ev_event_type = t, ev_state = m, ev_keycode = code, ev_time = time}) =
+            withDisplay $ \dpy -> do
+              s <- io $ keycodeToKeysym dpy code 0
+              if L.elem s metaKeys  then do
+                  RemapRequested r <- XS.get
+                  if r then do
+                      spawn $ "echo 'grabMetaKeys: " ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
+                      XS.put $ RemapRequested False
+                      grabMetaKey metaKeys
+                  else return ()
+                  if t == keyPress then do
+                      spawn $ "echo 'Press " ++ (show s) ++ "' >> /tmp/xmonad.debug.event"
+                      LastMetaPress lastMetaPress <- XS.get
+                      case lastMetaPress of
+                        Just (lastKey, lastTime) -> do
+                          let diffTime = time - lastTime
+                          if lastKey == s && diffTime < interval then do
+                            spawn $ "echo 'Press " ++ (show e) ++ " state = " ++ (show lastMetaPress) ++ "diff = " ++ (show $ time - lastTime) ++ "' >> /tmp/xmonad.debug.event"
+                            x
+                          else return ()
+                        _ -> return ()
+                      XS.put $ LastMetaPress $ Just (s, time)
+                                 else return ()
+                  return (All False)
+              else do
+                  spawn $ "echo 'Press " ++ (show s) ++ "' >> /tmp/xmonad.debug.event"
+                  XS.put $ LastMetaPress $ Nothing
+                  return (All True)
+handleDoubleKeyPress _ _ _ e@(MappingNotifyEvent {}) = do
+  spawn $ "echo 'Mapping " ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
+  XS.put $ RemapRequested True
+  return (All True)
+handleDoubleKeyPress metaKeys _ _ e = do
+  RemapRequested r <- XS.get
+  if r then do
+      spawn $ "echo 'grabMetaKeys: " ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
+      XS.put $ RemapRequested False
+      grabMetaKey metaKeys
+  else return ()
+  return (All True)
+
+data LastMetaPress = LastMetaPress (Maybe (KeySym, Time)) deriving Typeable
+instance ExtensionClass LastMetaPress where
+  initialValue = LastMetaPress Nothing
+data RemapRequested = RemapRequested Bool deriving Typeable
+instance ExtensionClass RemapRequested where
+  initialValue = RemapRequested False
+
+grabMetaKey metaKeys = do
+    XConf { display = dpy, theRoot = rootw } <- ask
+    let grab kc m = io $ grabKey dpy kc m rootw True grabModeAsync grabModeAsync
+        (minCode, maxCode) = displayKeycodes dpy
+        allCodes = [fromIntegral minCode .. fromIntegral maxCode]
+    syms <- forM allCodes $ \code -> io (keycodeToKeysym dpy code 0)
+    let keysymMap = M.fromListWith (++) (zip syms [[code] | code <- allCodes])
+        keysymToKeycodes sym = M.findWithDefault [] sym keysymMap
+    forM metaKeys $ \mk ->
+      forM (keysymToKeycodes mk) $ \kc ->
+        grab kc anyModifier
+    -- ms <- io $ getModifierMapping dpy
+    -- c <- io $ keycodeToKeysym dpy 207 0
+    -- spawn $ "echo '" ++ (show mod4Mask) ++ "' >> /tmp/xmonad.debug.event"
+    -- spawn $ "echo '" ++ (show c) ++ "' >> /tmp/xmonad.debug.event"
+    -- spawn $ "echo '" ++ (show ms) ++ "' >> /tmp/xmonad.debug.event"
+    return ()
 
 myStartupHook =
-    startupHook gnomeConfig <+> docksStartupHook <+> myDocksStartupHook <+> configureMouse <+>  myrescreen priorityDisplayEDIDs
+    startupHook gnomeConfig <+>
+    docksStartupHook <+>
+    myDocksStartupHook <+>
+    configureMouse <+>
+    myrescreen priorityDisplayEDIDs <+>
+    (grabMetaKey [xK_Super_L, xK_Super_R])
 
 watch :: String -> String -> IO ()
 watch cmd interval = spawn $ "while :; do " ++ cmd ++ "; sleep " ++ interval ++ "; done"
@@ -755,6 +827,7 @@ myScratchpads = [
            "rhythmbox"
            (className =? "Rhythmbox")
            onCenter
+  , terminalScratchpad "fzf_actions" (Just "\"zsh -c '. $HOME/.zshrc; _fzf_actions_then_echo | xsel -b -i'\"") $ onCenter'' 0.1 0.2
  ]
 
 myScratchpadsManageHook = namedScratchpadManageHook myScratchpads
