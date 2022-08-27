@@ -500,6 +500,8 @@ scratchpadKeys = [
   , ((mod4Mask, xK_F10), myNamedScratchpadAction "bunnaru")
   , ((mod4Mask, xK_bracketleft), myNamedScratchpadAction "term1")
   , ((mod4Mask, xK_bracketright), myNamedScratchpadAction "term2")
+  , ((mod4Mask .|. shft, xK_bracketleft), myNamedScratchpadAction "termL")
+  , ((mod4Mask .|. shft, xK_bracketright), myNamedScratchpadAction "termR")
   , ((mod4Mask .|. controlMask, xK_bracketleft), myNamedScratchpadAction "jshell1")
   , ((mod4Mask .|. controlMask, xK_bracketright), myNamedScratchpadAction "jshell2")
 
@@ -826,7 +828,10 @@ myScratchpads = [
     terminalScratchpad "mainterm" Nothing $ onCenter' 0.01
   , terminalScratchpad "term1" Nothing (avoidStrutsFloat <+> onTopTest)
   , terminalScratchpad "term2" Nothing onBottom
-  , terminalScratchpad "jshell1" (Just jshellPath) onTop
+  , terminalScratchpad "termL" Nothing (avoidStrutsFloat <+> onLeftTest)
+  , terminalScratchpad "termR" Nothing (avoidStrutsFloat <+> onRightTest)
+--  , terminalScratchpad "term2" Nothing onBottom
+  , terminalScratchpad "jshell1" (Just jshellPath) (avoidStrutsFloat <+> onTopTest)
   , terminalScratchpad "jshell2" (Just jshellPath) onBottom
   , NS "bunnaru"
            "google-chrome --renderer-process-limit=1 --new-window --app=http://www.dmm.com/netgame/social/-/gadgets/=/app_id=798209/"
