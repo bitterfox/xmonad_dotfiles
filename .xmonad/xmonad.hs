@@ -928,7 +928,7 @@ sortedFloats' stackSet =
 floatFocusNext floats stack@(W.Stack t ls rs) = do
     let ws = W.integrate stack
     let fs = L.reverse $ L.filter (\w -> L.elem w ws) $ floats
-    if fs == [] then stack
+    if fs == [] || fs == [t] then stack
     else do
       let fs' = takeWhile (/= t) fs
       let w = if fs' == [] then last fs else last fs'
