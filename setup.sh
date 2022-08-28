@@ -36,8 +36,8 @@ sudo sed -i -e "s#\$HOME#$HOME#g" /usr/share/polkit-1/actions/xmonad.policy
 mkdir -p ~/.config/systemd/user
 ls $(dirname $0)/system | while read service; do
     echo Install systemd user service $service
-    sudo cp $(dirname $0)/system/$service ~/.config/systemd/user/
-    sudo sed -i -e "s#\$HOME#$HOME#g" ~/.config/systemd/user/$service
+    cp $(dirname $0)/system/$service ~/.config/systemd/user/
+    sed -i -e "s#\$HOME#$HOME#g" ~/.config/systemd/user/$service
 
     systemctl --user enable $service
     systemctl --user start $service
