@@ -30,7 +30,10 @@
     # the top and down respectively.
     # The width can be negative.  In this case the actual width is the
     # screen width minus the width defined in within the geometry option.
-    geometry = "500x10-5+115"
+    #geometry = "500x10-5+115"
+    width = 400
+    height= 160
+    offset = 5x29
 
     # Show how many messages are currently hidden (because of geometry).
     indicate_hidden = yes
@@ -43,11 +46,6 @@
     # This option will only work if a compositing window manager is
     # present (e.g. xcompmgr, compiz, etc.).
     transparency = 0
-
-    # The height of the entire notification.  If the height is smaller
-    # than the font height and padding combined, it will be raised
-    # to the font height and padding.
-    notification_height = 80
 
     # Draw a line of "separator_height" pixel height between two
     # notifications.
@@ -196,11 +194,6 @@
     # Define the class of the windows spawned by dunst
     class = Dunst
 
-    # Print a notification on startup.
-    # This is mainly for error detection, since dbus (re-)starts dunst
-    # automatically after a crash.
-    startup_notification = false
-
     ### Legacy
 
     # Use the Xinerama extension instead of RandR for multi-monitor support.
@@ -213,6 +206,26 @@
     # layout changes.
     force_xinerama = false
 
+    # Shortcuts are specified as [modifier+][modifier+]...key
+    # Available modifiers are "ctrl", "mod1" (the alt-key), "mod2",
+    # "mod3" and "mod4" (windows-key).
+    # Xev might be helpful to find names for keys.
+
+    # Close notification.
+    close = ctrl+slash
+
+    # Close all notifications.
+    close_all = ctrl+mod1+shift+slash
+
+    # Redisplay last message(s).
+    # On the US keyboard layout "grave" is normally above TAB and left
+    # of "1". Make sure this key actually exists on your keyboard layout,
+    # e.g. check output of 'xmodmap -pke'
+    history = ctrl+shift+slash
+
+    # Context menu.
+    context = ctrl+mod1+slash
+
 # Experimental features that may or may not work correctly. Do not expect them
 # to have a consistent behaviour across releases.
 [experimental]
@@ -222,32 +235,6 @@
     # using the resolution and physical size. This might be useful in setups
     # where there are multiple screens with very different dpi values.
     per_monitor_dpi = false
-
-[shortcuts]
-
-    # Shortcuts are specified as [modifier+][modifier+]...key
-    # Available modifiers are "ctrl", "mod1" (the alt-key), "mod2",
-    # "mod3" and "mod4" (windows-key).
-    # Xev might be helpful to find names for keys.
-
-    # Close notification.
-    close = mod4+slash
-    #close = mod4+/
-
-    # Close all notifications.
-    close_all = ctrl+mod4+shift+slash
-    #close_all = mod4+shift+/
-
-    # Redisplay last message(s).
-    # On the US keyboard layout "grave" is normally above TAB and left
-    # of "1". Make sure this key actually exists on your keyboard layout,
-    # e.g. check output of 'xmodmap -pke'
-    history = mod4+shift+slash
-    #history = mod4+\
-
-    # Context menu.
-    context = mod4+ctrl+slash
-    #context = mod4+shift+\
 
 [urgency_low]
     # IMPORTANT: colors have to be defined in quotation marks.
