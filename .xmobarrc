@@ -21,5 +21,5 @@ Config { font = "xft:monospace-10:bold,Symbola-10:bold"
                     ]
        , sepChar = "%"
        , alignSep = "}{"
-       , template = "%StdinReader% }{ %bat% : %cpu% %freq%(%freq_limit%) %temp% %fan% : %mem% %swap% : %net% (%net_segment_retransmit%) : ☀%brightness% : %volume% %jadate%"
+       , template = "%StdinReader% }{ | %bat% | %temp%%fan% | %cpu% %freq%(%freq_limit%) | %mem% %swap% | %net% (%net_segment_retransmit%) | ☀%brightness% | %volume% | %jadate%"
        }

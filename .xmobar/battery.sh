@@ -9,6 +9,7 @@ left=`echo "scale=1\n100 * $now / $full" | bc`
 if [ `echo "100 < $left" | bc` = 1 ]; then
     left="100.0"
 fi
+left=`printf "%5s" $left`
 
 status=`cat /sys/class/power_supply/$bat/status`
 
