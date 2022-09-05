@@ -386,6 +386,14 @@ systemKeys = [
   , ((mod4Mask .|. shiftMask, xK_s), spawn "sh ~/.xmonad/screenshot.sh -a")
   ]
 
+dunstKeys = [
+    ((mod4Mask, xK_slash), spawn "dunstctl close")
+  , ((mod4Mask .|. shiftMask .|. controlMask, xK_slash), spawn "dunstctl close-all")
+  , ((mod4Mask .|. shiftMask, xK_slash), spawn "dunstctl history-pop")
+  , ((mod4Mask .|. controlMask, xK_slash), spawn "dunstctl context")
+  , ((mod4Mask .|. altMask, xK_slash), spawn "dunstctl set-paused toggle")
+  ]
+
 windowKeys = L.concat $ [
   -- Emacs binding
   -- Window $ Workspace
@@ -644,6 +652,7 @@ main = do
         , XMonad.Core.workspaces = myWorkspaces
         } `additionalKeys` (L.concat $ [
           systemKeys
+        , dunstKeys
         , windowKeys
         , floatWindowKeys
         , screenKeys
@@ -710,8 +719,6 @@ main = do
         ] `removeKeys`
         [
           (mod4Mask .|. shiftMask, xK_q)
-        , (mod4Mask .|. shiftMask, xK_slash)
---        , (mod4Mask, xK_q)
         ] `additionalMouseBindings` [
           ((mod4Mask, button1), \w -> focus w >> mouseMoveWindow w)
         , ((mod4Mask .|. controlMask, button1), \w -> focus w >> MR.mouseResizeWindow w
