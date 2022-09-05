@@ -95,6 +95,7 @@ import XMonad.Util.NamedWindows
 import qualified XMonad.Util.ExtensibleState as XS
 import XMonad.Util.WindowProperties (getProp32s)
 import XMonad.Util.HandleEventHooks
+import XMonad.Util.ManageHookUtils
 
 import XMonad.Util.Performance
 import XMonad.Layout.CachedLayout
@@ -445,11 +446,11 @@ layoutKeys = [
   ]
 
 sizingKeys = [
-    ((meta,          xK_j), whenX (xnot $ locateFloat $ avoidStrutsFloat <+> onLeftTest)
+    ((meta,          xK_j), whenX (xnot $ locateFloat $ onLeft)
                               $ sendMessage Shrink)
-  , ((meta,          xK_l), whenX (xnot $ locateFloat $ avoidStrutsFloat <+> onRightTest)
+  , ((meta,          xK_l), whenX (xnot $ locateFloat $ onRight)
                               $ sendMessage Expand)
-  , ((meta,          xK_i), whenX (xnot $ locateFloat $ avoidStrutsFloat <+> onTopTest)
+  , ((meta,          xK_i), whenX (xnot $ locateFloat $ onTop)
                               $ sendMessage $ DelegateMessage $ SomeMessage Shrink)
   , ((meta,          xK_k), whenX (xnot $ locateFloat $ onBottom)
                               $ sendMessage $ DelegateMessage $ SomeMessage Expand)
@@ -704,48 +705,6 @@ isDialog = ask >>= \w -> liftX $ do
 -- XMonad utils
 ------------------------------------------------------------------------------------------
 
-
-------------------------------------------------------------------------------------------
--- ManageHook
-------------------------------------------------------------------------------------------
-strutsOffsetRatioTop = 0.02
-
-onTop = onTop' 0
-onTop' spaceRatio = onTop'' spaceRatio spaceRatio
-onTop'' spaceRatioV spaceRatioH = (customFloating $ W.RationalRect spaceRatioV (spaceRatioH + strutsOffsetRatioTop) (1-spaceRatioV*2) (0.5-spaceRatioH*2-strutsOffsetRatioTop))
-onBottom = onBottom' 0
-onBottom' spaceRatio = onBottom'' spaceRatio spaceRatio
-onBottom'' spaceRatioV spaceRatioH = (customFloating $ W.RationalRect spaceRatioV (0.5+spaceRatioH) (1-spaceRatioV*2) (0.5-spaceRatioH*2))
-onCenter = onCenter' 0
-onCenter' spaceRatio = onCenter'' spaceRatio spaceRatio
-onCenter'' spaceRatioV spaceRatioH = (customFloating $ W.RationalRect spaceRatioV (spaceRatioH + strutsOffsetRatioTop) (1-spaceRatioV*2) (1-spaceRatioH*2-strutsOffsetRatioTop))
-
-onTopTest = customFloating $ W.RationalRect 0 0 1 0.5
-
-onLeft = onLeft' 0
-onLeft' spaceRatio = onLeft'' spaceRatio spaceRatio
-onLeft'' spaceRatioV spaceRatioH = (customFloating $ W.RationalRect spaceRatioV (spaceRatioH + strutsOffsetRatioTop) (0.5-spaceRatioV*2) (1-spaceRatioH*2-strutsOffsetRatioTop))
-onLeftTest = customFloating $ W.RationalRect 0 0 0.5 1
-onRightTest = customFloating $ W.RationalRect 0.5 0 0.5 1
-
-avoidStrutsFloat = do
-  win <- ask
-  (sid, r) <- liftX $ floatLocation win
-  doF $ \ws ->
-      case L.find ((sid ==) . W.screen) $ W.screens ws of
-        Just sc ->
-          let Rectangle sx sy sw sh = screenRect $ W.screenDetail sc in
-          case M.lookup win $ W.floating ws of
-            Just (W.RationalRect x y w h) ->
-              W.float win (W.RationalRect x (y + (30/(fromIntegral sh))) w (h - (30/fromIntegral sh))) ws
---              W.float win (W.RationalRect x (y + (strutsOffsetRatioTop)) w (h - strutsOffsetRatioTop)) ws
---              ws
-            _ -> ws
-        _ -> ws
-------------------------------------------------------------------------------------------
--- ManageHook
-------------------------------------------------------------------------------------------
-
 ------------------------------------------------------------------------------------------
 -- Support for docks
 -- Desktop lowest, Docks higher than desktop but lower than other windows
@@ -795,12 +754,11 @@ jshellPath = javaHome ++ "/bin/jshell"
 myScratchpads :: [NamedScratchpad]
 myScratchpads = [
     terminalScratchpad "mainterm" Nothing $ onCenter' 0.01
-  , terminalScratchpad "term1" Nothing (avoidStrutsFloat <+> onTopTest)
+  , terminalScratchpad "term1" Nothing onTop
   , terminalScratchpad "term2" Nothing onBottom
-  , terminalScratchpad "termL" Nothing (avoidStrutsFloat <+> onLeftTest)
-  , terminalScratchpad "termR" Nothing (avoidStrutsFloat <+> onRightTest)
---  , terminalScratchpad "term2" Nothing onBottom
-  , terminalScratchpad "jshell1" (Just jshellPath) (avoidStrutsFloat <+> onTopTest)
+  , terminalScratchpad "termL" Nothing onLeft
+  , terminalScratchpad "termR" Nothing onRight
+  , terminalScratchpad "jshell1" (Just jshellPath) onTop
   , terminalScratchpad "jshell2" (Just jshellPath) onBottom
   , NS "bunnaru"
            "google-chrome --renderer-process-limit=1 --new-window --app=http://www.dmm.com/netgame/social/-/gadgets/=/app_id=798209/"
