@@ -5,7 +5,7 @@ start() {
     interval=$2
     output=$3
     while :; do
-#        echo Update $script $interval $output
+        # echo Update $script $interval $output
         $(dirname $0)/$script > $output.tmp
         mv $output.tmp $output
         sleep $interval
@@ -14,6 +14,7 @@ start() {
 
 start net_bps.sh 1 /tmp/xmobar_net_bps &
 start cpu_freq.sh 2 /tmp/xmobar_cpu_freq &
+start wip_task.sh 1 /tmp/xmobar_wip_task &
 
 while :; do
     sleep 3600

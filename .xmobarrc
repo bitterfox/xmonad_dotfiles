@@ -17,9 +17,10 @@ Config { font = "xft:monospace-10:bold,Symbola-10:bold"
                     , Run Com "sh" [".xmobar/bright_get.sh"] "brightness" 6
                     , Run Com "sh" [".xmobar/audio_get.sh"] "volume" 6
                     , Run Com "date" ["+%_m/%_d(%a) %H:%M"] "jadate" 100
+                    , Run Com "cat" ["/tmp/xmobar_wip_task"] "wip_task" 10
                     , Run StdinReader
                     ]
        , sepChar = "%"
        , alignSep = "}{"
-       , template = "%StdinReader% }{ | %bat% | %temp%%fan% | %cpu% %freq%(%freq_limit%) | %mem% %swap% | %net% (%net_segment_retransmit%) | ☀%brightness% | %volume% | %jadate%"
+       , template = "%StdinReader% }{%wip_task% | %bat% | %temp%%fan% | %cpu% %freq%(%freq_limit%) | %mem% %swap% | %net% (%net_segment_retransmit%) | ☀%brightness% | %volume% | %jadate%"
        }
