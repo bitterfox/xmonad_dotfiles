@@ -953,6 +953,11 @@ nextWS' = doOnCurrentWorkspaceFamily $ moveTo Next
 prevWS' :: X ()
 prevWS' = doOnCurrentWorkspaceFamily $ moveTo Prev
 
+compareWorkspaceAsWorkspaceFamily =
+    compareByFamilyId `andThen` compareByWorkspaceId
+                      where compareByFamilyId = comparing (toFamilyId . W.tag)
+                            compareByWorkspaceId = comparing (toWorkspaceId . W.tag)
+
 shiftToNextWS' :: X()
 shiftToNextWS' = doOnCurrentWorkspaceFamily $ shiftTo Next
 shiftToPrevWS' :: X()
@@ -1270,19 +1275,22 @@ withSelectedWindow' callback predicate conf = gridselectWindow' predicate conf >
 windowMap' :: (WindowSet -> WindowSpace -> Bool) -> X [(String,Window)]
 windowMap' predicate = do
     ws <- gets windowset
-    wins <- mapM (keyValuePair ws) (foldr (++) [] $ map (W.integrate' . W.stack) $ filter (predicate ws) $ W.workspaces ws)
+    let workspaces = L.sortBy compareWorkspaceAsWorkspaceFamily $ W.workspaces ws
+    let windows = foldr (++) [] $ map (W.integrate' . W.stack) $ filter (predicate ws) workspaces
+    maxClassLength <- fmap (foldr max 0) $ mapM (fmap length . getClass') windows
+    wins <- mapM (keyValuePair maxClassLength ws) windows
     return wins
- where keyValuePair ws w = flip (,) w `fmap` (decorateName' ws w)
+ where keyValuePair maxClassLength ws w = flip (,) w `fmap` (decorateName' maxClassLength ws w)
 
-decorateName' :: WindowSet -> Window -> X String
-decorateName' ws w = do
+decorateName' :: Int -> WindowSet -> Window -> X String
+decorateName' maxClassLength ws w = do
   name <- getName' w
   clazz <- getClass' w
   workspace <- getWorkspace' w
   let workspaces = W.workspaces ws
   let focuses = L.map W.focus $ catMaybes $ L.map (W.stack) workspaces
   let classifier = if L.elem w focuses then "* " else "  "
-  return ("[" ++ workspace ++ "] " ++ classifier ++ clazz ++ " : " ++ name)
+  return ("[" ++ workspace ++ "] " ++ classifier ++ clazz ++ (replicate (maxClassLength - (length clazz)) ' ') ++ " : " ++ name)
 
 getName' :: Window -> X String
 getName' w = withDisplay $ \d -> do
