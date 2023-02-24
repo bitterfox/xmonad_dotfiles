@@ -1973,12 +1973,14 @@ greedyViewSelectedWindowTerminalAction =
 shiftSelectedWindowTerminalAction =
   runSelectedWindowTerminalAction "shift" $ \w -> windows $ \s -> W.shiftMaster $ W.focusWindow w $ W.shiftWin (W.currentTag s) w s
 
-runSelectedWindowTerminalAction myname handler predicates =
+runSelectedWindowTerminalAction myname handler predicates = do
+    s <- gets windowset
+    let w = W.peek s
     runCyclicTerminalAction myTerminal myname $
-                            L.map (\(header, predicate) -> selectWindowTerminalAction header predicate .>> handler) predicates
+                            L.map (\(header, predicate) -> selectWindowTerminalAction w header predicate .>> handler) predicates
 
-selectWindowTerminalAction header predicate  =
-  selectWindowTerminalActionTemplate .<. ((windowMap' predicate) >>= (\l -> return $ ("0 " ++ header):(L.map (\(s, w) -> (show w) ++ " " ++ s) l)))
+selectWindowTerminalAction w header predicate  = do
+  selectWindowTerminalActionTemplate .<. ((windowMap' predicate) >>= (\l -> return $ ((maybe "0" show w) ++ " " ++ header):(L.map (\(s, w) -> (show w) ++ " " ++ s) l)))
 
 smartGreedyViewWindow = greedyViewWindow' True
 greedyViewWindow = greedyViewWindow' False
