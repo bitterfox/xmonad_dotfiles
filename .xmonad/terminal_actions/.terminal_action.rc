@@ -12,5 +12,40 @@ blue="#3BA99F"
 
 #export FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --color='bg:$white,bg+:$brightBlack,fg:$black,fg+:$white,hl:#3BA99F:underline:bold,hl+:#3BA99F:underline:bold,gutter:$white,pointer:$red,prompt:$black,spinner:$blue,border:$gray,header:#3BA99F:reverse:bold,info:$brightBlack,query:$black'"
 #export FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --color='bg:$darkWhite,bg+:$black,fg:$black,fg+:$white,hl:#3BA99F:underline:bold,hl+:#3BA99F:underline:bold,gutter:$darkWhite,pointer:$red,prompt:$black,spinner:$blue,border:$gray,header:#3BA99F:reverse:bold,info:$brightBlack,query:$black'"
-export FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --color='bg:$white,bg+:$black,fg:$black,fg+:$white,hl:#3BA99F:underline:bold,hl+:#3BA99F:underline:bold,gutter:$white,pointer:$red,prompt:$black,spinner:$blue,border:$gray,header:#3BA99F:reverse:bold,info:$brightBlack,query:$black'"
+# export FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --color='bg:$white,bg+:$black,fg:$black,fg+:$white,hl:#3BA99F:underline:bold,hl+:#3BA99F:underline:bold,gutter:$white,pointer:$red,prompt:$black,spinner:$blue,border:$gray,header:#3BA99F:reverse:bold,info:$brightBlack,query:$black'"
+# export FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS \
+# --color='\
+# bg:$white,\
+# bg+:$black,\
+# fg:$black,\
+# fg+:$white,\
+# hl:#3BA99F:underline:bold,\
+# hl+:#3BA99F:underline:bold,\
+# gutter:$white,\
+# pointer:$white:bold,\
+# prompt:$black:$gray,\
+# spinner:$blue,\
+# border:$gray,\
+# header:${black}:${gray}:bold,\
+# info:${black}:${gray},\
+# query:${black}:${gray},\
+# spinner:${blue}:${gray}' \
+# --pointer='➤'"
 
+export FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS \
+--color='\
+fg:$black,\
+hl:${blue}:underline:bold,\
+bg:$white,\
+fg+:$white,\
+hl+:${blue}:underline:bold,\
+bg+:$brightBlack,\
+gutter:$gray,\
+pointer:${black}:${gray}:bold,\
+prompt:${black}:${gray},\
+query:${black}:${gray},\
+spinner:${blue}:${gray},\
+info:${black}:${gray},\
+header:${black}:${gray}:bold,\
+border:$gray' \
+--pointer='➤' --info=inline-right"
