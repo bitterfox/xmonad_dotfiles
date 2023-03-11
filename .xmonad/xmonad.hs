@@ -96,6 +96,7 @@ import qualified XMonad.Util.ExtensibleState as XS
 import XMonad.Util.WindowProperties (getProp32s)
 import XMonad.Util.HandleEventHooks
 import XMonad.Util.ManageHookUtils
+import XMonad.Util.WorkspaceHistory
 
 import XMonad.Util.Performance
 import XMonad.Layout.CachedLayout
@@ -193,6 +194,7 @@ myLogHook xmprocs = do
     floatOnUp
     dunstLogHook
     terminalLogHook myTerminal myTerminalActions
+    workspaceHistoryLogHook 10
 
 xmobarLogHook xmprocs = withWindowSet (\s ->
     L.foldl (>>) def (map (\(i, xmproc) -> do
@@ -425,8 +427,11 @@ virtualScreenKeys = [
 layoutKeys = [
   -- Layout
     ((mod4Mask, xK_d), sendMessage NextLayout)
-  , ((mod4Mask .|. shiftMask, xK_comma ), sendMessage NewCellAtLeft)
-  , ((mod4Mask .|. shiftMask, xK_period), sendMessage NewCellAtRight)
+  , ((mod4Mask .|. shiftMask, xK_comma    ), sendMessage (IncMasterN 1))
+  , ((mod4Mask .|. shiftMask, xK_period), sendMessage (IncMasterN (-1)))
+  , ((mod4Mask .|. controlMask, xK_comma     ), sendMessage NewCellAtLeft)
+  , ((mod4Mask .|. controlMask, xK_period ), sendMessage NewCellAtRight)
+
   -- Struts
   , ((mod4Mask, xK_h), docksOnBottom >> (sendMessage ToggleStruts))
   , ((mod4Mask .|. shiftMask, xK_h), sendMessage $ XMonad.Layout.MyMultiToggle.Toggle TitleTransformer)
@@ -532,6 +537,11 @@ utilKeys = [
   , ((mod4Mask, xK_backslash), launchIntelliJTerminal intelliJTerminalEnv)
   ]
 
+workspaceHistoryKeys = [
+    ((mod4Mask, xK_comma ), undoWorkspaceHistory)
+  , ((mod4Mask, xK_period), redoWorkspaceHistory)
+  ]
+
 main = do
     -- Display
     runProcessWithInputAndWait "sh" ["-c", "sh '/home/jp21734/.xmonad/auto_detect_display.sh' >> /tmp/debug"] "" (seconds 1)
@@ -599,6 +609,7 @@ main = do
         , terminalActionKeys
         , scratchpadKeys
         , utilKeys
+        , workspaceHistoryKeys
         ]) `additionalKeys`
         [
 
