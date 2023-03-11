@@ -97,6 +97,7 @@ import XMonad.Util.WindowProperties (getProp32s)
 import XMonad.Util.HandleEventHooks
 import XMonad.Util.ManageHookUtils
 import XMonad.Util.WorkspaceHistory
+import XMonad.Util.SwitchableLogHook
 
 import XMonad.Util.Performance
 import XMonad.Layout.CachedLayout
@@ -188,7 +189,7 @@ myLayoutHookAll = avoidStruts $ WindowViewableLayout Normal (
 
 tall = Tall 1 (3/100) (1/2)
 
-myLogHook xmprocs = do
+myLogHook xmprocs = switchableLogHook $ do
     xmobarLogHook xmprocs
     checkAndHandleDisplayChange moveMouseToLastPosition
     floatOnUp
@@ -482,8 +483,8 @@ scratchpadKeys = [
   , ((mod4Mask .|. controlMask, xK_bracketright), myNamedScratchpadAction "jshell2")
 
   , ((mod4Mask .|. controlMask, xK_F7), toggleScrachpadAction $ L.reverse myScratchpads)
-  , ((mod4Mask .|. controlMask, xK_F8), showOrHideScratchpads myScratchpads True)
-  , ((mod4Mask .|. controlMask .|. shiftMask, xK_F8), showOrHideScratchpads myScratchpads False)
+  , ((mod4Mask .|. controlMask, xK_F8), withoutLogHook $ showOrHideScratchpads myScratchpads True)
+  , ((mod4Mask .|. controlMask .|. shiftMask, xK_F8), withoutLogHook $ showOrHideScratchpads myScratchpads False)
   , ((mod4Mask .|. controlMask, xK_F9), toggleScrachpadAction myScratchpads)
   ]
 
@@ -661,8 +662,8 @@ main = do
 --        , ("<XF86AudioLowerVolume>", setMute(False) >> lowerVolume 3 >> return ())
 --        , ("<XF86AudioRaiseVolume>", setMute(False) >> raiseVolume 3 >> return ())
 --        , ("<XF86AudioMute>",        setMute(False) >> setVolume 50   >> return ()) -- toggleMuteで問題がなければそうすると良いです。
-        , ("<XF86LaunchA>", showOrHideScratchpads myScratchpads False)
-        , ("<XF86LaunchB>", showOrHideScratchpads myScratchpads True)
+        , ("<XF86LaunchA>", withoutLogHook $ showOrHideScratchpads myScratchpads False)
+        , ("<XF86LaunchB>", withoutLogHook $ showOrHideScratchpads myScratchpads True)
         ] `removeKeys`
         [
           (mod4Mask .|. shiftMask, xK_q)
