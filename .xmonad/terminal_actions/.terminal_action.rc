@@ -1,5 +1,7 @@
 #!/bin/zsh
 
+source ~/.fzf.zsh
+
 black="#4E4B42"
 brightBlack="#635F54"
 gray="#B4AF9A"
