@@ -784,7 +784,7 @@ myScratchpads = [
            "rhythmbox"
            (className =? "Rhythmbox")
            onCenter
-  , terminalScratchpad "fzf_actions" (Just "\"zsh -c '. $HOME/.zshrc; _fzf_actions_then_echo | xsel -b -i'\"") $ onCenter'' 0.1 0.2
+  , terminalScratchpad "fzf_actions" (Just "\"zsh -c '. $HOME/.fzf.zsh; _fzf_actions_then_echo -n | xsel -b -i'\"") $ onCenter'' 0.1 0.2
  ]
 
 myScratchpadsManageHook = namedScratchpadManageHook myScratchpads
