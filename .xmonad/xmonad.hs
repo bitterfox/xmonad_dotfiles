@@ -59,7 +59,6 @@ import XMonad.Config.Desktop
 import XMonad.Config.Gnome
 
 import XMonad.Hooks.DynamicLog
-import XMonad.Hooks.ManageDocks
 
 import XMonad.Layout.Fullscreen
 import XMonad.Layout.Gaps
@@ -106,6 +105,9 @@ import XMonad.Layout.CachedLayout
 import XMonad.Util.MyUtils
 
 import XMonad.Util.VirtualMouse
+
+import XMonad.Util.DocksSupport
+import XMonad.Hooks.ManageDocks (avoidStruts, docksEventHook, ToggleStruts(..))
 
 black = "#4E4B42"
 brightBlack = "#635F54"
@@ -157,8 +159,7 @@ intelliJTerminalEnv =
   }
 
 myManageHookAll = manageHook gnomeConfig -- defaultConfig
-                       <+> manageDocks
-                       <+> myDocksManageHook
+                       <+> docksManageHook
                        <+> myScratchpadsManageHook
                        <+> terminalManageHook myTerminal myTerminalActions
                        <+> ((fmap (L.isSuffixOf ".onBottom") appName) --> onBottom)
@@ -291,7 +292,6 @@ myHandleEventHook =
 myStartupHook =
     startupHook gnomeConfig <+>
     docksStartupHook <+>
-    myDocksStartupHook <+>
     configureMouse <+>
     myrescreen priorityDisplayEDIDs <+>
     grabMetaKey [xK_Super_L, xK_Super_R]
@@ -321,7 +321,6 @@ systemKeys = [
                          refresh
                          myrescreen priorityDisplayEDIDs
                          docksStartupHook
-                         myDocksStartupHook
                          resetVirtualScreens
                          viewScreen sid) -- rescreen >>
   -- Screenshot
@@ -723,46 +722,6 @@ isDialog = ask >>= \w -> liftX $ do
     _       -> return False
 ------------------------------------------------------------------------------------------
 -- XMonad utils
-------------------------------------------------------------------------------------------
-
-------------------------------------------------------------------------------------------
--- Support for docks
--- Desktop lowest, Docks higher than desktop but lower than other windows
-------------------------------------------------------------------------------------------
-myDocksStartupHook = docksOnBottom
-
-myDocksManageHook = checkDock --> (liftX docksOnBottom >> mempty)
-
-docksOnBottom = withDisplay $ \dpy -> do
-    rootw <- asks theRoot
-    (_,_,wins) <- io $ queryTree dpy rootw
-    docks <- filterM (runQuery checkDockOnly) wins
-    desks <- filterM (runQuery $ checkDesktopOnly <&&> checkBackgroundDesktop) wins
---    forM (docks ++ desks) $ \win -> do
---      name <- runQuery className win
---      withWindowAttributes dpy win $ \(WindowAttributes {wa_x = x, wa_y = y, wa_width = w, wa_height = h}) -> do
---        (_, p, cs) <- io $ queryTree dpy win
---        let s = (show x) ++ "," ++ (show y) ++ "," ++ (show w) ++ "," ++ (show h)
---        pn <- runQuery className p
---        spawn $ "echo '" ++ ((show p) ++ "," ++ (show pn)) ++ " -> " ++ (show win) ++ ":" ++ (show name) ++ "," ++ s ++ (" -> " ++ (show cs)) ++ "' >> /tmp/xmonad.debug.docks"
-    io $ L.foldr (>>) (return ()) $ L.map (lowerWindow dpy) $ L.reverse docks
-    io $ L.foldr (>>) (return ()) $ L.map (lowerWindow dpy) $ L.reverse desks
-
-checkDockOnly = ask >>= \w -> liftX $ do
-  dock <- getAtom "_NET_WM_WINDOW_TYPE_DOCK"
-  mbr <- getProp32s "_NET_WM_WINDOW_TYPE" w
-  case mbr of
-    Just rs -> return $ any (== dock) (map fromIntegral rs)
-    _       -> return False
-checkDesktopOnly = ask >>= \w -> liftX $ do
-  desk <- getAtom "_NET_WM_WINDOW_TYPE_DESKTOP"
-  mbr <- getProp32s "_NET_WM_WINDOW_TYPE" w
-  case mbr of
-    Just rs -> return $ any (== desk) (map fromIntegral rs)
-    _       -> return False
-checkBackgroundDesktop = className =? "Nautilus"
-------------------------------------------------------------------------------------------
--- Support for docks
 ------------------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------------------
