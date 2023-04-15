@@ -105,6 +105,8 @@ import XMonad.Layout.CachedLayout
 
 import XMonad.Util.MyUtils
 
+import XMonad.Util.VirtualMouse
+
 black = "#4E4B42"
 brightBlack = "#635F54"
 gray = "#B4AF9A"
@@ -195,7 +197,7 @@ tall = Tall 1 (3/100) (1/2)
 
 myLogHook xmprocs = switchableLogHook $ do
     measure "xmobarLogHook" $ xmobarLogHook xmprocs
-    measure "checkAndHandleDisplayChange" $ handleScreenChange moveMouseToLastPosition
+    measure "checkAndHandleDisplayChange" $ handleScreenChange moveScreenMouseToLastPosition
     measure "floatOnUp" $ floatOnUp
     measure "terminalLogHook" $ terminalLogHook myTerminal myTerminalActions
     measure "workspaceHistoryLogHook" $ workspaceHistoryLogHook 10
@@ -233,9 +235,7 @@ myHandleEventHook =
               -- return (All True)) <+>
 --    measureEventHook "handleEventHook-gnomeConfig" (handleEventHook gnomeConfig) <+>
     measureEventHook "docksEventHook" docksEventHook <+>
-    measureEventHook "logCurrentMouseLocation" (\e -> do
-             logCurrentMouseLocation
-             return (All True)) <+>
+    measureEventHook "loggingCurrentScreenMousePositionEventHook" loggingCurrentScreenMousePositionEventHook <+>
     measureEventHook "myScratchpadsHandleEventHook" myScratchpadsHandleEventHook <+>
     measureEventHook "myTerminalActionHandleEventHook" myTerminalActionHandleEventHook <+>
     measureEventHook "eventhook1" (\e ->
@@ -409,11 +409,11 @@ floatWindowKeys = [
 
 screenKeys = L.concat $ [
     bindKeys [(meta .|. alt, xK_p)
-             ,(meta .|. shft, xK_space)] $ prevVirtualScreen >> moveMouseToLastPosition
+             ,(meta .|. shft, xK_space)] $ prevVirtualScreen
   , bindKeys [(meta .|. alt, xK_n)
-             ,(meta, xK_space)] $ nextVirtualScreen >> moveMouseToLastPosition
-  , bindKey (meta .|. shft .|. alt) xK_p $ shiftPrevRootScreen >> prevVirtualScreen >> moveMouseToLastPosition
-  , bindKey (meta .|. shft .|. alt) xK_n $ shiftNextRootScreen >> nextVirtualScreen >> moveMouseToLastPosition
+             ,(meta, xK_space)] $ nextVirtualScreen
+  , bindKey (meta .|. shft .|. alt) xK_p $ shiftPrevRootScreen >> prevVirtualScreen
+  , bindKey (meta .|. shft .|. alt) xK_n $ shiftNextRootScreen >> nextVirtualScreen
   -- M+Alt 1~0: View screen
   -- M+Alt+Ctrl 1~0: Greedy view to screen
   -- M+Alt+Shift 1~0: Shift to screen
@@ -1114,15 +1114,12 @@ fallbackIfNoScreen f windowSet screenId =
 
 viewToScreen screenId = do
     withWindowSet $ \s -> caseMaybeJust (L.find (\sc -> (W.screen sc) == S (screenId - 1)) $ W.screens s) $ windows . W.view . W.tag . W.workspace
-    moveMouseToLastPosition
 
 greedyViewToScreen screenId = do
     withWindowSet $ \s -> caseMaybeJust (L.find (\sc -> (W.screen sc) == S (screenId - 1)) $ W.screens s) $ windows . W.greedyView . W.tag . W.workspace
-    moveMouseToLastPosition
 
 shiftToScreen screenId = do
     withWindowSet $ \s -> caseMaybeJust (L.find (\sc -> (W.screen sc) == S (screenId - 1)) $ W.screens s) $ windows . W.shift . W.tag . W.workspace
-    moveMouseToLastPosition
 
 ------------------------------------------------------------------------------------------
 -- Workspaces
@@ -1131,55 +1128,7 @@ shiftToScreen screenId = do
 ------------------------------------------------------------------------------------------
 -- MousePosition
 ------------------------------------------------------------------------------------------
-data MousePositionMap = MousePositionMap (M.Map ScreenId (Position, Position)) deriving Typeable
-instance ExtensionClass MousePositionMap where
-  initialValue = MousePositionMap M.empty
-data MousePosition = MousePosition (Maybe (Position, Position)) deriving Typeable
-instance ExtensionClass MousePosition where
-  initialValue = MousePosition Nothing
-logCurrentMouseLocation :: X ()
-logCurrentMouseLocation = withWindowSet $ \ws -> do
-  MousePosition maybeLastMousePosition <- XS.get
-  xconf <- ask
-  let maybeMousePos = mousePosition xconf
-  ifX (maybeLastMousePosition /= maybeMousePos) $ do
-    MousePositionMap lastMousePositions <- XS.get
-    whenJust maybeMousePos $ \(x, y) -> do
-      maybeScreen <- pointScreen x y
-      whenJust (mfilter ((W.screen $ W.current ws) ==) $ fmap W.screen maybeScreen) $ \s -> do
-        XS.put $ MousePositionMap $ M.insert s (x, y) lastMousePositions
-        XS.put $ MousePosition $ maybeMousePos
-
-moveMouseToLastPosition :: X ()
-moveMouseToLastPosition =
-  whenX (isNothing <$> dragging <$> get) $
-    withWindowSet $ \ws -> do
-      let rect = screenRect $ W.screenDetail $ W.current ws
-      maybeMousePos <- mousePosition <$> ask
-      case maybeMousePos of
-        Just (x, y) -> ifX (not $ pointWithin x y rect) $ moveMouseToLastPosition' ws
-        _ -> moveMouseToLastPosition' ws
-moveMouseToLastPosition' ws = do
-  MousePositionMap lastMousePositions <- XS.get
-  let s = W.current ws
-  let (x, y) = case M.lookup (W.screen s) lastMousePositions of
-                 Just (x, y) -> (x, y)
-                 Nothing -> do
-                   let sd = W.screenDetail s
-                   let rect = screenRect sd
-                   let x = truncate $ (fromIntegral $ rect_x rect) + (fromIntegral $ rect_width rect) / 2
-                   let y = truncate $ (fromIntegral $ rect_y rect) + (fromIntegral $ rect_height rect) / 2
-                   (x, y)
-  moveMouseTo x y
---        setMouseSpeedForScreen $ fromIntegral $ W.screen s
-
-moveMouseTo x y = do
-  rootw <- asks theRoot
-  withDisplay $ \d ->
-    io $ warpPointer d none rootw 0 0 0 0 (fromIntegral x) (fromIntegral y)
-
 configureMouse = do
-  moveMouseToLastPosition
   setMouseSpeedForScreen 0
   runProcessWithInputAndWait "sh" ["-c", "xinput --set-prop " ++ mouseDeviceId ++ " 'libinput Natural Scrolling Enabled' 1"] "" (seconds 1) -- Enable Natural scrooling
   runProcessWithInputAndWait "sh" ["-c", "xinput --set-prop " ++ mouseDeviceId ++ " 'libinput Click Method Enabled' 0 1"] "" (seconds 1) -- Right click on 2 fingure click
