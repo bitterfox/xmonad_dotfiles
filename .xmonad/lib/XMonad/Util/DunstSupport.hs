@@ -1,44 +1,56 @@
 
 module XMonad.Util.DunstSupport (
-  dunstLogHook
+  dunstEventHook
 ) where
 
+import Data.Monoid
 import qualified Data.List as L
 import Foreign.C.Types
 import Graphics.X11.Xlib
 
 import XMonad
+import qualified XMonad.Util.ExtensibleState as XS
 
 ------------------------------------------------------------------------------------------
 -- Support for notification (_NET_WM_STATE = _NET_WM_STATE_ABOVE) to be always on top
 ------------------------------------------------------------------------------------------
-dunstLogHook = aboveStateWindowsOnTop
+data AboveStateWindows = AboveStateWindows [Window] deriving Typeable
+instance ExtensionClass AboveStateWindows where
+  initialValue = AboveStateWindows []
 
-aboveStateWindowsOnTop = do
-    rw <- asks theRoot
-    dpy <- asks display
-    (_, _, windows) <- io $ queryTree dpy rw
-    windowsWithWmState <- windowsWithWmState dpy windows
-    atom_NET_WM_STATE_ABOVE <- getAtom "_NET_WM_STATE_ABOVE"
-    let aboveStateWindows = L.filter (L.elem atom_NET_WM_STATE_ABOVE . snd) windowsWithWmState
---    let aboveWindows = L.filter (L.elem  . snd) windowsWithWmState
---    io $ appendFile "/tmp/xmonad.debug.dunst" $ (show aboveStateWindows) ++ "\n"
-    io $ L.foldr (>>) (return ()) $ L.map (raiseWindow dpy . fst) aboveStateWindows
+dunstEventHook = aboveStateWindowsOnTop
+aboveStateWindowsOnTop e = do
+  case e of
+    (MapNotifyEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_override_redirect) -> do
+      AboveStateWindows windows <- XS.get
+      if L.notElem ev_window windows then do
+        atom_NET_WM_STATE_ABOVE <- getAtom "_NET_WM_STATE_ABOVE"
+        wmstates <- getWmState ev_event_display ev_window
+        if L.elem atom_NET_WM_STATE_ABOVE wmstates then do
+          XS.put $ AboveStateWindows $ ev_window:windows
+--          spawn $ "echo 'Map ABOVE " ++ (show ev_window) ++ ", " ++ (show windows) ++ "' >> /tmp/xmonad.debug.dunst"
+          return (All True)
+        else do
+          io $ L.foldr (>>) (return ()) $ L.map (raiseWindow ev_event_display) windows
+--          spawn $ "echo 'Map " ++ (show ev_window) ++ ", " ++ (show windows) ++ "' >> /tmp/xmonad.debug.dunst"
+          return (All True)
+      else return (All True)
+    (UnmapEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_from_configure) -> do
+      AboveStateWindows windows <- XS.get
+      if L.elem ev_window windows then do
+        XS.put $ AboveStateWindows $ L.delete ev_window windows
+--      spawn $ "echo 'Unmap ABOVE " ++ (show ev_window) ++ ", " ++ (show ev_parent) ++ "' >> /tmp/xmonad.debug.dunst"
+        return (All True)
+      else return (All True)
+    _ -> return (All True)
 
-windowsWithWmState dpy ws = do
+getWmState dpy w = do
   atom <- getAtom "_NET_WM_STATE"
-  windowsWithWmState' atom dpy ws
-
-windowsWithWmState' atom dpy (w:ws) = do
   mp <- io $ getWindowProperty32 dpy atom w
-  r <- windowsWithWmState' atom dpy ws
   io $ case mp of
     Just p -> do
-      return $ (w, L.map (\(CLong n) -> fromIntegral n :: Atom) p):r
---            name <- getAtomNames dpy $ L.map (\(CLong n) -> fromIntegral n) p
---            return $ (w, name):r
-    Nothing -> return r
-windowsWithWmState' atom dpy [] = return []
+      return $ L.map (\(CLong n) -> fromIntegral n :: Atom) p
+    Nothing -> return []
 ------------------------------------------------------------------------------------------
 -- Support for notification (_NET_WM_STATE = _NET_WM_STATE_ABOVE) to be always on top
 ------------------------------------------------------------------------------------------

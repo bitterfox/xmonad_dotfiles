@@ -172,7 +172,8 @@ myManageHookAll = manageHook gnomeConfig -- defaultConfig
 --  spawn $ "xprop -id " ++ (show w) ++ "' >> /tmp/xmonad.managehook.debug"
 --  return $ Endo $ \a -> a
 
-myLayout = measureLayoutHook "myLayout" $ compositeTall (3/100) wide
+-- myLayout = measureLayoutHook "myLayout" $ compositeTall (3/100) wide
+myLayout = compositeTall (3/100) wide
   where wide = simpleWide (3/100)
 --myLayout = (ResizableTall 1 (3/100) (1/2) [])
 myLayoutHookAll = avoidStruts $ WindowViewableLayout Normal (
@@ -190,12 +191,11 @@ myLayoutHookAll = avoidStruts $ WindowViewableLayout Normal (
 tall = Tall 1 (3/100) (1/2)
 
 myLogHook xmprocs = switchableLogHook $ do
-    xmobarLogHook xmprocs
-    checkAndHandleDisplayChange moveMouseToLastPosition
-    floatOnUp
-    dunstLogHook
-    terminalLogHook myTerminal myTerminalActions
-    workspaceHistoryLogHook 10
+    measure "xmobarLogHook" $ xmobarLogHook xmprocs
+    measure "checkAndHandleDisplayChange" $ checkAndHandleDisplayChange moveMouseToLastPosition
+    measure "floatOnUp" $ floatOnUp
+    measure "terminalLogHook" $ terminalLogHook myTerminal myTerminalActions
+    measure "workspaceHistoryLogHook" $ workspaceHistoryLogHook 10
 
 xmobarLogHook xmprocs = withWindowSet (\s ->
     L.foldl (>>) def (map (\(i, xmproc) -> do
@@ -228,14 +228,14 @@ myHandleEventHook =
                 -- return (All False)
          -- _ -> do
               -- return (All True)) <+>
-    handleEventHook gnomeConfig <+>
-    docksEventHook <+>
-    (\e -> do
+--    measureEventHook "handleEventHook-gnomeConfig" (handleEventHook gnomeConfig) <+>
+    measureEventHook "docksEventHook" docksEventHook <+>
+    measureEventHook "logCurrentMouseLocation" (\e -> do
              logCurrentMouseLocation
              return (All True)) <+>
-    myScratchpadsHandleEventHook <+>
-    myTerminalActionHandleEventHook <+>
-    (\e ->
+    measureEventHook "myScratchpadsHandleEventHook" myScratchpadsHandleEventHook <+>
+    measureEventHook "myTerminalActionHandleEventHook" myTerminalActionHandleEventHook <+>
+    measureEventHook "eventhook1" (\e ->
       case e of
         (ConfigureRequestEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_x ev_y ev_width ev_height ev_border_width ev_above ev_detail ev_value_mask) -> do
 --             n <- runQuery className ev_window
@@ -246,7 +246,9 @@ myHandleEventHook =
 --                 n <- runQuery title win
 --                 spawn $ "echo '" ++ n ++ ":" ++ (show rect) ++ "' >> /tmp/xmonad.debug.event"
 --             spawn $ "echo '' >> /tmp/xmonad.debug.event"
-             ifX (testBit ev_value_mask 6) $ windows (\s -> W.focusWindow ev_window s)
+
+-- Performance
+--             ifX (testBit ev_value_mask 6) $ windows (\s -> W.focusWindow ev_window s)
              return (All True)
         _ -> return (All True)) <+>
     --(\e -> do
@@ -277,10 +279,11 @@ myHandleEventHook =
 --               withWindowSet (\ws -> spawn $ "echo '" ++ (show $ W.current ws) ++ "' >> /tmp/xmonad.debug.event")
 --               spawn $ "echo '" ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
 --               return (All True)) <+>
-    (keepWindowSizeHandleEventHook $ stringProperty "WM_WINDOW_ROLE" =? "GtkFileChooserDialog") <+>
-    (keepWindowSizeHandleEventHook $ (isDialog <&&> (className =? "Gimp"))) <+>
-    fullScreenEventHook <+>
-    handleMetaMeta [xK_Super_L, xK_Super_R] 300 (myNamedScratchpadAction "fzf_actions")
+    measureEventHook "keepWindowSizeHandleEventHook-file" (keepWindowSizeHandleEventHook $ stringProperty "WM_WINDOW_ROLE" =? "GtkFileChooserDialog") <+>
+    measureEventHook "keepWindowSizeHandleEventHook-gimp" (keepWindowSizeHandleEventHook $ (isDialog <&&> (className =? "Gimp"))) <+>
+    measureEventHook "fullScreenEventHook" fullScreenEventHook <+>
+    measureEventHook "handleMetaMeta" (handleMetaMeta [xK_Super_L, xK_Super_R] 300 (myNamedScratchpadAction "fzf_actions")) <+>
+    measureEventHook "dunstEventHook" dunstEventHook
 
 myStartupHook =
     startupHook gnomeConfig <+>
@@ -323,6 +326,11 @@ systemKeys = [
 --         , ((controlMask, xK_Print), spawn "gnome-screenshot -c")
   , ((mod4Mask, xK_s), spawn "sh ~/.xmonad/screenshot.sh")
   , ((mod4Mask .|. shiftMask, xK_s), spawn "sh ~/.xmonad/screenshot.sh -a")
+
+  -- Performance
+  , ((mod4Mask, xK_a), do
+       durations <- getDurations
+       spawn $ "echo '" ++ (show durations) ++ "' >> /tmp/xmonad.perf")
   ]
 
 dunstKeys = [
@@ -585,8 +593,8 @@ main = do
 --    spawn $ "echo '" ++ (show $ mkToggleInitial (single TitleTransformer) TitleTransformer $ myLayout) ++ "' >> /tmp/xmonad.debug.layout"
     xmonad $ gnomeConfig
         { manageHook = myManageHookAll
---        , layoutHook =  myLayoutHookAll
-        , layoutHook =  measureLayoutHook "layoutHook" $ myLayoutHookAll
+--        , layoutHook =  measureLayoutHook "layoutHook" $ myLayoutHookAll
+        , layoutHook =  myLayoutHookAll
         , logHook = measure "logHook" $ myLogHook xmprocs
         , handleEventHook = \e -> measure "handleEventHook" $ myHandleEventHook e
         , startupHook = myStartupHook
