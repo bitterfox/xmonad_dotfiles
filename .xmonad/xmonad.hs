@@ -98,9 +98,12 @@ import XMonad.Util.HandleEventHooks
 import XMonad.Util.ManageHookUtils
 import XMonad.Util.WorkspaceHistory
 import XMonad.Util.SwitchableLogHook
+import XMonad.Util.HandleScreenChange
 
 import XMonad.Util.Performance
 import XMonad.Layout.CachedLayout
+
+import XMonad.Util.MyUtils
 
 black = "#4E4B42"
 brightBlack = "#635F54"
@@ -192,7 +195,7 @@ tall = Tall 1 (3/100) (1/2)
 
 myLogHook xmprocs = switchableLogHook $ do
     measure "xmobarLogHook" $ xmobarLogHook xmprocs
-    measure "checkAndHandleDisplayChange" $ checkAndHandleDisplayChange moveMouseToLastPosition
+    measure "checkAndHandleDisplayChange" $ handleScreenChange moveMouseToLastPosition
     measure "floatOnUp" $ floatOnUp
     measure "terminalLogHook" $ terminalLogHook myTerminal myTerminalActions
     measure "workspaceHistoryLogHook" $ workspaceHistoryLogHook 10
@@ -700,9 +703,6 @@ main = do
 -- | Modify the @WindowSet@ in state with no special handling.
 --modifyWindowSet :: (WindowSet -> WindowSet) -> X ()
 --modifyWindowSet f = modify $ \xst -> xst { windowset = f (windowset xst) }
-
-ifX :: Bool -> X() -> X()
-ifX cond whenTrue = if cond then whenTrue else return ()
 
 xnot :: X Bool -> X Bool
 xnot x = not <$> x
@@ -1465,22 +1465,6 @@ originalScreenIdToCurrentScreenId priorityDisplayEDIDs = do
 
 indexed l = L.zip [0..(L.length l)] l
 
-data LastScreenId = LastScreenId (Maybe ScreenId) deriving Typeable
-instance ExtensionClass LastScreenId where
-  initialValue = LastScreenId Nothing
-
-checkAndHandleDisplayChange action =
-    withWindowSet (\s -> do
-      LastScreenId maybeScreenId <- XS.get
-      case maybeScreenId of
-        Just screenId ->
-          ifX ((W.screen $ W.current s) /= screenId) $ do
-            XS.put $ LastScreenId $ Just $ W.screen $ W.current s
-            action
-        Nothing ->
-            (XS.put $ LastScreenId $ Just $ W.screen $ W.current s) >>
-            action
-    )
 
 -- | The 'LayoutClass' instance for a 'ModifiedLayout' defines the
 --   semantics of a 'LayoutModifier' applied to an underlying layout.
