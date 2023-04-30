@@ -2,6 +2,7 @@
 module XMonad.Util.VirtualMouse (
   loggingCurrentScreenMousePositionEventHook,
   logCurrentScreenMousePosition,
+  queryPointerAndLogCurrentScreenMousePosition,
   moveScreenMouseToLastPosition,
   getVirtualMousePosition,
   setVirtualMousePosition,
@@ -38,19 +39,33 @@ instance ExtensionClass CurrentVirtualMouse where
 screenIdToMouseId = show
 
 loggingCurrentScreenMousePositionEventHook e = do
-  logCurrentScreenMousePosition
+  logCurrentScreenMousePosition False False
   return (All True)
 
-logCurrentScreenMousePosition :: X ()
-logCurrentScreenMousePosition = withWindowSet $ \ws -> do
+logCurrentScreenMousePosition :: Bool -> Bool -> X ()
+logCurrentScreenMousePosition force fallback = withWindowSet $ \ws -> do
   MousePosition maybeLastMousePosition <- XS.get
   xconf <- ask
   let maybeMousePos = mousePosition xconf
-  ifX (maybeLastMousePosition /= maybeMousePos) $ do
-    MousePositionMap lastMousePositions <- XS.get
+  if maybeMousePos == Nothing && fallback then
+      queryPointerAndLogCurrentScreenMousePosition force
+  else ifX (maybeLastMousePosition /= maybeMousePos) $
+    logCurrentScreenMousePosition' force ws maybeMousePos
+
+queryPointerAndLogCurrentScreenMousePosition force = withWindowSet $ \ws -> do
+  MousePosition maybeLastMousePosition <- XS.get
+  xconf <- ask
+  (ok, _, _, x, y, _, _, _) <- io $ queryPointer (display xconf) (theRoot xconf)
+  ifX ok $
+    logCurrentScreenMousePosition' force ws $ Just (fromIntegral x, fromIntegral y)
+
+logCurrentScreenMousePosition' force ws maybeMousePos =
     whenJust maybeMousePos $ \(x, y) -> do
       maybeScreen <- pointScreen x y
-      whenJust (mfilter ((W.screen $ W.current ws) ==) $ fmap W.screen maybeScreen) $ \s -> do
+      if force then whenJust (W.screen <$> maybeScreen) $ \s -> do
+        setVirtualMousePosition (screenIdToMouseId s) (x, y)
+        XS.put $ MousePosition $ maybeMousePos
+      else whenJust (mfilter ((W.screen $ W.current ws) ==) $ fmap W.screen maybeScreen) $ \s -> do
         setVirtualMousePosition (screenIdToMouseId s) (x, y)
         XS.put $ MousePosition $ maybeMousePos
 
@@ -66,6 +81,7 @@ moveScreenMouseToLastPosition =
 moveScreenMouseToLastPosition' ws = do
   let s = W.current ws
   let mid = screenIdToMouseId $ W.screen s
+  logCurrentScreenMousePosition True True
   changeCurrentVirtualMouse mid $ centerOfScreen s
 
 centerOfScreen s = do
