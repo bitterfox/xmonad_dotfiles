@@ -237,6 +237,16 @@ myHandleEventHook =
          -- _ -> do
               -- return (All True)) <+>
 --    measureEventHook "handleEventHook-gnomeConfig" (handleEventHook gnomeConfig) <+>
+    (\e ->
+         case e of
+           (ClientMessageEvent{ev_window = w, ev_message_type = mt, ev_data = d}) -> do
+             withWindowSet $ \s -> do
+               a_aw <- getAtom "_NET_ACTIVE_WINDOW"
+               if mt == a_aw && (head d) /= 2 && W.peek s /= Just w then do
+                   smartGreedyViewWindow w
+               else return ()
+             return (All True)
+           _ -> return (All True)) <+>
     measureEventHook "docksEventHook" docksEventHook <+>
     measureEventHook "loggingCurrentScreenMousePositionEventHook" loggingCurrentScreenMousePositionEventHook <+>
     measureEventHook "myScratchpadsHandleEventHook" myScratchpadsHandleEventHook <+>
