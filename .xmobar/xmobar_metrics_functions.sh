@@ -53,18 +53,9 @@ battery() {
 }
 
 cpu_util() {
-    shmid_output="/tmp/xmobar_cpu_util_last.shmid"
-
-    if [ -f "$shmid_output" ]; then
-        id=`cat $shmid_output`
-    else
-        id=`/home/jp21734/git-repos/github.com/bitterfox/ssmcli/ssmcli_new 1024`
-        echo "$id" > $shmid_output
-    fi
-
-    last_info=`/home/jp21734/git-repos/github.com/bitterfox/ssmcli/ssmcli_get $id`
+    last_info=`cat /tmp/xmobar_cpu_util_last`
     cur_info=`cat /proc/stat | head -n 1`
-    /home/jp21734/git-repos/github.com/bitterfox/ssmcli/ssmcli_set $id "$cur_info"
+    echo $cur_info > /tmp/xmobar_cpu_util_last
 
     if [ -z "$last_info" ]; then
         percent="0"
