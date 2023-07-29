@@ -1,6 +1,9 @@
 #!/bin/bash
 export DISPLAY=:0
 
+BITTER_FOX_WMB_SLEEP_ON="${BITTER_FOX_WMB_SLEEP_ON:-3}"
+BITTER_FOX_WMB_SLEEP_OFF="${BITTER_FOX_WMB_SLEEP_ON:-1}"
+
 /usr/bin/xhost +SI:localuser:root
 
 basedir=$(dirname $0)
@@ -9,14 +12,20 @@ $basedir/set.sh `$basedir/get_current.sh`
 
 while :; do
     # Wait monitor off
-    echo "Wait monitor off"
+    if [ -n "$BITTER_FOX_WMB_DEBUG" ]; then
+        echo "Wait monitor off"
+    fi
     while :; do
         stat=`xset q | grep Monitor`
-        echo $stat
+        if [ -n "$BITTER_FOX_WMB_DEBUG" ]; then
+            echo $stat
+        fi
         # Monitor is On/Off
         if [[ "$stat" == *"Monitor is On"* ]]; then
-            echo "sleep 3"
-            sleep 3
+            if [ -n "$BITTER_FOX_WMB_DEBUG" ]; then
+                echo "sleep $BITTER_FOX_WMB_SLEEP_ON"
+            fi
+            sleep $BITTER_FOX_WMB_SLEEP_ON
         else
             break
         fi
@@ -31,8 +40,10 @@ while :; do
         if [[ "$stat" == *"Monitor is On"* ]]; then
             break
         else
-            echo "sleep 1"
-            sleep 1
+            if [ -n "$BITTER_FOX_WMB_DEBUG" ]; then
+                echo "sleep $BITTER_FOX_WMB_SLEEP_OFF"
+            fi
+            sleep $BITTER_FOX_WMB_SLEEP_OFF
         fi
     done
 
