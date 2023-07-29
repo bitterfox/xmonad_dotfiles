@@ -1,42 +1,47 @@
-#!/bin/sh
+#!/bin/bash
 . $(dirname $0)/color.sh
 
 bat="BAT0"
+bat_info=`cat /sys/class/power_supply/$bat/charge_now /sys/class/power_supply/$bat/charge_full /sys/class/power_supply/$bat/status /sys/class/power_supply/$bat/current_now | xargs`
+set -- $bat_info
+now=$1
+full=$2
+status=$3
+wat=$4
 
-now=`cat /sys/class/power_supply/$bat/charge_now`
-full=`cat /sys/class/power_supply/$bat/charge_full`
-
-left=`echo "scale=1\n100 * $now / $full" | bc`
-if [ `echo "100 < $left" | bc` = 1 ]; then
-    left="100.0"
+left="$((1000 * $now / $full))"
+if [[ "$left" -gt 1000 ]]; then
+    left="1000"
 fi
-left=`printf "%5s" $left`
+left_1=$((left/10))
+left_2=$((left-left_1*10))
 
-status=`cat /sys/class/power_supply/$bat/status`
-
-wat=`cat /sys/class/power_supply/$bat/current_now`
 if [ "$status" = "Charging" ]; then
-    time=`echo "scale=2\n($full - $now) / $wat" | bc | xargs printf "%1.2f"`
+    time="$(((full - now) * 100 / wat))"
 elif [ "$status" = "Discharging" ]; then
-    time=`echo "scale=2\n$now / $wat" | bc | xargs printf "%1.2f"`
+    #time=`echo "scale=2; $now / $wat" | bc | xargs printf "%1.2f"`
+    time="$((now * 100 / wat))"
 else
-    time="0.0"
+    time="0"
 fi
-time_hour=${time%.*}
-time_min=`echo "($time - $time_hour) * 60"| bc`
-time_min=${time_min%.*}
-time_text=`printf "%02d:%02d" $time_hour $time_min`
+if [ "$time" = "0" ]; then
+    time_hour=0
+    time_min=0
+else
+    time_hour=$((time/100))
+    time_min=$(((time - time_hour*100) * 60 / 100))
+fi
 
-text="🔋$left%($time_text)"
+text=`printf "🔋%3d.%d%%(%02d:%02d)" $left_1 $left_2 $time_hour $time_min`
 
 if [ "$status" = "Charging" ]; then
-    if [ `echo "$left >= 95" | bc` = 1 ]; then
+    if [[ "$left_1" -ge 95 ]]; then
         ok
     fi
 elif [ "$status" = "Full" ]; then
     ok
 else
-    if [ `echo "$left <= 15" | bc` = 1 ]; then
+    if [[ "$left_1" -le 15 ]]; then
         emergency
     fi
 fi
