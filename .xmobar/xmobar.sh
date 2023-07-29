@@ -1,23 +1,24 @@
 #!/bin/bash
 
 basedir=$(dirname $0)
+. $basedir/xmobar_metrics_functions.sh
 
 start=`date +%s%N`
 
-battery=`$basedir/battery.sh`
-cpu_util=`$basedir/cpu_util.sh`
-cpu_freq=`$basedir/cpu_freq.sh`
-net=`$basedir/net_bps.sh`
-wip_task=`$basedir/wip_task.sh`
+battery=`battery`
+cpu_util=`cpu_util`
+cpu_freq=`cpu_freq`
+net=`net_bps`
+wip_task=`wip_task`
 
-cpu_freq_limit=`$basedir/cpu_freq_limit.sh`
-cpu_temp=`$basedir/cpu_temp.sh`
-fan_speed=`$basedir/fan_speed.sh`
-mem=`$basedir/memory.sh Mem 🍫`
-swap=`$basedir/memory.sh Mem 🔃`
-net_segment_retransmit=`$basedir/net_segment_retransmit.sh`
-brightness=`$basedir/bright_get.sh`
-volume=`$basedir/audio_get.sh`
+cpu_freq_limit=`cpu_freq_limit`
+cpu_temp=`cpu_temp`
+fan_speed=`fan_speed`
+mem=`memory Mem 🍫`
+swap=`memory Mem 🔃`
+net_segment_retransmit=`net_segment_retransmit`
+brightness=`brightness`
+volume=`volume`
 jadate=`date "+%_m/%_d(%a) %H:%M"`
 
 end=`date +%s%N`
