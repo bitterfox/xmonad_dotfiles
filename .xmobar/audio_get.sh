@@ -1,13 +1,23 @@
-#!/bin/sh
+#!/bin/bash
 
 . $(dirname $0)/color.sh
 
 info=`pacmd list-sinks | grep -e index -e "^\s*volume:" -e muted -e name: | grep -A3 '\*'`
 
-name=`echo "$info" | grep name: | sed -r "s/.*<([^>]+)>/\1/"`
-isMute=`echo "$info" | grep muted | awk '{print $2}'`
-volume_left=`echo "$info" | grep volume | sed -r "s/.*(left[^,]+,).*/\1/" | sed -r "s/.*[^0-9]([0-9]+%).*/\1/"`
-volume_right=`echo "$info" | grep volume | sed -r "s/.*(right.*)/\1/" | sed -r "s/.*[^0-9]([0-9]+%).*/\1/"`
+name=""
+isMute=""
+volume_left=""
+volume_right=""
+{
+    read line # index
+    read line # name
+    name=`sed -r "s/.*<([^>]+)>/\1/" <<< "$line"`
+    read line # volume
+    volume_left=`awk -F, '{print $1}' <<< "$line" | awk -F/ '{print $2}'`
+    volume_right=`awk -F, '{print $2}' <<< "$line" | awk -F/ '{print $2}'`
+    read line # muted
+    isMute=`awk '{print $2}' <<< "$line"`
+} <<< "$info"
 
 if [ "$volume_left" = "$volume_right" ]; then
     volume_text=`printf "%4s" $volume_left`
