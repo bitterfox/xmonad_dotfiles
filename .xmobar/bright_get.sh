@@ -1,3 +1,4 @@
+#!/bin/sh
 . $(dirname $0)/color.sh
 
 #current=`pkexec /usr/lib/gnome-settings-daemon/gsd-backlight-helper --get-brightness`

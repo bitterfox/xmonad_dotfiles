@@ -2,12 +2,19 @@
 
 . $(dirname $0)/color.sh
 
+shmid_output="/tmp/xmobar_net_bps_util_last.shmid"
+
+if [ -f "$shmid_output" ]; then
+    id=`cat $shmid_output`
+else
+    id=`/home/jp21734/git-repos/github.com/bitterfox/ssmcli/ssmcli_new 1024`
+    /home/jp21734/git-repos/github.com/bitterfox/ssmcli/ssmcli_set $id "0 0 0"
+    echo "$id" > $shmid_output
+fi
+
 nic="enx00e04c0a135f"
 
-last_info="0 0 0"
-if [ -f "/tmp/xmobar_net_bps_util_last.$PPID" ]; then
-    last_info=`cat /tmp/xmobar_net_bps_util_last.$PPID`
-fi
+last_info=`/home/jp21734/git-repos/github.com/bitterfox/ssmcli/ssmcli_get $id`
 
 cur_rx_bytes=`cat /sys/class/net/$nic/statistics/rx_bytes 2> /dev/null`
 if [ -z "$cur_rx_bytes" ]; then
@@ -20,7 +27,7 @@ if [ -z "$cur_tx_bytes" ]; then
 fi
 
 cur_millis=`echo $(($(date +%s%N)/1000000))`
-echo $cur_rx_bytes $cur_tx_bytes $cur_millis > /tmp/xmobar_net_bps_util_last.$PPID
+/home/jp21734/git-repos/github.com/bitterfox/ssmcli/ssmcli_set $id "$cur_rx_bytes $cur_tx_bytes $cur_millis"
 
 if [ -z "$last_info" ]; then
     rx_bps=0

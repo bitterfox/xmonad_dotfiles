@@ -1,3 +1,4 @@
+#!/bin/sh
 . $(dirname $0)/color.sh
 
 mem=$1

@@ -4,23 +4,10 @@ Config { font = "xft:monospace-10:bold,Symbola-10:bold"
        , position = TopW L 95
        , lowerOnStart = False
        , commands = [
-                      Run Com "sh" [".xmobar/battery.sh"] "bat" 20
-                    , Run Com "sh" [".xmobar/cpu_util.sh"] "cpu" 20
-                    , Run Com "cat" ["/tmp/xmobar_cpu_freq"] "freq" 20
-                    , Run Com "sh" [".xmobar/cpu_freq_limit.sh"] "freq_limit" 6
-                    , Run Com "sh" [".xmobar/cpu_temp.sh"] "temp" 20
-                    , Run Com "sh" [".xmobar/fan_speed.sh"] "fan" 20
-                    , Run Com "sh" [".xmobar/memory.sh", "Mem", "🍫"] "mem" 20
-                    , Run Com "sh" [".xmobar/memory.sh", "Swap", "🔃"] "swap" 20
-                    , Run Com "cat" ["/tmp/xmobar_net_bps"] "net" 10
-                    , Run Com "bash" [".xmobar/net_segment_retransmit.sh"] "net_segment_retransmit" 10
-                    , Run Com "sh" [".xmobar/bright_get.sh"] "brightness" 6
-                    , Run Com "sh" [".xmobar/audio_get.sh"] "volume" 6
-                    , Run Com "date" ["+%_m/%_d(%a) %H:%M"] "jadate" 100
-                    , Run Com "cat" ["/tmp/xmobar_wip_task"] "wip_task" 10
+                      Run Com "sh" [".xmobar/xmobar_metrics.sh", "/tmp/xmobar_metrics"] "metrics" 20
                     , Run StdinReader
                     ]
        , sepChar = "%"
        , alignSep = "}{"
-       , template = "%StdinReader% }{%wip_task% | %bat% | %temp%%fan% | %cpu% %freq%(%freq_limit%) | %mem% %swap% | %net% (%net_segment_retransmit%) | ☀%brightness% | %volume% | %jadate%"
+       , template = "%StdinReader% }{%metrics%"
        }
