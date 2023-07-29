@@ -535,10 +535,10 @@ functionKeys = [
   -- F4: rhythmbox
   , ((mod4Mask              , xK_F5), spawn "sh ~/.xmonad/system_scripts/bright/down.sh")
   , ((mod4Mask              , xK_F6), spawn "sh ~/.xmonad/system_scripts/bright/up.sh")
-  , ((mod4Mask              , xK_F7), spawn "intel-pstate-utils-update-freq min up")
-  , ((mod4Mask .|. shiftMask, xK_F7), spawn "intel-pstate-utils-update-freq min down")
-  , ((mod4Mask              , xK_F8), spawn "intel-pstate-utils-update-freq max up")
-  , ((mod4Mask .|. shiftMask, xK_F8), spawn "intel-pstate-utils-update-freq max down")
+  , ((mod4Mask              , xK_F7), spawn "intel-pstate-utils-update-freq min up; killall -SIGUSR1 xmobar_metrics_daemon")
+  , ((mod4Mask .|. shiftMask, xK_F7), spawn "intel-pstate-utils-update-freq min down; killall -SIGUSR1 xmobar_metrics_daemon")
+  , ((mod4Mask              , xK_F8), spawn "intel-pstate-utils-update-freq max up; killall -SIGUSR1 xmobar_metrics_daemon")
+  , ((mod4Mask .|. shiftMask, xK_F8), spawn "intel-pstate-utils-update-freq max down; killall -SIGUSR1 xmobar_metrics_daemon")
   -- F9: 艦これ
   -- F10: 文ある
   ]

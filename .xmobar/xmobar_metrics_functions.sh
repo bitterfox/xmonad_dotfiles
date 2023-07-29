@@ -182,10 +182,11 @@ memory() {
     #    used=`echo "$total-$avail" | bc`
     #fi
 
-    ratio=`echo "scale=0\n100*$used/$total" | bc`
+    #ratio=`echo "scale=0;100*$used/$total" | bc`
+    ratio="$((100*$used/$total))"
 
     text=`printf "$label %5dMB(%2d%%)" $used $ratio`
-    if [ $ratio -ge 90 ]; then
+    if [[ $ratio -ge 90 ]]; then
         emergency
     fi
     xmobar_echo "$text"
@@ -282,7 +283,7 @@ net_segment_retransmit() {
 brightness() {
     current="`cat "/sys/class/backlight/acpi_video0/brightness"`"
     max="`cat "/sys/class/backlight/acpi_video0/max_brightness"`"
-    text="`echo "scale=2\nb=$current / $max*100\nscale=0\nb/1" | bc | xargs printf "%3d%%"`"
+    text="`echo "scale=2;b=$current / $max*100;scale=0;b/1" | bc | xargs printf "%3d%%"`"
 
     xmobar_echo "$text"
 }

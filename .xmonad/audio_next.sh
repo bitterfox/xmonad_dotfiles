@@ -18,3 +18,5 @@ while :; do
     next_index=`echo "$indices\n$indices" | grep -A1 "index: $next_index" | grep -v "index: $next_index" | head -n 1 | sed -r "s/[^0-9]+([0-9]+)/\1/"`
   fi
 done
+
+killall -SIGUSR1 xmobar_metrics_daemon

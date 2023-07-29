@@ -14,3 +14,5 @@ if [ $new -gt $max ]; then
 fi
 
 pkexec /usr/libexec/gsd-backlight-helper /sys/class/backlight/acpi_video0 $new
+
+killall -SIGUSR1 xmobar_metrics_daemon

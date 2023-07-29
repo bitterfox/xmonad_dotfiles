@@ -4,7 +4,8 @@ Config { font = "xft:monospace-10:bold,Symbola-10:bold"
        , position = TopW L 95
        , lowerOnStart = False
        , commands = [
-                      Run Com "sh" [".xmobar/xmobar_metrics.sh", "/tmp/xmobar_metrics"] "metrics" 20
+--                      Run Com "sh" [".xmobar/xmobar_metrics.sh", "/tmp/xmobar_metrics"] "metrics" 1
+                      Run Com "cat" ["/tmp/xmobar_metrics"] "metrics" 2
                     , Run StdinReader
                     ]
        , sepChar = "%"

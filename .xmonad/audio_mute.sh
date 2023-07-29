@@ -9,3 +9,5 @@ if [ "$isMute" = "yes" ]; then
 else
     pacmd set-sink-mute $index 1
 fi
+
+killall -SIGUSR1 xmobar_metrics_daemon
