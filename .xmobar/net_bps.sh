@@ -2,19 +2,12 @@
 
 . $(dirname $0)/color.sh
 
-shmid_output="/tmp/xmobar_net_bps_util_last.shmid"
-
-if [ -f "$shmid_output" ]; then
-    id=`cat $shmid_output`
-else
-    id=`/home/jp21734/git-repos/github.com/bitterfox/ssmcli/ssmcli_new 1024`
-    /home/jp21734/git-repos/github.com/bitterfox/ssmcli/ssmcli_set $id "0 0 0"
-    echo "$id" > $shmid_output
-fi
-
 nic="enx00e04c0a135f"
 
-last_info=`/home/jp21734/git-repos/github.com/bitterfox/ssmcli/ssmcli_get $id`
+last_info="0 0 0"
+if [ -f "/tmp/xmobar_net_bps_util_last" ]; then
+    last_info=`cat /tmp/xmobar_net_bps_util_last`
+fi
 
 cur_rx_bytes=`cat /sys/class/net/$nic/statistics/rx_bytes 2> /dev/null`
 if [ -z "$cur_rx_bytes" ]; then
@@ -27,21 +20,19 @@ if [ -z "$cur_tx_bytes" ]; then
 fi
 
 cur_millis=`echo $(($(date +%s%N)/1000000))`
-/home/jp21734/git-repos/github.com/bitterfox/ssmcli/ssmcli_set $id "$cur_rx_bytes $cur_tx_bytes $cur_millis"
+echo $cur_rx_bytes $cur_tx_bytes $cur_millis > /tmp/xmobar_net_bps_util_last
 
 if [ -z "$last_info" ]; then
     rx_bps=0
     tx_bps=0
 else
-    last_rx_bytes=`echo $last_info | awk '{print $1}'`
-    last_tx_bytes=`echo $last_info | awk '{print $2}'`
-    last_millis=`echo $last_info | awk '{print $3}'`
+    set -- $last_info
+    last_rx_bytes="$1"
+    last_tx_bytes="$2"
+    last_millis="$3"
 
-    rx_bytes=`echo "$cur_rx_bytes - $last_rx_bytes" | bc`
-    tx_bytes=`echo "$cur_tx_bytes - $last_tx_bytes" | bc`
-    millis=`echo "$cur_millis - $last_millis" | bc`
-    rx_bps=`echo "$rx_bytes * 1000 / $millis * 8" | bc`
-    tx_bps=`echo "$tx_bytes * 1000 / $millis * 8" | bc`
+    rx_bps="$((($cur_rx_bytes - $last_rx_bytes) * 1000 / ($cur_millis - $last_millis) * 8))"
+    tx_bps="$((($cur_tx_bytes - $last_tx_bytes) * 1000 / ($cur_millis - $last_millis) * 8))"
 fi
 
 rx_prefix=""
@@ -60,23 +51,21 @@ fi
 
 
 rx_unit="bps"
-if [ $rx_bps -gt 1024 ]; then
-    rx_bps=`echo "$rx_bps / 1024" | bc`
-    rx_unit="Kbps"
-fi
-if [ $rx_bps -gt 1024 ]; then
-    rx_bps=`echo "$rx_bps / 1024" | bc`
+if [ $rx_bps -gt 1048576 ]; then
+    rx_bps="$(($rx_bps / 1048576))"
     rx_unit="Mbps"
+elif [ $rx_bps -gt 1024 ]; then
+    rx_bps="$(($rx_bps / 1024))"
+    rx_unit="Kbps"
 fi
 
 tx_unit="bps"
-if [ $tx_bps -gt 1024 ]; then
-    tx_bps=`echo "$tx_bps / 1024" | bc`
-    tx_unit="Kbps"
-fi
-if [ $tx_bps -gt 1024 ]; then
-    tx_bps=`echo "$tx_bps / 1024" | bc`
+if [ $tx_bps -gt 1048576 ]; then
+    tx_bps="$(($tx_bps / 1048576))"
     tx_unit="Mbps"
+elif [ $tx_bps -gt 1024 ]; then
+    tx_bps="$(($tx_bps / 1024))"
+    tx_unit="Kbps"
 fi
 
 rx_text=`printf "⬇%4d%4s" $rx_bps $rx_unit`
