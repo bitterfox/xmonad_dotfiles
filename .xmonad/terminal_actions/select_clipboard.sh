@@ -4,8 +4,11 @@ export FZFLET_ACTIONS_DISABLED="false"
 . "`dirname $0`/.terminal_action.rc"
 
 # CM_DIR=$HOME clipmenu_fzf --preview-window="down:30%"
-#file=`CM_DIR=$HOME ~/git-repos/github.com/bitterfox/fzflet/clipmenu/fzf_clipmenu_list.sh`
-file=`CM_DIR=$HOME ~/git-repos/github.com/bitterfox/fzflet/clipmenu/fzf_clipmenu_ag.sh`
+if [[ "$1" == "ag" ]]; then
+    file=`CM_DIR=$HOME ~/git-repos/github.com/bitterfox/fzflet/clipmenu/fzf_clipmenu_ag.sh`
+else
+    file=`CM_DIR=$HOME ~/git-repos/github.com/bitterfox/fzflet/clipmenu/fzf_clipmenu_list.sh`
+fi
 
 root=`CM_DIR=$HOME clipctl cache-dir`
 

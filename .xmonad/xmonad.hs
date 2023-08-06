@@ -1684,8 +1684,10 @@ dmenuRunTerminalAction =
 openBrowserHistoryTerminalAction =
   (terminalActionTemplate "open.history" "~/.xmonad/terminal_actions/select_browser_history.sh" $ onCenter'' 0.1 0.2)
   .| withFirstLine .|| (\s -> "xdg-open '" ++ s ++ "'") .>> spawn
-copyFromClipboardHistoryTerminalAction =
-  (terminalActionTemplate "copy.from.clipboard.history" "~/.xmonad/terminal_actions/select_clipboard.sh" $ terminalActionManageHook) .>| ()
+copyFromClipboardHistoryListTerminalAction =
+  (terminalActionTemplate "copy.from.clipboard.history.list" "~/.xmonad/terminal_actions/select_clipboard.sh" $ terminalActionManageHook) .>| ()
+copyFromClipboardHistoryAgTerminalAction =
+  (terminalActionTemplate "copy.from.clipboard.history.ag" "~/.xmonad/terminal_actions/select_clipboard.sh ag" $ terminalActionManageHook) .>| ()
 onePasswordTerminalAction =
   (terminalActionTemplate "one.password" "~/.xmonad/terminal_actions/one_password.sh" $ onCenter'' 0.1 0.2)
   .| withFirstLine .|| (\s -> "xdotool type '" ++ (T.unpack $ T.replace (T.pack "'") (T.pack "'\"'\"'") (T.pack s)) ++ "'") .>> spawn
@@ -1705,7 +1707,8 @@ myTerminalActions = [
    .| withFirstLine .|| ((intellijCommand ++ " ") ++) .>> spawn
   , dmenuRunTerminalAction
   , openBrowserHistoryTerminalAction
-  , copyFromClipboardHistoryTerminalAction
+  , copyFromClipboardHistoryListTerminalAction
+  , copyFromClipboardHistoryAgTerminalAction
   , onePasswordTerminalAction
   , selectWindowTerminalActionTemplate .>| ()
   , selectActionTerminalActionTemplate .>| ()
@@ -1725,7 +1728,8 @@ runOpenBrowserHistoryTerminalAction = do
                           L.map (openBrowserHistoryTerminalAction .<) sort
 
 runCopyFromClipboardHistoryTerminalAction = do
-  runNamedTerminalAction myTerminal myTerminalActions "copy.from.clipboard.history"
+  runCyclicTerminalAction myTerminal "copy.from.clipboard.history" $
+                          [copyFromClipboardHistoryListTerminalAction, copyFromClipboardHistoryAgTerminalAction]
 
 runOnePasswordTerminalAction = do
   runNamedTerminalAction myTerminal myTerminalActions "one.password"
