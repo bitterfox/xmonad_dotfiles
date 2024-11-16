@@ -199,6 +199,7 @@ myLayoutHookAll = avoidStruts $ WindowViewableLayout Normal (
 tall = Tall 1 (3/100) (1/2)
 
 myLogHook xmprocs = switchableLogHook $ do
+    measure "virtualScreenLogHook" virtualScreenLogHook
     measure "xmobarLogHook" $ xmobarLogHook xmprocs
     measure "checkAndHandleDisplayChange" $ handleScreenChange moveScreenMouseToLastPosition
     measure "floatOnUp" $ floatOnUp
@@ -209,7 +210,42 @@ xmobarLogHook xmprocs = withWindowSet (\s ->
     L.foldl (>>) def (map (\(i, xmproc) -> do
 --      originalScreenIdToCurrentScreenIdMap <- originalScreenIdToCurrentScreenId priorityDisplayEDIDs
         j <- (\(OriginalDisplayIdToCurrentScreenId idToId) -> fromMaybe i $ M.lookup i idToId) <$> XS.get
-        dynamicLogWithPP (multiScreenXMobarPP s j xmproc)) (L.zip [0..(L.length xmprocs)] xmprocs)))
+        vss <- getVirtualScreens
+        let screenList = toScreenList s vss j
+        let virtualScreenList = toVirtualScreenList s vss j
+        let header = if virtualScreenList == "" then screenList else screenList ++ " | " ++ virtualScreenList
+        let S virtualScreenId = maybe (S j) (\vs -> W.focus $ screenStack vs) $ findVirtualScreen vss $ S j
+        dynamicLogWithPP (multiScreenXMobarPP s virtualScreenId header xmproc)) (L.zip [0..(L.length xmprocs)] xmprocs)))
+
+toScreenList ws vss xmobarScreenId = do
+  let sidCurrentActive = W.screen $ W.current ws
+  let S sidCurrentActiveRoot = maybe sidCurrentActive (\vs -> rootSid vs) (findVirtualScreen vss sidCurrentActive)
+  let sids = L.sort $ L.map (\(S sid) -> sid) $ L.map W.screen $ W.screens ws
+  let screenDesc = L.map (\sid -> do
+                            let screenStr = toScreen sid sidCurrentActiveRoot xmobarScreenId
+                            let vsMaybe = findVirtualScreen vss $ S sid
+                            maybe (screenStr) (\vs -> if rootSid vs == S sid then screenStr else "") vsMaybe
+                         ) sids
+  L.foldr (++) ("") screenDesc
+
+toScreen sid currentActive xmobarScreenId =
+    xmobarColor'
+    (wrap (if xmobarScreenId == sid then "[" else " ") (if xmobarScreenId == sid then "]" else " ") $
+          show $ sid + 1)
+    black white $ sid == currentActive
+
+
+toVirtualScreenList ws vss xmobarScreenId = do
+  let S sidCurrentActive = W.screen $ W.current ws
+  case findVirtualScreen vss $ S xmobarScreenId of
+    Just vs -> do
+      let sids = L.map (\(S sid) -> sid) $ W.integrate $ screenStack vs
+      L.foldr (++) ("") $ L.map (toVirtualScreen sidCurrentActive) sids
+    Nothing -> ""
+toVirtualScreen currentActive sid =
+    xmobarColor'
+    (wrap " " " " $ show $ sid + 1)
+    black white $ sid == currentActive
 
 --value_mask :: !CULong = (bit 2) (.|.) (bit 3)
 myHandleEventHook =
@@ -843,8 +879,8 @@ shiftToFamilyWorkspace familyId workspaceId = do
 --    io $ appendFile "/tmp/xmonad.debug2" $ workspaceId ++ "_" ++ familyId
     windows (W.shift (workspaceId ++ "_" ++ familyId))
 
-multiScreenXMobarPP windowSet screenId xmproc = xmobarPP
-                        { ppOutput = \t -> hPutStrLn xmproc $ (screenIds windowSet screenId) ++ " | " ++ (fallbackIfNoScreen (\ws -> \sid -> \fid -> fid) windowSet screenId) ++ " | " ++ t
+multiScreenXMobarPP windowSet screenId header xmproc = xmobarPP
+                        { ppOutput = \t -> hPutStrLn xmproc $ header ++ " | " ++ (fallbackIfNoScreen (\ws -> \sid -> \fid -> fid) windowSet screenId) ++ " | " ++ t ++ "  |  "
                         , ppTitle = \t -> ""
                         , ppSep             = " | "
                         , ppExtras = [ titleOfScreenId windowSet screenId ]
@@ -920,8 +956,14 @@ showOnlyWorkspaceFor f windowSet screenId familyId = \w ->
                                     Nothing -> f windowSet screenId w
 
 
-screenIds windowSet xmobarScreenId = L.foldr (\a -> \b -> a ++ b) "" $ L.map (\sid ->
-                                                                   xmobarColor' (wrap (if xmobarScreenId == sid then "[" else " ") (if xmobarScreenId == sid then "]" else " ") $ show $ sid + 1) black white $ (fromIntegral sid) == (W.screen $ W.current windowSet)) [0 .. L.length $ W.visible windowSet]
+screenIds windowSet xmobarScreenId =
+    L.foldr (\a -> \b -> a ++ b) "" $ L.map
+         (\sid ->
+              xmobarColor'
+              (wrap (if xmobarScreenId == sid then "[" else " ") (if xmobarScreenId == sid then "]" else " ") $
+                    show $ sid + 1)
+              black white $
+                        (fromIntegral sid) == (W.screen $ W.current windowSet)) [0 .. L.length $ W.visible windowSet]
 --                                                                   xmobarColor' (wrap " " " " $ xmobarColor' (show sid) black white $ xmobarScreenId == sid) black white $ (fromIntegral sid) == (W.screen $ W.current windowSet)) [0 .. L.length $ W.visible windowSet]
 
 fallbackIfNoScreen f windowSet screenId =
@@ -1818,11 +1860,27 @@ data VirtualScreens = VirtualScreens [VirtualScreen] deriving (Typeable, Show)
 instance ExtensionClass VirtualScreens where
   initialValue = VirtualScreens []
 
+
+virtualScreenLogHook = do
+  virtualScreens <- XS.get
+  withWindowSet $ \ws -> do
+    let sid = W.screen $ W.current ws
+    whenJust (findVirtualScreen virtualScreens sid) $ \vs ->
+      whenJust (focusIt sid $ screenStack vs) $ \s ->
+        XS.put $ replaceVirtualScreen virtualScreens $ vs {screenStack = s}
+
+getVirtualScreens :: X VirtualScreens
+getVirtualScreens = XS.get
+
 resetVirtualScreens = XS.put $ VirtualScreens []
 
 findVirtualScreen :: VirtualScreens -> ScreenId -> Maybe VirtualScreen
 findVirtualScreen (VirtualScreens virtualScreens) sid =
   L.find (L.elem sid . W.integrate . screenStack) virtualScreens
+
+getAllVirtualScreenIds :: VirtualScreen -> [ScreenId]
+getAllVirtualScreenIds vs =
+    L.filter (rootSid vs /=) $ W.integrate $ screenStack vs
 
 newVirtualScreen screen layout =
   VirtualScreen {
