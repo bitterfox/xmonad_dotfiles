@@ -3,7 +3,7 @@ import re
 from xkeysnail.transform import *
 
 # [Global modemap] Change modifier keys as in xmodmap
-define_modmap({
+define_conditional_modmap(lambda wm_class, device: device.startswith('HHKB-Hybrid'), {
     Key.CAPSLOCK: Key.LEFT_CTRL,
     Key.KATAKANAHIRAGANA: Key.RIGHT_META,
     Key.HENKAN: Key.MUHENKAN,
@@ -11,7 +11,32 @@ define_modmap({
     Key.LEFT_META: Key.LEFT_ALT
 })
 
-define_keymap(lambda wm_class: ((wm_class not in ("Emacs", "Gnome-terminal", "gnome-terminal-server", "jetbrains-idea", "term1", "term2", "termL", "termR", "mainterm", "fzf_actions", "intellij-terminal", "eDEX-UI")) and (not wm_class.startswith("xmonad.intellij")) and (not wm_class.startswith("xmonad.terminal"))), {
+define_conditional_modmap(lambda wm_class, device: device.startswith('Keychron Q1 Max'), {
+    Key.CAPSLOCK: Key.LEFT_CTRL,
+    Key.KATAKANAHIRAGANA: Key.RIGHT_META,
+    Key.HENKAN: Key.MUHENKAN,
+})
+
+define_conditional_modmap(lambda wm_class, device: device.startswith('Keychron Q10 Max'), {
+    Key.CAPSLOCK: Key.LEFT_CTRL,
+    Key.KATAKANAHIRAGANA: Key.RIGHT_META,
+    Key.HENKAN: Key.MUHENKAN,
+})
+
+define_keymap(lambda wm_class: ((wm_class not in (
+    "Emacs",
+    "Gnome-terminal",
+    "gnome-terminal-server",
+    "jetbrains-idea",
+    "term1",
+    "term2",
+    "termL",
+    "termR",
+    "mainterm",
+    "fzf_actions",
+    "intellij-terminal",
+    "eDEX-UI",
+    "Wfica")) and (not wm_class.startswith("xmonad.intellij")) and (not wm_class.startswith("xmonad.terminal"))), {
     # Cursor
     K("C-b"): with_mark(K("left")),
     K("C-f"): with_mark(K("right")),
@@ -91,6 +116,9 @@ define_keymap(lambda wm_class: wm_class in ("jetbrains-idea"), {
     # Cancel
     K("C-g"): [K("esc"), set_mark(False)],
     K("M-n"): K("M-tab"),
-    K("M-p"): K("M-Shift-tab")
+    K("M-p"): K("M-Shift-tab"),
+    # Page up/down
+    K("M-v"): with_mark(K("page_up")),
+    K("C-v"): with_mark(K("page_down"))
 }, "jetbrains-idea keys")
 
