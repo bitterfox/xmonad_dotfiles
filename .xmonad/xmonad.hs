@@ -378,9 +378,9 @@ systemKeys = [
   , ((mod4Mask .|. shiftMask, xK_s), spawn "sh ~/.xmonad/screenshot.sh -a")
 
   -- Performance
-  , ((mod4Mask, xK_a), do
-       durations <- getDurations
-       spawn $ "echo '" ++ (show durations) ++ "' >> /tmp/xmonad.perf")
+  -- , ((mod4Mask, xK_a), do
+  --      durations <- getDurations
+  --      spawn $ "echo '" ++ (show durations) ++ "' >> /tmp/xmonad.perf")
   ]
 
 dunstKeys = [
@@ -536,6 +536,8 @@ scratchpadKeys = [
   , ((mod4Mask .|. shft, xK_bracketright), myNamedScratchpadAction "termR")
   , ((mod4Mask .|. controlMask, xK_bracketleft), myNamedScratchpadAction "jshell1")
   , ((mod4Mask .|. controlMask, xK_bracketright), myNamedScratchpadAction "jshell2")
+
+  , ((mod4Mask, xK_a), myNamedScratchpadAction "ai")
 
   , ((mod4Mask .|. controlMask, xK_F7), toggleScrachpadAction $ L.reverse myScratchpads)
   , ((mod4Mask .|. controlMask, xK_F8), withoutLogHook $ showOrHideScratchpads myScratchpads True)
@@ -791,6 +793,10 @@ myScratchpads = [
            (className =? "Rhythmbox")
            onCenter
   , terminalScratchpad "fzf_actions" (Just "\"zsh -c '. $HOME/.fzf.zsh; _fzf_actions_then_echo -n | xsel -b -i'\"") $ onCenter'' 0.1 0.2
+  , NS "ai"
+            "bash ~/scripts/xmonad_chatai.sh"
+            (className =? "xmonad.AI")
+            $ onCenter''' 0.25 0.01 $ minWidth 1600
  ]
 
 myScratchpadsManageHook = namedScratchpadManageHook myScratchpads
