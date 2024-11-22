@@ -752,11 +752,6 @@ main = do
 --modifyWindowSet :: (WindowSet -> WindowSet) -> X ()
 --modifyWindowSet f = modify $ \xst -> xst { windowset = f (windowset xst) }
 
-xnot :: X Bool -> X Bool
-xnot x = not <$> x
-
-doForJust f m = caseMaybeJust m f
-
 isDialog = ask >>= \w -> liftX $ do
   desk <- getAtom "_NET_WM_WINDOW_TYPE_DIALOG"
   mbr <- getProp32s "_NET_WM_WINDOW_TYPE" w

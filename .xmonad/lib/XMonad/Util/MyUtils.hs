@@ -1,7 +1,9 @@
 
 module XMonad.Util.MyUtils (
   ifX,
+  xnot,
   caseMaybeJust,
+  doForJust,
   andThen
 ) where
 
@@ -10,11 +12,15 @@ import XMonad
 ifX :: Bool -> X() -> X()
 ifX cond whenTrue = if cond then whenTrue else return ()
 
+xnot :: X Bool -> X Bool
+xnot x = not <$> x
+
 caseMaybeJust :: Maybe a -> (a -> X ()) -> X ()
 caseMaybeJust m f =
   case m of
     Just a -> f a
     Nothing -> return ()
+doForJust f m = caseMaybeJust m f
 
 andThen cmp1 cmp2 a b = do
   let c = cmp1 a b
