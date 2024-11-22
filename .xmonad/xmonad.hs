@@ -106,6 +106,7 @@ import XMonad.Util.MyUtils
 
 import XMonad.Util.VirtualMouse
 import XMonad.Util.VirtualScreen
+import XMonad.Util.WorkspaceFamily
 
 import XMonad.Util.DocksSupport
 import XMonad.Hooks.ManageDocks (avoidStruts, docksEventHook, ToggleStruts(..))
@@ -817,74 +818,9 @@ myNamedScratchpadActionMaybe mns =
 ------------------------------------------------------------------------------------------
 -- WorkspaceFamily
 ------------------------------------------------------------------------------------------
-notSP :: X (WindowSpace -> Bool)
-notSP = return $ pureNotSP
-pureNotSP :: WindowSpace -> Bool
-pureNotSP = ("NSP" /=) . W.tag
-pureNotSP' = ("NSP" /=)
-currentWorkspaceFamily currentFamily = return (\ws -> L.isSuffixOf ("_" ++ currentFamily) $ W.tag ws)
-
-currentFamilyId ws = toFamilyId $ W.tag $ W.workspace $ W.current ws
-toFamilyId = drop 2
-currentWorkspaceId ws = toWorkspaceId $ W.tag $ W.workspace $ W.current ws
-toWorkspaceId id = [ head id ]
-nextWS' :: X ()
-nextWS' = doOnCurrentWorkspaceFamily $ moveTo Next
-prevWS' :: X ()
-prevWS' = doOnCurrentWorkspaceFamily $ moveTo Prev
-
-compareWorkspaceAsWorkspaceFamily =
-    compareByFamilyId `andThen` compareByWorkspaceId
-                      where compareByFamilyId = comparing (toFamilyId . W.tag)
-                            compareByWorkspaceId = comparing (toWorkspaceId . W.tag)
-
-shiftToNextWS' :: X()
-shiftToNextWS' = doOnCurrentWorkspaceFamily $ shiftTo Next
-shiftToPrevWS' :: X()
-shiftToPrevWS' = doOnCurrentWorkspaceFamily $ shiftTo Prev
-
-doOnCurrentWorkspaceFamily f = withWindowSet $ \s -> do
-  let wsid = W.tag $ W.workspace $ W.current s
-  ifX (pureNotSP' wsid) $ f $ WSIs $ currentWorkspaceFamily $ toFamilyId wsid
-
 originalWorkspaces = map show ([1 .. 9 :: Int] ++ [0])
 workspaceFamilies = map show ([1 .. 9 :: Int] ++ [0])
 myWorkspaces = expandWorkspacesToFamily workspaceFamilies originalWorkspaces
-expandWorkspacesToFamily families ws = concat $ map toFamilies ws
-  where toFamilies wsid = map (\fid -> wsid ++ "_" ++ fid) families
-
-data FamilyWorkspaceMap = FamilyWorkspaceMap (M.Map (ScreenId, String) String) deriving Typeable
-instance ExtensionClass FamilyWorkspaceMap where
-  initialValue = FamilyWorkspaceMap M.empty
-
-greedyViewToWorkspace workspaceId =
-    withWindowSet(\s -> do
-      let familyId = currentFamilyId s
---      io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ (show sid)
-      windows $ W.greedyView $ workspaceId ++ "_" ++ familyId
-    )
-greedyViewToFamily familyId =
-    withWindowSet(\s -> do
-      FamilyWorkspaceMap familyToWorkspace <- XS.get
-      XS.put $ FamilyWorkspaceMap $ M.insert (W.screen $ W.current s, currentFamilyId s) (currentWorkspaceId s) familyToWorkspace
-      case M.lookup (W.screen $ W.current s, familyId) familyToWorkspace of
-        Just workspaceId -> greedyViewToFamilyWorkspace familyId workspaceId
-        Nothing -> greedyViewToFamilyWorkspace familyId $ currentWorkspaceId s
-    )
-greedyViewToFamilyWorkspace familyId workspaceId = do
---    io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ familyId
-    windows $ W.greedyView $ workspaceId ++ "_" ++ familyId
-shiftToWorkspace workspaceId =
-    withWindowSet(\s -> do
-      let familyId = currentFamilyId s
---      io $ appendFile "/tmp/xmonad.debug" $ workspaceId ++ "_" ++ (show sid)
-      windows (W.shift (workspaceId ++ "_" ++ familyId))
-    )
-shiftToFamily familyId =
-    withWindowSet(\s -> shiftToFamilyWorkspace familyId $ currentWorkspaceId s)
-shiftToFamilyWorkspace familyId workspaceId = do
---    io $ appendFile "/tmp/xmonad.debug2" $ workspaceId ++ "_" ++ familyId
-    windows (W.shift (workspaceId ++ "_" ++ familyId))
 
 multiScreenXMobarPP windowSet screenId header xmproc = xmobarPP
                         { ppOutput = \t -> hPutStrLn xmproc $ header ++ " | " ++ (fallbackIfNoScreen (\ws -> \sid -> \fid -> fid) windowSet screenId) ++ " | " ++ t ++ "  |  "
@@ -951,17 +887,12 @@ visibleOfScreenId windowSet screenId familyId tag =
                                    Just sc -> if (W.tag $ W.workspace sc) == tag then xmobarColor black white $ wrap " " " " wid else wrap "" "" wid
                                    Nothing -> wrap "" "" wid) windowSet screenId familyId tag
 
-showOnlyWorkspaceFor f windowSet screenId familyId = \w ->
-                                  case L.elemIndex '_' w of
-                                    Just i ->
-                                        let
-                                            (wsid, fid) = splitAt i w
-                                        in
-                                          if fid == ("_" ++ familyId) then
-                                            f windowSet screenId wsid
-                                          else ""
+showOnlyWorkspaceFor f windowSet screenId fid = \w ->
+                                  case readWorkspaceInFamily w of
+                                    Just wif -> if familyId wif == fid then
+                                                    f windowSet screenId $ workspaceId wif
+                                                else ""
                                     Nothing -> f windowSet screenId w
-
 
 screenIds windowSet xmobarScreenId =
     L.foldr (\a -> \b -> a ++ b) "" $ L.map
@@ -974,9 +905,10 @@ screenIds windowSet xmobarScreenId =
 --                                                                   xmobarColor' (wrap " " " " $ xmobarColor' (show sid) black white $ xmobarScreenId == sid) black white $ (fromIntegral sid) == (W.screen $ W.current windowSet)) [0 .. L.length $ W.visible windowSet]
 
 fallbackIfNoScreen f windowSet screenId =
-    case (L.find (\sc -> (W.screen sc) == S screenId) (W.screens windowSet)) of
-      Just sc -> f windowSet screenId $ toFamilyId $ W.tag $ W.workspace $ sc
-      Nothing -> f windowSet 0 (currentFamilyId windowSet)
+  let (sid, tag) = case (L.find (\sc -> (W.screen sc) == S screenId) (W.screens windowSet)) of
+                     Just sc -> (screenId, W.tag $ W.workspace $ sc)
+                     Nothing -> (0, W.tag $ W.workspace $ W.current windowSet)
+  in f windowSet sid $ (fromMaybe tag $ toFamilyIdMaybe tag)
 
 viewToScreen screenId = do
     withWindowSet $ \s -> caseMaybeJust (L.find (\sc -> (W.screen sc) == S (screenId - 1)) $ W.screens s) $ windows . W.view . W.tag . W.workspace
@@ -1081,7 +1013,7 @@ mySDConfig = def {
 anyWorkspacePredicate :: WindowSet -> WindowSpace -> Bool
 anyWorkspacePredicate windowset workspace = ("NSP" :: WorkspaceId) /= (W.tag workspace)
 anyWorkspaceInCurrentWorkspaceFamilyPredicate :: WindowSet -> WindowSpace -> Bool
-anyWorkspaceInCurrentWorkspaceFamilyPredicate windowset workspace = anyWorkspacePredicate windowset workspace && ((toFamilyId $ W.currentTag windowset) == (toFamilyId $ W.tag workspace))
+anyWorkspaceInCurrentWorkspaceFamilyPredicate windowset workspace = anyWorkspacePredicate windowset workspace && ((toFamilyIdMaybe $ W.currentTag windowset) == (toFamilyIdMaybe $ W.tag workspace))
 visibleWorkspacesPredicate :: WindowSet -> WindowSpace -> Bool
 visibleWorkspacesPredicate windowset workspace = anyWorkspacePredicate windowset workspace && ((W.tag workspace == W.currentTag windowset) || (L.elem (W.tag workspace) $ L.map (W.tag . W.workspace) $ W.visible windowset))
 
@@ -1146,8 +1078,8 @@ getClass' w = withDisplay $ \d -> do
 
 getWorkspace' :: Window -> X String
 getWorkspace' w = withWindowSet $ \s -> do
-                    case W.findTag w s of
-                      Just tag -> return $ (toFamilyId tag) ++ "|" ++ (toWorkspaceId tag)
+                    case W.findTag w s >>= readWorkspaceInFamily of
+                      Just wif -> return $ (familyId wif) ++ "|" ++ (workspaceId wif)
                       Nothing -> return ""
 ------------------------------------------------------------------------------------------
 -- GridSelect
@@ -1813,8 +1745,8 @@ greedyViewWindow' screenAware w  = do
   case W.findTag w s of
     Just tag -> do
       ifX screenAware $ do
-        let fid = toFamilyId tag
-        caseMaybeJust (L.find ((fid ==) . toFamilyId . W.tag . W.workspace) $ W.visible s) $ viewScreen . W.screen
+        let fidMaybe = toFamilyIdMaybe tag
+        caseMaybeJust (L.find ((fidMaybe ==) . toFamilyIdMaybe . W.tag . W.workspace) $ W.visible s) $ viewScreen . W.screen
       windows $ (W.focusWindow w) . (W.greedyView tag)
     Nothing -> windows $ W.focusWindow w
 
