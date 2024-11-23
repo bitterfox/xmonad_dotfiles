@@ -9,6 +9,7 @@ module XMonad.Util.VirtualScreen (
       resetVirtualScreens,
       resetVirtualScreen,
       findVirtualScreen,
+      currentVirtualScreen,
       getAllVirtualScreenIds,
       createVirtualScreen,
       sendScreenMessage,
@@ -71,6 +72,12 @@ resetVirtualScreens = XS.put $ emptyVirtualScreens
 findVirtualScreen :: VirtualScreens -> ScreenId -> Maybe VirtualScreen
 findVirtualScreen (VirtualScreens virtualScreens) sid =
   L.find (L.elem sid . W.integrate . screenStack) virtualScreens
+
+currentVirtualScreen :: X (Maybe VirtualScreen)
+currentVirtualScreen = do
+  vss <- getVirtualScreens
+  sid <- withWindowSet $ return . W.screen . W.current
+  return $ findVirtualScreen vss sid
 
 getAllVirtualScreenIds :: VirtualScreen -> [ScreenId]
 getAllVirtualScreenIds vs =

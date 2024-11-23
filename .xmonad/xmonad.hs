@@ -474,16 +474,30 @@ screenKeys = L.concat $ [
   ]
 
 virtualScreenKeys = [
-    ((mod4Mask, xK_x), createVirtualScreen $ ((Mirror $ simpleWide (3/100)) ||| (simpleWide (3/100))))
+    ((mod4Mask, xK_x), createVirtualScreen $ (myLayout ||| (Mirror myLayout)))
   , ((mod4Mask .|. shiftMask, xK_x), resetVirtualScreen)
   , ((mod4Mask .|. mod1Mask, xK_d), sendScreenMessage NextLayout)
-  , ((mod4Mask .|. mod1Mask, xK_j), sendScreenMessage Shrink)
-  , ((mod4Mask .|. mod1Mask, xK_l), sendScreenMessage Expand)
-  , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_j), sendScreenMessage $ ResizeAnotherSide Expand)
-  , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_l), sendScreenMessage $ ResizeAnotherSide Shrink)
+  , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_comma    ), sendScreenMessageToCompositeTall (IncMasterN 1))
+  , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_period), sendScreenMessageToCompositeTall (IncMasterN (-1)))
+  , ((mod4Mask .|. mod1Mask .|. controlMask, xK_comma     ), sendScreenMessageToCompositeTall NewCellAtLeft)
+  , ((mod4Mask .|. mod1Mask .|. controlMask, xK_period ), sendScreenMessageToCompositeTall NewCellAtRight)
+  , ((mod4Mask .|. mod1Mask, xK_j), sendScreenMessageToCompositeTall Shrink)
+  , ((mod4Mask .|. mod1Mask, xK_l), sendScreenMessageToCompositeTall Expand)
+  , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_j), sendScreenMessageToCompositeTall $ ResizeAnotherSide Expand)
+  , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_l), sendScreenMessageToCompositeTall $ ResizeAnotherSide Shrink)
+  , ((mod4Mask .|. mod1Mask, xK_i), sendScreenMessageToCompositeTall $ DelegateMessage $ SomeMessage Shrink)
+  , ((mod4Mask .|. mod1Mask, xK_k), sendScreenMessageToCompositeTall $ DelegateMessage $ SomeMessage Expand)
+  , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_i), sendScreenMessageToCompositeTall $ DelegateMessage $ SomeMessage $ ResizeAnotherSide Expand)
+  , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_k), sendScreenMessageToCompositeTall $ DelegateMessage $ SomeMessage $ ResizeAnotherSide Shrink)
   , ((mod4Mask .|. mod1Mask, xK_b), prevChildScreen)
   , ((mod4Mask .|. mod1Mask, xK_f), nextChildScreen)
   ]
+
+sendScreenMessageToCompositeTall msg = do
+  vs <- currentVirtualScreen
+  caseMaybeJust vs $ \it -> do
+    let pos = L.length $ W.up $ screenStack it
+    sendScreenMessage $ CompositeTallMessage {message = SomeMessage $ msg, messageAtWindow = pos}
 
 layoutKeys = [
   -- Layout

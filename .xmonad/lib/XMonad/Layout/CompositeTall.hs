@@ -7,6 +7,7 @@ module XMonad.Layout.CompositeTall (
   DelegateMessage(..),
   ResizeAnotherSide(..),
   ResetSize(..),
+  CompositeTallMessage(..),
   SimpleWide(..),
   simpleWide
 ) where
@@ -45,6 +46,12 @@ instance Message ResizeAnotherSide
 data ResetSize = ResetSize deriving ( Typeable )
 instance Message ResetSize
 
+data CompositeTallMessage = CompositeTallMessage {
+      message :: SomeMessage,
+      messageAtWindow :: Int
+} deriving ( Typeable )
+instance Message CompositeTallMessage
+
 instance (LayoutClass l a, Show a, Eq a) => LayoutClass (CompositeTall l) a where
     runLayout (W.Workspace tag layout stackMaybe) rect =
       case stackMaybe of
@@ -64,9 +71,15 @@ instance (LayoutClass l a, Show a, Eq a) => LayoutClass (CompositeTall l) a wher
 --      return ([(W.focus stack, rect)], Nothing)
         Nothing -> return ([], Nothing)
 
-    handleMessage layout m = do
-      maybeCells <- stackCells layout
-      maybeLayouts <- stackLayouts layout
+    handleMessage layout m' = do
+      let m = case fromMessage m' of
+                Just CompositeTallMessage { message = msg } -> msg
+                _ -> m'
+      let pos = case fromMessage m' of
+                  Just CompositeTallMessage { messageAtWindow = pos} -> pos
+                  _ -> -1
+      maybeCells <- stackCells layout pos
+      maybeLayouts <- stackLayouts layout pos
       let maybeNewLayout = msum [fmap (handleResize maybeCells) (fromMessage m)
                            ,fmap (handleResizeAnotherSide maybeCells maybeLayouts) (fromMessage m)
                            ,fmap handleResetSize (fromMessage m)
@@ -231,38 +244,39 @@ applyLayouts ((wins, rect, layout):list) tag stack = do
   (fx, sx) <- applyLayouts list tag stack
   return ((f++fx), (s:sx))
 
-stackCells :: CompositeTall layout a -> X (Maybe (W.Stack (CompositeCell layout a)))
-stackCells layout = do
+stackCells :: CompositeTall layout a -> Int -> X (Maybe (W.Stack (CompositeCell layout a)))
+stackCells layout pos = do
   let cellsLen = L.length $ compositeTallCells layout
   if cellsLen == 0 then return Nothing
-  else
-    withWindowSet $ \ws ->
-      case W.stack $ W.workspace $ W.current ws of
-        Just stack -> do
-          let list = assignStack layout (stack {W.down = []})
-          let (f, s) = splitAt ((min cellsLen $ L.length list) - 1) $ compositeTallCells layout
-          if L.null s then return Nothing
-          else do
-            let focus = head s
-            return $ Just $ W.Stack focus (reverse f) $ tail s
-        Nothing -> do
-          let cells = compositeTallCells layout
-          return $ Just $ W.Stack (head cells) [] (tail cells)
-stackLayouts :: CompositeTall layout a -> X (Maybe (W.Stack (layout a)))
-stackLayouts layout = do
+  else do
+    windows <- if pos < 0 then
+                   withWindowSet $ \ws ->
+                       case W.stack $ W.workspace $ W.current ws of
+                         Just st -> return $ [0..(L.length $ W.up st)]
+                         Nothing -> return $ [0]
+               else (return [0..pos])
+    let list = assignStack layout (W.Stack {W.focus = head windows, W.up = tail windows, W.down = []})
+    let (f, s) = splitAt ((min cellsLen $ L.length list) - 1) $ compositeTallCells layout
+    if L.null s then return Nothing
+    else do
+      let focus = head s
+      return $ Just $ W.Stack focus (reverse f) $ tail s
+stackLayouts :: CompositeTall layout a -> Int -> X (Maybe (W.Stack (layout a)))
+stackLayouts layout pos = do
   let cells = compositeTallCells layout
   let layouts = (L.map compositeCellLayout cells) ++ [compositeTallRestLayout layout]
-  withWindowSet $ \ws ->
-    case W.stack $ W.workspace $ W.current ws of
-      Just stack -> do
-        let list = assignStack layout (stack {W.down = []})
-        let (f, s) = splitAt ((min (L.length layouts) $ L.length list) - 1) $ layouts
-        if L.null s then return Nothing
-        else do
-          let focus = head s
-          return $ Just $ W.Stack focus (reverse f) $ tail s
-      Nothing -> do
-        return $ Just $ W.Stack (head layouts) [] (tail layouts)
+  windows <- if pos < 0 then
+                   withWindowSet $ \ws ->
+                       case W.stack $ W.workspace $ W.current ws of
+                         Just st -> return $ [0..(L.length $ W.up st)]
+                         Nothing -> return $ [0]
+             else (return [0..pos])
+  let list = assignStack layout (W.Stack {W.focus = head windows, W.up = tail windows, W.down = []})
+  let (f, s) = splitAt ((min (L.length layouts) $ L.length list) - 1) $ layouts
+  if L.null s then return Nothing
+  else do
+    let focus = head s
+    return $ Just $ W.Stack focus (reverse f) $ tail s
 replaceFocusedCell :: W.Stack (CompositeCell layout a) -> (CompositeCell layout a -> CompositeCell layout a) -> [CompositeCell layout a]
 replaceFocusedCell stack@W.Stack{W.focus = fc} f = W.integrate $ stack {W.focus = f fc}
 removeFocusedCell stack = (L.reverse $ W.up stack) ++ W.down stack
