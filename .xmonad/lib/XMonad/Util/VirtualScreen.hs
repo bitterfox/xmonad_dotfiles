@@ -11,7 +11,7 @@ module XMonad.Util.VirtualScreen (
       findVirtualScreen,
       currentVirtualScreen,
       getAllVirtualScreenIds,
-      createVirtualScreen,
+      createVirtualScreen, createVirtualScreen',
       sendScreenMessage,
       rootSids,
       nextRootScreen, prevRootScreen,
@@ -135,7 +135,10 @@ resetVirtualScreen = do
 
 
 createVirtualScreen :: (LayoutClass l ScreenId, Read (l ScreenId)) => (l ScreenId) -> X ()
-createVirtualScreen defaultLayout = do
+createVirtualScreen defaultLayout = createVirtualScreen' defaultLayout $ head . W.hidden
+
+createVirtualScreen' :: (LayoutClass l ScreenId, Read (l ScreenId)) => (l ScreenId) -> (WindowSet -> WindowSpace) -> X ()
+createVirtualScreen' defaultLayout nextWorkspace = do
   virtualScreens <- XS.get
   withWindowSet $ \ws -> whenX (return $ not $ L.null $ W.hidden ws) $ do
     let current = W.current ws
@@ -157,8 +160,8 @@ createVirtualScreen defaultLayout = do
                                                      Just newLayout -> nvs {screenLayout = newLayout}
                                                      Nothing -> nvs
 
-    let nextWS = head $ W.hidden ws
-    let newHidden = tail $ W.hidden ws
+    let nextWS = nextWorkspace ws
+    let newHidden = L.filter (\w -> W.tag nextWS /= W.tag w) $ W.hidden ws
 
     let newCurrent = replaceScreenRect newRects $ W.Screen {
                        W.workspace = nextWS,

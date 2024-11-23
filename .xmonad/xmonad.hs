@@ -474,7 +474,7 @@ screenKeys = L.concat $ [
   ]
 
 virtualScreenKeys = [
-    ((mod4Mask, xK_x), createVirtualScreen $ (myLayout ||| (Mirror myLayout)))
+    ((mod4Mask, xK_x), createVirtualScreen' (myLayout ||| (Mirror myLayout)) $ selectUnusedFamilyWorkspace)
   , ((mod4Mask .|. shiftMask, xK_x), resetVirtualScreen)
   , ((mod4Mask .|. mod1Mask, xK_d), sendScreenMessage NextLayout)
   , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_comma    ), sendScreenMessageToCompositeTall (IncMasterN 1))

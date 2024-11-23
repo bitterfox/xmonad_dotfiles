@@ -9,9 +9,11 @@ module XMonad.Util.WorkspaceFamily (
   nextWS', prevWS', shiftToNextWS', shiftToPrevWS',
   compareWorkspaceAsWorkspaceFamily,
   greedyViewToWorkspace, greedyViewToFamily, greedyViewToFamilyWorkspace,
-  shiftToWorkspace, shiftToFamily, shiftToFamilyWorkspace
+  shiftToWorkspace, shiftToFamily, shiftToFamilyWorkspace,
+  selectUnusedFamilyWorkspace
 ) where
 
+import qualified Data.List as L
 import qualified Data.Map.Strict as M
 import Data.Ord
 import Text.Read
@@ -100,3 +102,18 @@ shiftToFamily fid = withWindowSet $ \s ->
     shiftToFamilyWorkspace fid $ workspaceId wif
 shiftToFamilyWorkspace fid wsid =
   windows $ W.shift $ showWorkspaceInFamily $ WorkspaceInFamily { familyId = fid, workspaceId = wsid }
+
+selectUnusedFamilyWorkspace :: WindowSet -> WindowSpace
+selectUnusedFamilyWorkspace ws = do
+    let current = W.current ws
+    let visible = W.visible ws
+    let allVisibleWorkspaces = L.map W.workspace $ current:visible
+    let allVisibleFamily = allVisibleWorkspaces >>= \w ->
+                           maybe [] (\wif -> [familyId wif]) $ readWorkspaceInFamily $ W.tag w
+    let allInvisibleFamilyWorkspaces = (W.hidden ws) >>= \w ->
+                                       maybe [] (\wif ->
+                                                     if any (familyId wif ==) allVisibleFamily then []
+                                                     else [w]
+                                               ) $ readWorkspaceInFamily $ W.tag w
+    if L.null allInvisibleFamilyWorkspaces then head $ W.hidden ws
+    else head $ L.sortBy compareWorkspaceAsWorkspaceFamily allInvisibleFamilyWorkspaces
