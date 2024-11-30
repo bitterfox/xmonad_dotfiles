@@ -127,7 +127,7 @@ data MultiToggle ts l a = MultiToggle{
     transformers :: ts
 }
 
-expand :: (LayoutClass l a, HList ts a) => MultiToggleS ts l a -> MultiToggle ts l a
+expand :: (LayoutClass l a, HList ts a, Typeable ts) => MultiToggleS ts l a -> MultiToggle ts l a
 expand (MultiToggleS b i ts) =
     resolve ts (fromMaybe (-1) i) id
         (\x mt ->
@@ -138,7 +138,7 @@ expand (MultiToggleS b i ts) =
 collapse :: (LayoutClass l a) => MultiToggle ts l a -> MultiToggleS ts l a
 collapse mt = MultiToggleS (deEL (currLayout mt)) (currIndex mt) (transformers mt)
 
-instance (LayoutClass l a, Read (l a), HList ts a, Read ts) => Read (MultiToggle ts l a) where
+instance (LayoutClass l a, Read (l a), HList ts a, Read ts, Typeable ts) => Read (MultiToggle ts l a) where
     readsPrec p s = map (first expand) $ readsPrec p s
 
 instance (Show ts, Show (l a), LayoutClass l a) => Show (MultiToggle ts l a) where
@@ -195,7 +195,7 @@ instance (Transformer a w, HList b w) => HList (HCons a b) w where
 geq :: (Typeable a, Eq a, Typeable b) => a -> b -> Bool
 geq a b = Just a == cast b
 
-instance (Typeable a, Show ts, HList ts a, LayoutClass l a) => LayoutClass (MultiToggle ts l) a where
+instance (Typeable a, Show ts, HList ts a, Typeable ts, LayoutClass l a) => LayoutClass (MultiToggle ts l) a where
     description mt = currLayout mt `unEL` \l -> description l
 
     runLayout (Workspace i mt s) r = case currLayout mt of
