@@ -131,6 +131,7 @@ class Terminal t where
 
     runTerminalAction :: t -> TerminalAction () -> X ()
     runTerminalAction t a@TerminalAction{actionName = name, actionInputs = inputs} = do
+      XS.put $ TerminalActionCounter "" 0
       CurrentTerminalAction ma <- XS.get
       q <- case ma of
         Just (a', i', o', Initialize) ->
