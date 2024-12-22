@@ -26,6 +26,7 @@ floatAvoidFocusUp stackSet = W.modify' (floatAvoidFocusUp' stackSet) stackSet
 floatAvoidFocusDown stackSet = W.modify' (floatAvoidFocusDown' stackSet) stackSet
 
 floatAvoidFocusUp', floatAvoidFocusDown' :: Ord a => W.StackSet i l a s sd -> W.Stack a -> W.Stack a
+floatAvoidFocusUp' stackSet stack@(W.Stack t [] []) = stack
 floatAvoidFocusUp' stackSet stack@(W.Stack t (l:ls) rs) =
     if M.member l $ W.floating stackSet then
         let W.Stack t' ls' rs' = floatAvoidFocusUp' stackSet (W.Stack t ls rs) in
