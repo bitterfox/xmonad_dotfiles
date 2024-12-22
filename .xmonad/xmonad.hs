@@ -748,6 +748,21 @@ main = do
                         (nw:_) -> W.Stack nw (L.delete nw ls) $ (L.delete nw rs) ++ [w]
                         _ -> stack
                     else W.Stack t (L.delete w ls) $ (L.delete w rs) ++ [w])
+        , ((0, 8), \w -> do
+             windowViewState <- XS.get
+             case windowViewState of
+               Normal -> prevWS'
+               WindowView -> windows floatAvoidFocusUp)
+        , ((0, 9), \w -> do
+             windowViewState <- XS.get
+             case windowViewState of
+               Normal -> nextWS'
+               WindowView -> windows floatAvoidFocusDown)
+        , ((0, 10), \w -> nextVirtualScreen)
+        , ((0, 14), \w -> do
+             focus w
+             quitWindowView $ sendMessage ToggleLayout)
+        , ((0, 11), \w -> windows floatAvoidFocusDown)
         ]
 
 -- Libraries
