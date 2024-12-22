@@ -52,6 +52,63 @@ battery() {
     xmobar_echo "$text"
 }
 
+keyboard_battery() {
+    keyboard="Keychron Q10 Max"
+    battery=`upower --dump | grep -e model -e percentage | grep -A1 "$keyboard" | grep percentage | sed -r "s/.*percentage:[^0-9]*([0-9]+)%/\1/"`
+
+    if [ -z "$battery" ]; then
+        exit 0
+    fi
+
+    if [ $battery -le 20 ]; then
+        emergency
+    elif [ $battery -ge 80 ]; then
+        ok
+    fi
+
+    xmobar_echo "🖮 ${battery}%"
+}
+
+mouse_battery() {
+    current_timestamp=`date +%s`
+    last_mouse_battery_result=`cat /tmp/xmobar_mouse_battery`
+    if [ -z "$last_mouse_battery_result" ]; then
+        echo $current_timestamp -1 > /tmp/xmobar_mouse_battery
+        update_mouse_battery $current_timestamp &
+        exit 0
+    fi
+    battery=`echo "$last_mouse_battery_result" | awk '{print $2}'`
+    last_mouse_battery_timestamp=`echo "$last_mouse_battery_result" | awk '{print $1}'`
+    if [ $(( last_mouse_battery_timestamp + 60 )) -le $current_timestamp ]; then
+        echo $current_timestamp $battery > /tmp/xmobar_mouse_battery
+        update_mouse_battery $current_timestamp &
+    fi
+
+    if [ $battery -le 0 ]; then
+        exit 0
+    fi
+
+    if [ $battery -le 20 ]; then
+        emergency
+    elif [ $battery -ge 80 ]; then
+        ok
+    fi
+
+    xmobar_echo "🖰 $battery%"
+}
+
+update_mouse_battery() {
+    start=`date +%s%N`
+    battery=`solaar show | grep Battery | head -n 1 | sed -r "s/.*Battery:[^0-9]*([0-9]+)%.*/\1/"`
+    end=`date +%s%N`
+
+    if [ -n "$battery" ]; then
+        echo $1 $battery $(( end - start )) > /tmp/xmobar_mouse_battery
+    else
+        echo $1 -1 > /tmp/xmobar_mouse_battery
+    fi
+}
+
 cpu_util() {
     last_info=`cat /tmp/xmobar_cpu_util_last`
     cur_info=`cat /proc/stat | head -n 1`
@@ -117,7 +174,7 @@ cpu_freq_limit() {
     lower_bound_freq_gz="`echo "scale=1; ($lower_bound_freq + 99999) / 1000/ 1000" | bc`"
     upper_bound_freq_gz="`echo "scale=1; ($upper_abound_freq + 99999) / 1000/ 1000" | bc`"
 
-    xmobar_printf "%1.1fGHz〜%1.1fGHz" $lower_bound_freq_gz $upper_bound_freq_gz
+    xmobar_printf "%1.1f〜%1.1fGHz" $lower_bound_freq_gz $upper_bound_freq_gz
 }
 
 cpu_temp() {
@@ -176,7 +233,8 @@ memory() {
     #ratio=`echo "scale=0;100*$used/$total" | bc`
     ratio="$((100*$used/$total))"
 
-    text=`printf "$label %5dMB(%2d%%)" $used $ratio`
+    # text=`printf "$label %5dMB(%2d%%)" $used $ratio`
+    text=`printf "$label %2d.%1dGB(%2d%%)" $((used/1024)) $((used%1024/100)) $ratio`
     if [[ $ratio -ge 90 ]]; then
         emergency
     fi
