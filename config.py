@@ -23,6 +23,10 @@ define_conditional_modmap(lambda wm_class, device: device.startswith('Keychron Q
     Key.HENKAN: Key.MUHENKAN,
 })
 
+define_multipurpose_modmap(
+    {Key.MUHENKAN: [Key.MUHENKAN, Key.LEFT_ALT]}
+)
+
 define_keymap(lambda wm_class: ((wm_class not in (
     "Emacs",
     "Gnome-terminal",
