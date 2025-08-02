@@ -12,6 +12,7 @@ module XMonad.Util.VirtualScreen (
       currentVirtualScreen,
       getAllVirtualScreenIds,
       createVirtualScreen, createVirtualScreen',
+      removeVirtualScreen,
       sendScreenMessage,
       rootSids,
       nextRootScreen, prevRootScreen,
@@ -100,10 +101,38 @@ insertScreenStack :: VirtualScreen -> ScreenId -> VirtualScreen
 insertScreenStack vs@VirtualScreen{screenStack = ss} sid =
   vs {
     screenStack = ss {
-                    W.down = down ++ [sid]
+                    W.down = [sid] ++ down
                   }
   }
   where down = W.down ss
+
+removeFromScreenStack :: VirtualScreen -> ScreenId -> VirtualScreen
+removeFromScreenStack vs@VirtualScreen{screenStack = ss} sid =
+    if (L.length $ W.integrate $ ss) > 1 then
+        removeFromScreenStack' vs sid
+    else vs
+removeFromScreenStack' :: VirtualScreen -> ScreenId -> VirtualScreen
+removeFromScreenStack' vs@VirtualScreen{screenStack = ss} sid =
+  vs {
+    screenStack = ss {
+                    W.up = newUp,
+                    W.focus = newFocus,
+                    W.down = newDown
+                  }
+  }
+  where focus = W.focus ss
+        up = W.up ss
+        down = W.down ss
+        newFocusCandidates = up ++ down
+        newFocus = if sid == focus then L.head newFocusCandidates else focus
+        newUp = L.filter (newFocus /=) $ L.filter (sid /=) up
+        newDown = L.filter (newFocus /=) $ L.filter (sid /=) down
+
+
+changeFocusedSid vs@VirtualScreen{screenStack = ss} sid =
+  vs {
+    screenStack = ss { W.focus = sid }
+  }
 
 replaceVirtualScreen :: VirtualScreens -> VirtualScreen -> VirtualScreens
 replaceVirtualScreen (VirtualScreens vss) vs =
@@ -175,6 +204,53 @@ createVirtualScreen' defaultLayout nextWorkspace = do
       W.visible = newVisible,
       W.hidden = newHidden
     }
+
+removeVirtualScreen :: X ()
+removeVirtualScreen = do
+  virtualScreens <- XS.get
+  withWindowSet $ \ws -> whenX (return $ not $ L.null $ W.hidden ws) $ do
+    let current = W.current ws
+    let visible = W.visible ws
+
+    let vsMaybe = findVirtualScreen virtualScreens $ W.screen current
+    case vsMaybe of
+      Just vs ->
+        if (L.length $ W.integrate $ screenStack vs) == 1 then return ()
+        else do
+          let nvs = removeFromScreenStack vs $ W.screen current
+
+          -- workaround: if root sid is changed, current xmobar fall into infinite loop
+          -- find master screen of nvs and rename screen id
+          let nvs' = if (rootSid vs) == W.screen current then changeFocusedSid nvs $ rootSid vs else nvs
+          let visible' = if (rootSid vs) == W.screen current then L.map (\s -> changeScreenIf s (W.screen s == (W.focus $ screenStack nvs)) $ rootSid vs) visible else visible
+
+          (newRects, newLayoutMaybe) <- runLayout (W.Workspace {
+                       W.tag = show $ rootSid nvs',
+                       W.layout = screenLayout nvs',
+                       W.stack = Just $ screenStack nvs'}) (originalRect nvs')
+          XS.put $ replaceVirtualScreen virtualScreens $ case newLayoutMaybe of
+                                                           Just newLayout -> nvs' {screenLayout = newLayout}
+                                                           Nothing -> nvs'
+
+
+          let newHidden = W.hidden ws ++ [W.workspace current]
+          let focusSid = W.focus $ screenStack nvs'
+          let focusScreen = fromJust $ L.find (\s -> W.screen s == focusSid) $ visible'
+          let newCurrent = replaceScreenRect newRects $ focusScreen {W.screenDetail = SD $ originalRect nvs'}
+          let newVisible = L.map (replaceScreenRect newRects) $ L.filter (\s -> W.screen s /= focusSid) $ visible'
+
+          windows $ \_ -> ws {
+            W.current = newCurrent,
+            W.visible = newVisible,
+            W.hidden = newHidden
+          }
+
+      Nothing -> return ()
+
+changeScreenIf screen cond sid =
+    if cond then
+        screen {W.screen = sid}
+    else screen
 
 replaceScreenRect rects screen =
   case findScreenRect rects $ W.screen screen of

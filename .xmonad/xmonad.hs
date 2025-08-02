@@ -190,8 +190,11 @@ myManageHookAll = manageHook gnomeConfig -- defaultConfig
 --  return $ Endo $ \a -> a
 
 -- myLayout = measureLayoutHook "myLayout" $ compositeTall (3/100) wide
-myLayout = compositeTall (3/100) wide
+myLayout = compositeTall (3/100) (toggleLayouts (Full) wide)
   where wide = simpleWide (3/100)
+myLayoutForVirtualScreen = compositeTall (3/100) (toggleLayouts (Full) wide)
+  where wide = simpleWide (3/100)
+
 --myLayout = (ResizableTall 1 (3/100) (1/2) [])
 myLayoutHookAll = avoidStruts $ WindowViewableLayout Normal (
                                       (noBorders $ AndroidLikeWindowView (1/7) (3/100) (1/30) (1/100))
@@ -479,7 +482,8 @@ screenKeys = L.concat $ [
   ]
 
 virtualScreenKeys = [
-    ((mod4Mask, xK_x), createVirtualScreen' (myLayout ||| (Mirror myLayout)) $ selectUnusedFamilyWorkspace)
+    ((mod4Mask, xK_x), createVirtualScreen' (myLayoutForVirtualScreen ||| (Mirror myLayoutForVirtualScreen)) $ selectUnusedFamilyWorkspace)
+  , ((mod4Mask .|. controlMask, xK_x), removeVirtualScreen)
   , ((mod4Mask .|. shiftMask, xK_x), resetVirtualScreen)
   , ((mod4Mask .|. mod1Mask, xK_d), sendScreenMessage NextLayout)
   , ((mod4Mask .|. mod1Mask .|. shiftMask, xK_comma    ), sendScreenMessageToCompositeTall (IncMasterN 1))
