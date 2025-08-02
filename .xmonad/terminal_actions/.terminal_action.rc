@@ -49,5 +49,7 @@ query:${black}:${gray},\
 spinner:${blue}:${gray},\
 info:${black}:${gray},\
 header:${black}:${gray}:bold,\
-border:$gray' \
---pointer='➤' --info=inline-right"
+border:$gray,\
+scrollbar:${blue}:${white}' \
+--pointer='➤' \
+--info=inline-right --no-separator"

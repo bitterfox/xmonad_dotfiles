@@ -5,4 +5,4 @@ export FZFLET_ACTIONS_DISABLED="false"
 
 output="$2"
 
-~/git-repos/github.com/bitterfox/fzflet/1password_v1/fzf_1password.sh "$output"
+~/git-repos/github.com/bitterfox/fzflet/1password_v2/fzf_1password.sh "$output"

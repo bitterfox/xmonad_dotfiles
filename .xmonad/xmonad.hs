@@ -1296,6 +1296,8 @@ copyFromClipboardHistoryListTerminalAction =
   (terminalActionTemplate "copy.from.clipboard.history.list" "~/.xmonad/terminal_actions/select_clipboard.sh" $ terminalActionManageHook) .>| ()
 copyFromClipboardHistoryAgTerminalAction =
   (terminalActionTemplate "copy.from.clipboard.history.ag" "~/.xmonad/terminal_actions/select_clipboard.sh ag" $ terminalActionManageHook) .>| ()
+copyFromClipboardHistoryListMultiTerminalAction =
+  (terminalActionTemplate "copy.from.clipboard.history.list.multi" "~/.xmonad/terminal_actions/select_clipboard.sh multi" $ terminalActionManageHook) .>| ()
 onePasswordTerminalAction =
   (terminalActionTemplate "one.password" "~/.xmonad/terminal_actions/one_password.sh" $ onCenter'' 0.1 0.2)
   .| withFirstLine .|| (\s -> "xdotool type '" ++ (T.unpack $ T.replace (T.pack "'") (T.pack "'\"'\"'") (T.pack s)) ++ "'") .>> spawn
@@ -1317,6 +1319,7 @@ myTerminalActions = [
   , openBrowserHistoryTerminalAction
   , copyFromClipboardHistoryListTerminalAction
   , copyFromClipboardHistoryAgTerminalAction
+  , copyFromClipboardHistoryListMultiTerminalAction
   , onePasswordTerminalAction
   , selectWindowTerminalActionTemplate .>| ()
   , selectActionTerminalActionTemplate .>| ()
@@ -1337,7 +1340,7 @@ runOpenBrowserHistoryTerminalAction = do
 
 runCopyFromClipboardHistoryTerminalAction = do
   runCyclicTerminalAction myTerminal "copy.from.clipboard.history" $
-                          [copyFromClipboardHistoryListTerminalAction, copyFromClipboardHistoryAgTerminalAction]
+                          [copyFromClipboardHistoryListTerminalAction, copyFromClipboardHistoryAgTerminalAction, copyFromClipboardHistoryListMultiTerminalAction]
 
 runOnePasswordTerminalAction = do
   runNamedTerminalAction myTerminal myTerminalActions "one.password"

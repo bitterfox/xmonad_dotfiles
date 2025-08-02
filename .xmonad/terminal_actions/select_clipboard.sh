@@ -6,6 +6,8 @@ export FZFLET_ACTIONS_DISABLED="false"
 # CM_DIR=$HOME clipmenu_fzf --preview-window="down:30%"
 if [[ "$1" == "ag" ]]; then
     file=`CM_DIR=$HOME ~/git-repos/github.com/bitterfox/fzflet/clipmenu/fzf_clipmenu_ag.sh`
+elif [[ "$1" == "multi" ]]; then
+    file=`CM_DIR=$HOME ~/git-repos/github.com/bitterfox/fzflet/clipmenu/fzf_clipmenu_list_multiline.sh`
 else
     file=`CM_DIR=$HOME ~/git-repos/github.com/bitterfox/fzflet/clipmenu/fzf_clipmenu_list.sh`
 fi
