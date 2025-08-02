@@ -522,6 +522,7 @@ layoutKeys = [
 
   -- Window view
   , ((mod4Mask, xK_v), quitWindowView $ sendMessage ToggleLayout)
+  , ((mod4Mask .|. controlMask, xK_v), sendMessage $ DelegateMessage $ SomeMessage $ ToggleLayout)
   , ((mod4Mask .|. shiftMask, xK_v), startWindowView)
   ]
 
