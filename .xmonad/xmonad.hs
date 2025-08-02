@@ -833,7 +833,7 @@ myScratchpads = [
            onCenter
   , terminalScratchpad "fzf_actions" (Just "\"zsh -c '. $HOME/.fzf.zsh; _fzf_actions_then_echo -n | xsel -b -i'\"") $ onCenter'' 0.1 0.2
   , NS "ai"
-            "bash ~/scripts/xmonad_chatai.sh"
+            "bash ~/scripts/xmonad_ai.sh"
             (className =? "xmonad.AI")
             $ onCenter''' 0.25 0.01 $ minWidth 1600
  ]
