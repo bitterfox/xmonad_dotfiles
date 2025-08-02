@@ -1,5 +1,6 @@
 
 module XMonad.Util.VirtualMouse (
+  initializeScreenMouses,
   loggingCurrentScreenMousePositionEventHook,
   logCurrentScreenMousePosition,
   queryPointerAndLogCurrentScreenMousePosition,
@@ -9,6 +10,7 @@ module XMonad.Util.VirtualMouse (
   changeCurrentVirtualMouse
 ) where
 
+import qualified Data.List as L
 import qualified Data.Map.Strict as M
 import Data.Maybe
 import Data.Monoid
@@ -37,6 +39,14 @@ instance ExtensionClass CurrentVirtualMouse where
   initialValue = CurrentVirtualMouse Nothing
 
 screenIdToMouseId = show
+
+initializeScreenMouses = do
+  withWindowSet $ \ws -> do
+    let ss = W.screens ws
+    L.foldr (\s x -> (initializeScreenMouse s >> x)) (return ()) ss
+  moveScreenMouseToLastPosition
+initializeScreenMouse screen =
+  setVirtualMousePosition (screenIdToMouseId $ W.screen screen) $ centerOfScreen screen
 
 loggingCurrentScreenMousePositionEventHook e = do
   logCurrentScreenMousePosition False False

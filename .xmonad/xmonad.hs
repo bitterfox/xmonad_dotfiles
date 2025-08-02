@@ -348,6 +348,7 @@ myStartupHook =
     docksStartupHook <+>
     configureMouse <+>
     myrescreen priorityDisplayEDIDs <+>
+    initializeScreenMouses <+>
     grabMetaKey [xK_Super_L, xK_Super_R]
 
 watch :: String -> String -> IO ()
