@@ -154,9 +154,10 @@ systemActions = [
 
 priorityDisplayEDIDs :: [EDID]
 priorityDisplayEDIDs = [
- "00ffffffffffff00061044a000000000",
- "00ffffffffffff0010acb5414c323332",
- "00ffffffffffff0010acb7414c323332",
+ "00ffffffffffff0010ac4da2534e4a30", -- AW3225
+ "00ffffffffffff0010acb7414c323332", -- U2720Q 9x16
+ "00ffffffffffff00061044a000000000", -- Laptop display
+ "00ffffffffffff0010acb5414c323332", -- U2720Q 16x9
  "00ffffffffffff0010acb5414c333232"]
 
 intelliJTerminalEnv =
@@ -612,7 +613,7 @@ workspaceHistoryKeys = [
 
 main = do
     -- Display
-    runProcessWithInputAndWait "sh" ["-c", "sh '/home/jp21734/.xmonad/auto_detect_display.sh' >> /tmp/debug"] "" (seconds 1)
+    runProcessWithInputAndWait "sh" ["-c", "sh '/home/jp21734/.xmonad/auto_detect_display.sh' >> auto_detect_display_debug"] "" (seconds 1)
 
     -- Keyboard and Mouse
     spawn "xhost +SI:localuser:root; sleep 1; sudo xkeysnail --watch -q ~/config.py & sleep 3; xset r rate 250 50; xset q >> /tmp/xset.debug"
