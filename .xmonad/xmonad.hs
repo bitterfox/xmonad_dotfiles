@@ -635,6 +635,8 @@ main = do
 
 --    spawn "compton -b --config ~/.comptonrc"
 
+    spawn "streamdeck -n"
+
     io (threadDelay (2 * 1000 * 1000))
     numDisplayStr <- runProcessWithInput "sh" ["-c", "xrandr --query | grep -c '\\bconnected\\b'"] ""
     let numDisplay = read numDisplayStr :: Int
