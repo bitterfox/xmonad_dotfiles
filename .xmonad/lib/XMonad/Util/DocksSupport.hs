@@ -1,4 +1,4 @@
-
+{-# OPTIONS_GHC -Wno-deprecations #-}
 module XMonad.Util.DocksSupport (
   docksStartupHook,
   docksManageHook,

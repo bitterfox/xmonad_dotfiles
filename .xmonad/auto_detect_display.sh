@@ -1,5 +1,11 @@
-right_EDID="00ffffffffffff0010acb5414c333232"
-scale_EDID="00ffffffffffff0010ac4da2534e4a30"
+#!/bin/bash
+
+xrandr --output HDMI-0 --mode 3840x2160 --scale 1.17x1.17 --primary --pos 0x0 --output DP-0 --mode 3840x2160 --rotate right --pos 0x4080 --output DP-1 --off --output DP-2 --mode 3840x2160 --pos 5760x0 --output DP-3 --off --output DP-4 --off --output DP-5 --off
+
+exit 0
+
+right_EDID="00ffffffffffff0010acb3414c333232"
+scale_EDID="00ffffffffffff0010ac49a2534e4a30"
 scale="--scale 1.17x1.17"
 
 result=`xrandr`
@@ -30,7 +36,8 @@ for i in `seq 1 $num_connection`; do
     echo $connector
     xrandr_param="$xrandr_param --output $connector"
 
-    if [ "`echo \"$connection_record\" | grep disconnected`" ]; then
+    if [ "`echo \"$connection_record\
+" | grep disconnected`" ]; then
         xrandr_param="$xrandr_param --off"
         continue
     fi
@@ -108,7 +115,7 @@ for i in `seq 1 $num_connection`; do
         xrandr_param="$xrandr_param --pos ${pos_x}x${pos_y}"
     fi
 done
-    echo $xrandr_param
+echo $xrandr_param
 
 xrandr $xrandr_param
 

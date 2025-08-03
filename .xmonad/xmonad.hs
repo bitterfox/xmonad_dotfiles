@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 import System.Directory
 import System.Exit
 import System.IO
@@ -158,9 +159,12 @@ systemActions = [
 priorityDisplayEDIDs :: [EDID]
 priorityDisplayEDIDs = [
  "00ffffffffffff0010ac4da2534e4a30", -- AW3225
+ "00ffffffffffff0010ac49a2534e4a30",
  "00ffffffffffff0010acb7414c323332", -- U2720Q 9x16
+ "00ffffffffffff0010acb4414c323332",
  "00ffffffffffff00061044a000000000", -- Laptop display
  "00ffffffffffff0010acb5414c323332", -- U2720Q 16x9
+ "00ffffffffffff0010acb3414c333232",
  "00ffffffffffff0010acb5414c333232"]
 
 intelliJTerminalEnv =
@@ -781,13 +785,13 @@ main = do
         , ((0, 15), \w -> return ())
         , ((0, 12), \w -> spawn $ "xdotool key XF86Copy")
         , ((0, 13), \w -> spawn $ "xdotool key XF86Paste")
-        ] `advancedMouseBindings` [
-          ([10], (0, 8), \w -> prevVirtualScreen)
-        , ([10], (0, 9), \w -> nextVirtualScreen)
-        , ([10], (0, 1), \w -> focus w >> kill)
-        , ([10], (0, 4), \w -> windows floatAvoidFocusUp)
-        , ([10], (0, 5), \w -> windows floatAvoidFocusDown)
-        ] `ungrabButtons'` [1, 2, 3, 4, 5]
+        ] --`advancedMouseBindings` [
+--          ([10], (0, 8), \w -> prevVirtualScreen)
+--        , ([10], (0, 9), \w -> nextVirtualScreen)
+--        , ([10], (0, 1), \w -> focus w >> kill)
+--        , ([10], (0, 4), \w -> windows floatAvoidFocusUp)
+--        , ([10], (0, 5), \w -> windows floatAvoidFocusDown)
+--        ] `ungrabButtons'` [1, 2, 3, 4, 5]
 
 -- Libraries
 
@@ -1463,7 +1467,7 @@ isButtonPressed = do
 testButtonMask :: ButtonMask -> X Bool
 testButtonMask mask = do
   AdvancedMouseState _ m _ <- XS.get
-  spawn $"echo 'test "++(show m) ++ " with "++(show m)++"' >> /tmp/xmonad.debug.event"
+  spawn $ "echo 'test "++(show m) ++ " with "++(show m)++"' >> /tmp/xmonad.debug.event"
   return $ mask == m
 
 advancedMouseEventHook e@ButtonEvent{ev_event_type = ev_event_type, ev_button = ev_button} = do

@@ -144,7 +144,7 @@ cpu_util() {
 }
 
 cpu_freq() {
-    freq=`lscpu | grep "CPU MHz" | awk '{print $3}'`
+    freq=`lscpu -e | awk '{print $9}' | tail -n +2 | awk -F'.' '{print $1}' | sort -n | tail -n 1`
     freq=`printf "scale=1\n($freq + 50)/1000\n" | bc`
 
     xmobar_printf "∿%1.1fGHz" $freq
@@ -242,7 +242,7 @@ memory() {
 }
 
 net_bps() {
-    nic="enx00e04c0a135f"
+    nic="enp130s0"
 
     last_info="0 0 0"
     if [ -f "/tmp/xmobar_net_bps_util_last" ]; then
@@ -291,7 +291,11 @@ net_bps() {
 
 
     rx_unit="bps"
-    if [ $rx_bps -gt 1048576 ]; then
+    if [ $rx_bps -gt 1073741824 ]; then
+        rx_bps_M="$(($rx_bps % 1073741824 / 1048576 / 100))"
+        rx_bps="$(($rx_bps / 1073741824)).$rx_bps_M"
+        rx_unit="Gbps"
+    elif [ $rx_bps -gt 1048576 ]; then
         rx_bps="$(($rx_bps / 1048576))"
         rx_unit="Mbps"
     elif [ $rx_bps -gt 1024 ]; then
@@ -300,7 +304,11 @@ net_bps() {
     fi
 
     tx_unit="bps"
-    if [ $tx_bps -gt 1048576 ]; then
+    if [ $tx_bps -gt 1073741824 ]; then
+        tx_bps_M="$(($tx_bps % 1073741824 / 1048576 / 100))"
+        tx_bps="$(($tx_bps / 1073741824)).$tx_bps_M"
+        tx_unit="Gbps"
+    elif [ $tx_bps -gt 1048576 ]; then
         tx_bps="$(($tx_bps / 1048576))"
         tx_unit="Mbps"
     elif [ $tx_bps -gt 1024 ]; then
@@ -308,8 +316,16 @@ net_bps() {
         tx_unit="Kbps"
     fi
 
-    rx_text=`printf "⬇%4d%4s" $rx_bps $rx_unit`
-    tx_text=`printf "⬆️%4d%4s" $tx_bps $tx_unit`
+    if [ $rx_unit == "Gbps" ]; then
+        rx_text=`printf "⬇%2.1f%4s" $rx_bps $rx_unit`
+    else
+        rx_text=`printf "⬇%4d%4s" $rx_bps $rx_unit`
+    fi
+    if [ $tx_unit == "Gbps" ]; then
+        tx_text=`printf "⬆️%2.1f%4s" $tx_bps $tx_unit`
+    else
+        tx_text=`printf "⬆️%4d%4s" $tx_bps $tx_unit`
+    fi
 
     xmobar_echo "📶$rx_prefix$rx_text$rx_suffix$tx_prefix$tx_text$tx_suffix"
 }

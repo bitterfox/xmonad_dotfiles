@@ -45,7 +45,6 @@ floatAvoidFocusUp' stackSet stack@(W.Stack t [] rs) = do
 --  let (rf, rs') = L.partition (isFloat stackSet) rs
 --  let W.Stack t' nls nrs = W.focusUp' $ W.Stack t ls' rs'
 --  W.Stack t' (lf ++ nls) (rf ++ nrs)
-floatAvoidFocusUp' stackSet stack@(W.Stack t [] []) = stack
 
 floatAvoidFocusDown' stackSet = reverseStack . (floatAvoidFocusUp' stackSet) . reverseStack
 
