@@ -625,8 +625,10 @@ workspaceHistoryKeys = [
   ]
 
 main = do
+    homeDirectory <- liftIO getHomeDirectory
+
     -- Display
-    runProcessWithInputAndWait "sh" ["-c", "sh '/home/jp21734/.xmonad/auto_detect_display.sh' >> auto_detect_display_debug"] "" (seconds 1)
+    runProcessWithInputAndWait "sh" ["-c", "sh '" ++ homeDirectory ++ "/.xmonad/auto_detect_display.sh' >> auto_detect_display_debug"] "" (seconds 1)
 
     -- Keyboard and Mouse
     spawn "xhost +SI:localuser:root; sleep 1; sudo xkeysnail --watch -q ~/config.py & sleep 3; xset r rate 210 70; xset q >> /tmp/xset.debug"
@@ -654,7 +656,7 @@ main = do
     let numDisplay = read numDisplayStr :: Int
     spawn $ "echo '" ++ (show numDisplay) ++ "' > /tmp/test"
     spawn $ "xrandr --query | grep -c '\\bconnected\\b' >> /tmp/test"
-    xmprocs <- mapM (\displayId -> spawnPipe $ "/usr/bin/xmobar " ++ (if displayId == 0 then "" else "-p Top -x " ++ (show displayId)) ++ " ~/.xmobarrc") [0..numDisplay-1]
+    xmprocs <- mapM (\displayId -> spawnPipe $ "/usr/bin/xmobar -D 120 " ++ (if displayId == 0 then "" else "-p 'TopSize L 100 30' -x " ++ (show displayId)) ++ " ~/.xmobarrc") [0..numDisplay-1]
 
     spawn "gnome-screensaver"
     spawn "pulseeffects --gapplication-service"
@@ -665,7 +667,7 @@ main = do
     spawn "CM_MAX_CLIPS=10000 CM_DIR=$HOME CM_SELECTIONS=clipboard CM_IGNORE_WINDOW=xmonad.terminal.action.one.password clipmenud"
 
     spawn "~/.xmonad/system_scripts/bright/sync.sh"
-    
+
 --    spawn $ "echo '" ++ (show $ mkToggleInitial (single TitleTransformer) TitleTransformer $ myLayout) ++ "' >> /tmp/xmonad.debug.layout"
     xmonad $ gnomeConfig
         { manageHook = myManageHookAll
