@@ -1,7 +1,9 @@
-Config { font = "xft:monospace-10:bold,Symbola-10:bold"
+Config {
+       font = "Noto Sans Mono CJK JP Bold 10"
+       , additionalFonts = ["Symbola 10"]
        , bgColor = "#4E4B42"
        , fgColor = "#DAD4BB"
-       , position = TopW L 95
+       , position = TopSize L 95 30
        , lowerOnStart = False
        , commands = [
                       Run Com "cat" ["/tmp/xmobar_metrics"] "metrics" 2
@@ -9,5 +11,5 @@ Config { font = "xft:monospace-10:bold,Symbola-10:bold"
                     ]
        , sepChar = "%"
        , alignSep = "}{"
-       , template = "%StdinReader% }{%metrics%"
+       , template = "}%StdinReader% {%metrics%"
        }
