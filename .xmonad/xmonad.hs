@@ -656,7 +656,7 @@ main = do
     let numDisplay = read numDisplayStr :: Int
     spawn $ "echo '" ++ (show numDisplay) ++ "' > /tmp/test"
     spawn $ "xrandr --query | grep -c '\\bconnected\\b' >> /tmp/test"
-    xmprocs <- mapM (\displayId -> spawnPipe $ "/usr/bin/xmobar -D 120 " ++ (if displayId == 0 then "" else "-p 'TopSize L 100 30' -x " ++ (show displayId)) ++ " ~/.xmobarrc") [0..numDisplay-1]
+    xmprocs <- mapM (\displayId -> spawnPipe $ "export FONTCONFIG_FILE=" ++ homeDirectory ++ "/.xmobar/font.conf && /usr/bin/xmobar -D 120 " ++ (if displayId == 0 then "" else "-p 'TopSize L 100 30' -x " ++ (show displayId)) ++ " ~/.xmobarrc") [0..numDisplay-1]
 
     spawn "gnome-screensaver"
     spawn "pulseeffects --gapplication-service"

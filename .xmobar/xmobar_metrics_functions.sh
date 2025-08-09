@@ -109,89 +109,6 @@ update_mouse_battery() {
     fi
 }
 
-cpu_util() {
-    last_info=`cat /tmp/xmobar_cpu_util_last`
-    cur_info=`cat /proc/stat | head -n 1`
-    echo $cur_info > /tmp/xmobar_cpu_util_last
-
-    if [ -z "$last_info" ]; then
-        percent="0"
-    else
-        set -- $last_info
-        shift
-        last_active="$(($1 + $2 + $3))"
-        last_sum=0
-        for i in $@; do
-            last_sum="$((last_sum + $i))"
-        done
-
-        set -- $cur_info
-        shift
-        cur_active="$(($1 + $2 + $3))"
-        cur_sum=0
-        for i in $@; do
-            cur_sum="$((cur_sum + $i))"
-        done
-
-        percent="$((100 * ($cur_active - $last_active) / ($cur_sum - $last_sum)))"
-    fi
-
-    text=`printf "❖%3d%%" $percent`
-    if [ $percent -ge 90 ]; then
-        emergency
-    fi
-    xmobar_echo "$text"
-}
-
-cpu_freq() {
-    freq=`lscpu -e | awk '{print $9}' | tail -n +2 | awk -F'.' '{print $1}' | sort -n | tail -n 1`
-    freq=`printf "scale=1\n($freq + 50)/1000\n" | bc`
-
-    xmobar_printf "∿%1.1fGHz" $freq
-}
-
-cpu_freq_limit() {
-    lower_bound_freq_pct="`cat /sys/devices/system/cpu/intel_pstate/min_perf_pct`"
-    upper_bound_freq_pct="`cat /sys/devices/system/cpu/intel_pstate/max_perf_pct`"
-    min_freq="`cat /sys/devices/system/cpu/cpufreq/policy0/cpuinfo_min_freq`"
-    max_freq="`cat /sys/devices/system/cpu/cpufreq/policy0/cpuinfo_max_freq`"
-
-    lower_bound_freq=$((max_freq / 100 * lower_bound_freq_pct))
-    upper_abound_freq=$((max_freq / 100 * upper_bound_freq_pct))
-
-    if [ $lower_bound_freq -lt $min_freq ]; then
-        lower_bound_freq=$min_freq
-    elif [ $lower_bound_freq -gt $max_freq ]; then
-        lower_bound_freq=$max_freq
-    fi
-
-    if [ $upper_abound_freq -lt $min_freq ]; then
-        upper_abound_freq=$min_freq
-    elif [ $upper_abound_freq -gt $max_freq ]; then
-        upper_abound_freq=$max_freq
-    fi
-
-    lower_bound_freq_gz="`echo "scale=1; ($lower_bound_freq + 99999) / 1000/ 1000" | bc`"
-    upper_bound_freq_gz="`echo "scale=1; ($upper_abound_freq + 99999) / 1000/ 1000" | bc`"
-
-    xmobar_printf "%1.1f〜%1.1fGHz" $lower_bound_freq_gz $upper_bound_freq_gz
-}
-
-cpu_temp() {
-    temp=`cat /sys/devices/platform/coretemp.0/hwmon/hwmon*/temp1_input | xargs -i% echo -e 'scale=1\n%/1000' | bc`
-
-    throttle_count=`cat /sys/devices/system/cpu/cpu0/thermal_throttle/package_throttle_count`
-
-    text="🌡$temp℃ ($throttle_count)"
-
-    if [ `echo "80 <= $temp" | bc` = 1 ]; then
-        emergency
-    elif [ `echo "50 >= $temp" | bc` = 1 ]; then
-        ok
-    fi
-    xmobar_echo $text
-}
-
 fan_speed() {
     fan_device_dir="/sys/devices/virtual/hwmon/hwmon2"
 
@@ -216,141 +133,16 @@ fan_speed() {
     fi
 }
 
-memory() {
-    mem=$1
-    label=$2
-
-    stat=`free -m | grep $1`
-    total=`echo $stat | awk '{print $2}'`
-    #avail=`echo $stat | awk '{print $7}'`
-
-    #if [ -z "$avail" ]; then
-    used=`echo $stat | awk '{print $3}'`
-    #else
-    #    used=`echo "$total-$avail" | bc`
-    #fi
-
-    #ratio=`echo "scale=0;100*$used/$total" | bc`
-    ratio="$((100*$used/$total))"
-
-    # text=`printf "$label %5dMB(%2d%%)" $used $ratio`
-    text=`printf "$label %2d.%1dGB(%2d%%)" $((used/1024)) $((used%1024/100)) $ratio`
-    if [[ $ratio -ge 90 ]]; then
-        emergency
-    fi
-    xmobar_echo "$text"
-}
-
-net_bps() {
-    nic="enp130s0"
-
-    last_info="0 0 0"
-    if [ -f "/tmp/xmobar_net_bps_util_last" ]; then
-        last_info=`cat /tmp/xmobar_net_bps_util_last`
-    fi
-
-    cur_rx_bytes=`cat /sys/class/net/$nic/statistics/rx_bytes 2> /dev/null`
-    if [ -z "$cur_rx_bytes" ]; then
-        cur_rx_bytes="0"
-    fi
-
-    cur_tx_bytes=`cat /sys/class/net/$nic/statistics/tx_bytes 2> /dev/null`
-    if [ -z "$cur_tx_bytes" ]; then
-        cur_tx_bytes="0"
-    fi
-
-    cur_millis=`echo $(($(date +%s%N)/1000000))`
-    echo $cur_rx_bytes $cur_tx_bytes $cur_millis > /tmp/xmobar_net_bps_util_last
-
-    if [ -z "$last_info" ]; then
-        rx_bps=0
-        tx_bps=0
-    else
-        set -- $last_info
-        last_rx_bytes="$1"
-        last_tx_bytes="$2"
-        last_millis="$3"
-
-        rx_bps="$((($cur_rx_bytes - $last_rx_bytes) * 1000 / ($cur_millis - $last_millis) * 8))"
-        tx_bps="$((($cur_tx_bytes - $last_tx_bytes) * 1000 / ($cur_millis - $last_millis) * 8))"
-    fi
-
-    rx_prefix=""
-    rx_suffix=""
-    if [ $rx_bps -gt 1048576 ]; then
-        rx_prefix="<fc=$white,$red>"
-        rx_suffix="</fc>"
-    fi
-
-    tx_prefix=""
-    tx_suffix=""
-    if [ $tx_bps -gt 1048576 ]; then
-        tx_prefix="<fc=$white,$red>"
-        tx_suffix="</fc>"
-    fi
-
-
-    rx_unit="bps"
-    if [ $rx_bps -gt 1073741824 ]; then
-        rx_bps_M="$(($rx_bps % 1073741824 / 1048576 / 100))"
-        rx_bps="$(($rx_bps / 1073741824)).$rx_bps_M"
-        rx_unit="Gbps"
-    elif [ $rx_bps -gt 1048576 ]; then
-        rx_bps="$(($rx_bps / 1048576))"
-        rx_unit="Mbps"
-    elif [ $rx_bps -gt 1024 ]; then
-        rx_bps="$(($rx_bps / 1024))"
-        rx_unit="Kbps"
-    fi
-
-    tx_unit="bps"
-    if [ $tx_bps -gt 1073741824 ]; then
-        tx_bps_M="$(($tx_bps % 1073741824 / 1048576 / 100))"
-        tx_bps="$(($tx_bps / 1073741824)).$tx_bps_M"
-        tx_unit="Gbps"
-    elif [ $tx_bps -gt 1048576 ]; then
-        tx_bps="$(($tx_bps / 1048576))"
-        tx_unit="Mbps"
-    elif [ $tx_bps -gt 1024 ]; then
-        tx_bps="$(($tx_bps / 1024))"
-        tx_unit="Kbps"
-    fi
-
-    if [ $rx_unit == "Gbps" ]; then
-        rx_text=`printf "⬇%2.1f%4s" $rx_bps $rx_unit`
-    else
-        rx_text=`printf "⬇%4d%4s" $rx_bps $rx_unit`
-    fi
-    if [ $tx_unit == "Gbps" ]; then
-        tx_text=`printf "⬆️%2.1f%4s" $tx_bps $tx_unit`
-    else
-        tx_text=`printf "⬆️%4d%4s" $tx_bps $tx_unit`
-    fi
-
-    xmobar_echo "📶$rx_prefix$rx_text$rx_suffix$tx_prefix$tx_text$tx_suffix"
-}
-
-net_segment_retransmit() {
-    tcp_values=`cat /proc/net/snmp | grep "Tcp:" | head -n 2 | tail -n 1`
-    set -- $tcp_values
-
-    tcp_columns=`cat /proc/net/snmp | grep "Tcp:" | head -n 1`
-
-    for column in $tcp_columns; do
-        if [ "$column" == "RetransSegs" ]; then
-            echo $1
-            break
-        fi
-        shift
-    done
-}
-
 brightness() {
     current="`cat "/sys/class/backlight/acpi_video0/brightness"`"
+    if [ -z "$current" ]; then
+        return
+    fi
+
     max="`cat "/sys/class/backlight/acpi_video0/max_brightness"`"
     text="`echo "scale=2;b=$current / $max*100;scale=0;b/1" | bc | xargs printf "%3d%%"`"
 
-    xmobar_echo "$text"
+    xmobar_echo "☀$text"
 }
 
 volume() {

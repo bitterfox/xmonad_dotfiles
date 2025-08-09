@@ -1,6 +1,6 @@
 Config {
        font = "Noto Sans Mono CJK JP Bold 10"
-       , additionalFonts = ["Symbola 10"]
+       , additionalFonts = ["Symbola Regular 10"]
        , bgColor = "#4E4B42"
        , fgColor = "#DAD4BB"
        , position = TopSize L 95 30
