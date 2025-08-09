@@ -20,6 +20,8 @@ volume=`volume`
 
 jadate=`date "+%_m/%_d(%a) %H:%M"`
 
+nvidia=`nvidia-smi --query-gpu=name,temperature.gpu,utilization.gpu,memory.used,memory.total,pstate --format=csv | tail -n1`
+
 end=`date +%s%N`
 
 if [ -n "$keyboard_battery" ]; then
@@ -48,5 +50,5 @@ if [ -n "$brightness" ]; then
 fi
 
 
-echo "$volume | $jadate (`printf "%4d" $(((end-start)/1000/1000))` ms)"
+echo "$nvidia | $volume | $jadate (`printf "%4d" $(((end-start)/1000/1000))` ms)"
 #echo "(`printf "%4d" $(((end-start)/1000/1000))` ms)"
