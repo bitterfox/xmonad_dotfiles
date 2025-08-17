@@ -12,6 +12,10 @@ xmobar_echo() {
     echo "<fc=$fg,$bg>$@</fc>"
 }
 
+xmobar_echo_n() {
+    echo -n "<fc=$fg,$bg>$@</fc>"
+}
+
 xmobar_printf() {
     echo -n "<fc=$fg,$bg>"
     printf $@

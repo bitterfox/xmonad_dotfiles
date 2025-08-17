@@ -1,8 +1,25 @@
 #!/bin/bash
 
-echo "xrandr --output HDMI-0 --mode 3840x2160 --scale 1.17x1.17 --primary --pos 0x0 --output DP-0 --mode 3840x2160 --rotate right --pos 0x4080 --output DP-1 --off --output DP-2 --mode 3840x2160 --pos 5760x0 --output DP-3 --off --output DP-4 --off --output DP-5 --off"
+path="/tmp/xmonad_game_mode"
+status=`cat $path`
 
-xrandr --output HDMI-0 --mode 3840x2160 --scale 1.17x1.17 --primary --pos 0x0 --output DP-0 --mode 3840x2160 --rotate right --pos 0x4080 --output DP-1 --off --output DP-2 --mode 3840x2160 --pos 5760x0 --output DP-3 --off --output DP-4 --off --output DP-5 --off
+echo $status
+
+if [[ "$status" == "on" ]]; then
+    echo enabled gamemode
+    xrandr --output HDMI-0 --mode 3840x2160 --scale 1x1 --rate 240 --primary --pos 0x0 --output DP-2 --mode 3840x2160 --scale 1x1 --pos 5760x0 --output DP-0 --mode 3840x2160 --rotate right --pos 0x4080 --output DP-1 --off --output DP-3 --off --output DP-4 --off --output DP-5 --off
+else
+    echo disabled game
+    xrandr --output HDMI-0 --mode 3840x2160 --scale 1.175x1.175 --rate 120  --primary --pos 0x0 --output DP-2 --mode 3840x2160 --scale 1x1 --pos 5760x0 --output DP-0 --mode 3840x2160 --rotate right --pos 0x4080 --output DP-1 --off --output DP-3 --off --output DP-4 --off --output DP-5 --off
+fi
+
+
+#echo "xrandr --output HDMI-0 --mode 3840x2160 --scale 0.6x0.6 --primary --pos 0x0 --output DP-0 --mode 3840x2160 --rotate right --pos 0x4080 --output DP-1 --off --output DP-2 --mode 3840x2160 --pos 5760x0 --output DP-3 --off --output DP-4 --off --output DP-5 --off"
+
+
+#xrandr --output HDMI-0 --mode 3840x2160 --scale 1x1 --rate 60 --primary --pos 0x0 --output DP-0 --mode 3840x2160 --rotate right --pos 0x4080 --output DP-1 --off --output DP-2 --mode 3840x2160 --scale 1x1 --pos 5760x0 --output DP-3 --off --output DP-4 --off --output DP-5 --off
+
+#xrandr --output HDMI-0 --mode 3840x2160 --scale 1x1 --rate 240  --primary --pos 0x0 --output DP-0 --mode 3840x2160 --rotate right --pos 0x4080 --output DP-1 --off --output DP-2 --mode 3840x2160 --scale 0.8x0.8 --pos 5760x0 --output DP-3 --off --output DP-4 --off --output DP-5 --off
 
 xrandr
 

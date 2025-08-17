@@ -70,8 +70,10 @@ getVirtualScreens :: X VirtualScreens
 getVirtualScreens = XS.get
 
 resetVirtualScreens :: X ()
-resetVirtualScreens = XS.put $ emptyVirtualScreens
-
+resetVirtualScreens = do
+  VirtualScreens vss <- getVirtualScreens
+  destoryAllWindow $ L.concat $ L.map (borderWins) vss
+  XS.put $ emptyVirtualScreens
 
 findVirtualScreen :: VirtualScreens -> ScreenId -> Maybe VirtualScreen
 findVirtualScreen (VirtualScreens virtualScreens) sid =

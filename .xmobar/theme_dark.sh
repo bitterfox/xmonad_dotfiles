@@ -13,3 +13,8 @@ ok() {
     fg="$brightBlue"
     bg="$black"
 }
+
+highlight() {
+    fg="$black"
+    bg="$white"
+}

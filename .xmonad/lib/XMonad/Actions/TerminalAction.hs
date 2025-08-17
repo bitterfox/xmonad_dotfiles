@@ -26,6 +26,8 @@ import System.IO.Error hiding (catch)
 import qualified Data.List as L
 import Control.Exception.Extensible as E
 
+import Data.Time.Clock
+
 import XMonad
 import qualified XMonad.StackSet as W
 import qualified XMonad.Util.ExtensibleState as XS
@@ -34,7 +36,7 @@ import qualified XMonad.Util.ExtensibleState as XS
 -- Terminal actions
 ------------------------------------------------------------------------------------------
 
-data CurrentTerminalAction = CurrentTerminalAction (Maybe (TerminalAction (), String, String, CurrentTerminalActionState)) deriving Typeable
+data CurrentTerminalAction = CurrentTerminalAction (Maybe (TerminalAction (), String, String, CurrentTerminalActionState, UTCTime)) deriving Typeable
 instance ExtensionClass CurrentTerminalAction where
   initialValue = CurrentTerminalAction Nothing
 
@@ -123,6 +125,8 @@ terminalActionTemplate name script manageHook =
     actionManageHook = manageHook
   }
 
+interval = 3
+
 class Terminal t where
     terminalQuery :: t -> TerminalAction () -> Query Bool
     runNamedTerminalAction :: t -> [TerminalAction ()] -> String -> X ()
@@ -134,9 +138,14 @@ class Terminal t where
       XS.put $ TerminalActionCounter "" 0
       CurrentTerminalAction ma <- XS.get
       q <- case ma of
-        Just (a', i', o', Initialize) ->
-          return False
-        Just (a', i', o', Started) -> do
+        Just (a', i', o', Initialize, startTime) -> do
+          currentTime <- io $ getCurrentTime
+          if diffUTCTime currentTime startTime <= interval then
+            return False
+          else do
+            closeTerminalAction t a' i' o' False
+            return True
+        Just (a', i', o', Started, startTime) -> do
             closeTerminalAction t a' i' o' False
             return True
         _ -> return True
@@ -144,7 +153,8 @@ class Terminal t where
       if q then do
         let inFile = "/tmp/xmonad.terminal.action." ++ name ++ ".in"
         let outFile = "/tmp/xmonad.terminal.action." ++ name ++ ".out"
-        XS.put $ CurrentTerminalAction $ Just (a, inFile, outFile, Initialize)
+        startTime <- io $ getCurrentTime
+        XS.put $ CurrentTerminalAction $ Just (a, inFile, outFile, Initialize, startTime)
         lines <- inputs
         io $ writeFile inFile $ unlines lines
         startTerminal t a inFile outFile
@@ -159,12 +169,12 @@ class Terminal t where
     terminalLogHook t as = do
       CurrentTerminalAction ma <- XS.get
       case ma of
-        Just (action, inFile, outFile, Initialize) ->
+        Just (action, inFile, outFile, Initialize, startTime) ->
           withFocused $ \fw -> do
             whenX (runQuery (terminalQuery t action) fw) $ do
               dontBorder fw
-              XS.put $ CurrentTerminalAction $ Just (action, inFile, outFile, Started)
-        Just (action, inFile, outFile, Started) ->
+              XS.put $ CurrentTerminalAction $ Just (action, inFile, outFile, Started, startTime)
+        Just (action, inFile, outFile, Started, startTime) ->
           withWindowSet $ \ws -> do
             let stack = W.stack $ W.workspace $ W.current ws
             case stack of

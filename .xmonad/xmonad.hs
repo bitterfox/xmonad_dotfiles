@@ -141,7 +141,9 @@ applications = [
  ("JetBrains ToolBox", "~/bin/jetbrains-toolbox-1.14.5179/jetbrains-toolbox"),
  ("IntelliJ Idea", intellijCommand),
  ("PulseSecure", "/opt/pulsesecure/bin/pulseUI"),
+ ("Steam", "steam"),
  ("Slack", "slack"),
+ ("Discord", "discord"),
  ("Tweetdeck", webApplication "https://tweetdeck.twitter.com/"),
  ("YouTube", webApplication "https://youtube.com/"),
  ("DAZN", webApplication "https://dazn.com/")]
@@ -149,12 +151,14 @@ applications = [
 webApplication url = "vivaldi-stable --app=" ++ url
 
 systemActions = [
- ("Reload", myrestart),
- ("Lock", spawn "gnome-screensaver-command --lock"),
- ("Suspend", spawn "systemctl suspend"),
- ("Logout", io (exitWith ExitSuccess)),
- ("Shutdown", spawn "systemctl poweroff"),
- ("Reboot", spawn "systemctl reboot")]
+  ("Reload", myrestart),
+  ("Lock", spawn "gnome-screensaver-command --lock"),
+  ("Suspend", spawn "systemctl suspend"),
+  ("Logout", io (exitWith ExitSuccess)),
+  ("Shutdown", spawn "systemctl poweroff"),
+  ("Reboot", spawn "systemctl reboot"),
+  ("Toggle game mode", togglegamemode)
+  ]
 
 priorityDisplayEDIDs :: [EDID]
 priorityDisplayEDIDs = [
@@ -162,9 +166,9 @@ priorityDisplayEDIDs = [
  "00ffffffffffff0010ac49a2534e4a30",
  "00ffffffffffff0010acb7414c323332", -- U2720Q 9x16
  "00ffffffffffff0010acb4414c323332",
+ "00ffffffffffff0010acb5414c323332",
  "00ffffffffffff00061044a000000000", -- Laptop display
- "00ffffffffffff0010acb5414c323332", -- U2720Q 16x9
- "00ffffffffffff0010acb3414c333232",
+ "00ffffffffffff0010acb3414c333232", -- U2720Q 16x9
  "00ffffffffffff0010acb5414c333232"]
 
 intelliJTerminalEnv =
@@ -380,14 +384,7 @@ systemKeys = [
   -- System actions
     ((mod4Mask, xK_q), myRunSelectedXTerminalAction systemActions)
   , ((mod1Mask .|. mod4Mask, xK_q), runActionSelected hidpiGSConfig systemActions)
-  , ((mod4Mask, xK_r), withWindowSet $ \ws -> do
-                         let sid = W.screen $ W.current ws
-                         viewScreen 0
-                         refresh
-                         myrescreen priorityDisplayEDIDs
-                         docksStartupHook
-                         resetVirtualScreens
-                         viewScreen sid) -- rescreen >>
+  , ((mod4Mask, xK_r), myrefresh)
   -- Screenshot
   , ((0, xK_Print), spawn "sh ~/.xmonad/screenshot.sh")
 --         , ((controlMask, xK_Print), spawn "gnome-screenshot -c")
@@ -628,7 +625,7 @@ main = do
     homeDirectory <- liftIO getHomeDirectory
 
     -- Display
-    runProcessWithInputAndWait "sh" ["-c", "sh '" ++ homeDirectory ++ "/.xmonad/auto_detect_display.sh' >> auto_detect_display_debug"] "" (seconds 1)
+    runProcessWithInputAndWait "sh" ["-c", "bash '" ++ homeDirectory ++ "/.xmonad/auto_detect_display.sh' >> auto_detect_display_debug"] "" (seconds 1)
 
     -- Keyboard and Mouse
     spawn "xhost +SI:localuser:root; sleep 1; sudo xkeysnail --watch -q ~/config.py & sleep 3; xset r rate 210 70; xset q >> /tmp/xset.debug"
@@ -641,6 +638,7 @@ main = do
     -- Applets
     spawn "nm-applet" -- ネット接続のアプレットを起動
     spawn "fcitx"
+    spawn "blueman-applet"
     -- gnome-sound-appletのアイコンが黒一色でない場合は--transparent trueにすると統一感があっていいです。 -- GNOMEのトレイを起動 -- XXX(sleep 2): #6: Trayer broken with nautilus
     spawn "sleep 5; killall trayer; trayer --edge top --align right --SetDockType true --SetPartialStrut false --expand true --width 5 --widthtype percent --transparent true --tint 0x4E4B42 --height 30 --alpha 0 --monitor 0"
 
@@ -1137,6 +1135,22 @@ myrestart' sid = do
       spawn "if type xmonad; then xmonad --recompile && xmonad --restart; else xmessage xmonad not in \\$PATH: \"$PATH\"; fi"
   else
       (viewScreen $ sid - 1) >> (myrestart' $ sid - 1)
+
+togglegamemode = do
+  homeDirectory <- liftIO getHomeDirectory
+  runProcessWithInputAndWait "sh" ["-c", "bash '" ++ homeDirectory ++ "/.xmonad/toggle_game.sh' >> /tmp/xmonad.debug"] "" (seconds 1)
+  myrestart
+--togglegamemode = withWindowSet $ togglegamemode' . W.screen . W.current
+--togglegamemode' sid = do
+--  -- FIXME
+--  -- Somehow enter key is pressed
+--  -- Somehow Screen 2 and 3 is swapped at xrandr, after togglegamemode finished, refresh(S+r) fixes it
+--  if sid == 0 then do
+--    homeDirectory <- liftIO getHomeDirectory
+--    runProcessWithInputAndWait "sh" ["-c", "bash '" ++ homeDirectory ++ "/.xmonad/toggle_game.sh' >> /tmp/xmonad.debug"] "" (seconds 10)
+--    myrefresh
+--  else
+--      (viewScreen $ sid - 1) >> (togglegamemode' $ sid - 1)
 ------
 
 screenInfo screenDetail = (show $ rect_width $ screenDetail) ++ "x" ++ (show $ rect_height $ screenDetail) ++ "+" ++ (show $ rect_x $ screenDetail) ++ "+" ++ (show $ rect_y $ screenDetail)
@@ -1185,6 +1199,16 @@ runProcessWithInput' cmd args input = io $ do
     return output
 
 --dunstEventHook e = return (All True) -- spawn "xdotool search --class Dunst | xargs xdotool windowraise" >> return (All True)
+
+myrefresh = withWindowSet $ \ws -> do
+  let sid = W.screen $ W.current ws
+  viewScreen 0
+  refresh
+  myrescreen priorityDisplayEDIDs
+  docksStartupHook
+  resetVirtualScreens
+  initializeScreenMouses
+  viewScreen sid
 
 myrescreen :: [EDID] -> X ()
 myrescreen priorityDisplayEDIDs = do

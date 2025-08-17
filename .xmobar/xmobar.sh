@@ -20,15 +20,23 @@ volume=`volume`
 
 jadate=`date "+%_m/%_d(%a) %H:%M"`
 
-nvidia=`nvidia-smi --query-gpu=name,temperature.gpu,utilization.gpu,memory.used,memory.total,pstate --format=csv | tail -n1`
+nvidia=`nvidia`
 
 end=`date +%s%N`
 
 if [ -n "$keyboard_battery" ]; then
-    battery="$battery $keyboard_battery"
+   if [ -n "$battery" ]; then
+       battery="$battery $keyboard_battery"
+   else
+       battery="$keyboard_battery"
+   fi
 fi
 if [ -n "$mouse_battery" ]; then
-    battery="$battery $mouse_battery"
+   if [ -n "$battery" ]; then
+       battery="$battery $mouse_battery"
+   else
+       battery="$mouse_battery"
+   fi
 fi
 
 if [ -n "$wip_task" ]; then
@@ -49,6 +57,9 @@ if [ -n "$brightness" ]; then
     echo -n "$brightness | "
 fi
 
+if [ -n "$nvidia" ]; then
+    echo -n "$nvidia | "
+fi
 
-echo "$nvidia | $volume | $jadate (`printf "%4d" $(((end-start)/1000/1000))` ms)"
+echo "$volume | $jadate (`printf "%4d" $(((end-start)/1000/1000))` ms)"
 #echo "(`printf "%4d" $(((end-start)/1000/1000))` ms)"
