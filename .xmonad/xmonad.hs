@@ -649,12 +649,14 @@ main = do
 
     spawn "streamdeck -n"
 
+    spawn "vmware-user"
+
     io (threadDelay (2 * 1000 * 1000))
     numDisplayStr <- runProcessWithInput "sh" ["-c", "xrandr --query | grep -c '\\bconnected\\b'"] ""
     let numDisplay = read numDisplayStr :: Int
     spawn $ "echo '" ++ (show numDisplay) ++ "' > /tmp/test"
     spawn $ "xrandr --query | grep -c '\\bconnected\\b' >> /tmp/test"
-    xmprocs <- mapM (\displayId -> spawnPipe $ "export FONTCONFIG_FILE=" ++ homeDirectory ++ "/.xmobar/font.conf && /usr/bin/xmobar -D 120 " ++ (if displayId == 0 then "" else "-p 'TopSize L 100 30' -x " ++ (show displayId)) ++ " ~/.xmobarrc") [0..numDisplay-1]
+    xmprocs <- mapM (\displayId -> spawnPipe $ "export FONTCONFIG_FILE=" ++ homeDirectory ++ "/.xmobar/font.conf && /usr/bin/xmobar -D 146 " ++ (if displayId == 0 then "" else "-p 'TopSize L 100 30' -x " ++ (show displayId)) ++ " ~/.xmobarrc") [0..numDisplay-1]
 
     spawn "gnome-screensaver"
     spawn "pulseeffects --gapplication-service"
