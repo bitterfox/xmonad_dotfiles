@@ -14,7 +14,7 @@ import XMonad
 import XMonad.Core
 import qualified XMonad.StackSet as W
 import qualified XMonad.Util.ExtensibleState as XS
-import XMonad.Util.NamedScratchpad
+import XMonad.Util.NamedScratchpad2
 
 ------------------------------------------------------------------------------------------
 -- Evacuation

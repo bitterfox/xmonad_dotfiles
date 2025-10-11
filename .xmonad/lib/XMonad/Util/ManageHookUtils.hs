@@ -14,7 +14,7 @@ import qualified Data.Set  as S
 import qualified Data.Map.Strict as M
 import XMonad
 import qualified XMonad.StackSet as W
-import XMonad.Util.NamedScratchpad
+import XMonad.Util.NamedScratchpad2
 
 import XMonad.Hooks.ManageDocks
 import XMonad.Util.Types
