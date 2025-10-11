@@ -94,7 +94,7 @@ import XMonad.Layout.CompositeTall
 import XMonad.Util.Run(spawnPipe, runProcessWithInput, runProcessWithInputAndWait, seconds)
 import XMonad.Util.DunstSupport
 import XMonad.Util.EZConfig
-import XMonad.Util.NamedScratchpad
+import XMonad.Util.NamedScratchpad2
 import XMonad.Util.MyNamedScratchpad
 import XMonad.Util.NamedWindows
 import qualified XMonad.Util.ExtensibleState as XS

@@ -13,7 +13,7 @@ import Data.Monoid
 
 import XMonad
 import qualified XMonad.StackSet as W
-import XMonad.Util.NamedScratchpad
+import XMonad.Util.NamedScratchpad2
 import qualified XMonad.Util.ExtensibleState as XS
 import XMonad.Util.HandleEventHooks
 
