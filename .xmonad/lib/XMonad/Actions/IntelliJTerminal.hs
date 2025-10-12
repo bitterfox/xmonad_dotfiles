@@ -22,7 +22,7 @@ import XMonad.Util.MyNamedScratchpad
 ------------------------------------------------------------------------------------------
 
 data IntelliJTerminalEnvironment = IntelliJTerminalEnvironment {
-  homeDirectory :: String,
+  homeDirectory :: X String,
   hook :: ManageHook
 }
 
@@ -51,9 +51,10 @@ intelliJScrachpad name workingDir manageHook =
 launchIntelliJTerminal :: IntelliJTerminalEnvironment -> X ()
 launchIntelliJTerminal env =
     withFocused (\w -> do
+      homeDir <- homeDirectory env
       cname <- runQuery className w
       spawn $ "echo 'intellij cname " ++ cname ++ "' >> /tmp/xmonad.debug"
-      if cname == "jetbrains-idea" then do
+      if cname == "jetbrains-idea" || cname == "jetbrains-idea-ce" then do
           t <- runQuery title w
           case (parse intelliJInfo "/tmp/hoge" t) of
             Left e -> do
@@ -63,19 +64,20 @@ launchIntelliJTerminal env =
                    spawn $ "echo 'intellij " ++ dir ++ "' >> /tmp/xmonad.debug"
                    let name = project ++ (T.unpack $ T.replace (T.pack "~") (T.pack "") $ T.replace (T.pack "/") (T.pack ".") $ T.pack dir)
                    withWindowSet (\s -> L.foldr (>>) (return ()) $ L.map (hideIntelliJTerminal env name) $ W.integrate' $ W.stack $ W.workspace $ W.current s)
-                   spawn $ "echo 'intellij " ++ (intelliJTerminalAppId name) ++ ", " ++ (extractHomeDirectory env dir) ++ "' >> /tmp/xmonad.debug"
-                   let nsp = intelliJScrachpad name (extractHomeDirectory env dir) (hook env)
+                   spawn $ "echo 'intellij " ++ (intelliJTerminalAppId name) ++ ", " ++ (extractHomeDirectory env dir homeDir) ++ "' >> /tmp/xmonad.debug"
+                   let nsp = intelliJScrachpad name (extractHomeDirectory env dir homeDir) (hook env)
                    registerNSP nsp
                    runScratchpadAction $ nsp
       else withWindowSet (\s -> L.foldr (>>) (return ()) $ L.map (hideIntelliJTerminal env "") $ W.integrate' $ W.stack $ W.workspace $ W.current s)
     )
 
 hideIntelliJTerminal env exclude w = do
+  homeDir <- homeDirectory env
   cname <- runQuery className w
   spawn $ "echo 'intellij closing " ++ cname ++ "' >> /tmp/xmonad.debug"
   whenX (runQuery intelliJTerminalQuery w) $ do
     let name = L.drop (L.length "xmonad.intellij.") cname
-    whenX (return $ name /= exclude) $ runScratchpadAction $ intelliJScrachpad name (homeDirectory env) (hook env)
+    whenX (return $ name /= exclude) $ runScratchpadAction $ intelliJScrachpad name homeDir (hook env)
 
 intelliJInfo :: Parser [String]
 intelliJInfo = do
@@ -86,9 +88,9 @@ intelliJInfo = do
   char ']'
   return [project, dir]
 
-extractHomeDirectory env path =
+extractHomeDirectory env path homeDir =
     if L.head path == '~' then
-        (homeDirectory env) ++ L.tail path
+        homeDir ++ L.tail path
     else path
 ------------------------------------------------------------------------------------------
 -- IntelliJExternalTerminal

@@ -173,7 +173,7 @@ priorityDisplayEDIDs = [
 
 intelliJTerminalEnv =
   IntelliJTerminalEnvironment {
-    homeDirectory = "/home/jp21734",
+    homeDirectory = liftIO getHomeDirectory,
     XMonad.Actions.IntelliJTerminal.hook = onBottom
   }
 
