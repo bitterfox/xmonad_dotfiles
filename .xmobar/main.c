@@ -118,6 +118,9 @@ char* tempture() {
     struct dirent *dp;
 
     dir = opendir(CORETEMP_HWMON_ROOT_PATH);
+    if (dir == NULL) {
+        return text;
+    }
     while ((dp = readdir(dir)) != NULL) {
         if (dp->d_name[0] == '.') {
             continue;

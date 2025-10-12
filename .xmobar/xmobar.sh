@@ -7,7 +7,7 @@ start=`date +%s%N`
 
 wip_task=`wip_task`
 
-export NIC="enp130s0"
+export NIC="ens160"
 system_metrics=`$basedir/main`
 fan_speed=`fan_speed`
 
@@ -20,7 +20,7 @@ volume=`volume`
 
 jadate=`date "+%_m/%_d(%a) %H:%M"`
 
-nvidia=`nvidia`
+#nvidia=`nvidia`
 
 end=`date +%s%N`
 
