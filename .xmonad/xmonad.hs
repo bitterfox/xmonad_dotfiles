@@ -649,7 +649,7 @@ main = do
 
     spawn "streamdeck -n"
 
-    spawn "vmware-user"
+    spawn "vmware-user && systemctl --user restart pulseaudio.service"
 
     io (threadDelay (2 * 1000 * 1000))
     numDisplayStr <- runProcessWithInput "sh" ["-c", "xrandr --query | grep -c '\\bconnected\\b'"] ""
