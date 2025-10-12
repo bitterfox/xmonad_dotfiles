@@ -11,7 +11,7 @@ sortkey=`cat $in`
 match=`~/git-repos/github.com/bitterfox/fzflet/google-chrome/fzf_google-chrome_history.sh $sortkey`
 
 if [[ $? -eq 0 ]]; then
-    echo $match | awk '{print $3}' > $out
+    echo $match | awk '{print $5}' > $out
 fi
 
 #match=`cat ~/.zsh_history | fzf`
