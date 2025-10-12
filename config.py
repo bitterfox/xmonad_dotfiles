@@ -11,16 +11,14 @@ define_conditional_modmap(lambda wm_class, device: device.startswith('HHKB-Hybri
     Key.LEFT_META: Key.LEFT_ALT
 })
 
-define_conditional_modmap(lambda wm_class, device: device.startswith('Keychron Q1 Max'), {
+define_conditional_modmap(lambda wm_class, device: device.startswith('Keychron'), {
     Key.CAPSLOCK: Key.LEFT_CTRL,
     Key.KATAKANAHIRAGANA: Key.RIGHT_META,
     Key.HENKAN: Key.MUHENKAN,
-})
-
-define_conditional_modmap(lambda wm_class, device: device.startswith('Keychron Q10 Max'), {
-    Key.CAPSLOCK: Key.LEFT_CTRL,
-    Key.KATAKANAHIRAGANA: Key.RIGHT_META,
-    Key.HENKAN: Key.MUHENKAN,
+    # Eisu
+    Key.CAPSLOCK: Key.MUHENKAN,
+    # Kana
+    Key.HANGEUL: Key.MUHENKAN,
 })
 
 define_multipurpose_modmap(
