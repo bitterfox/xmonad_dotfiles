@@ -1,12 +1,12 @@
 #!/bin/bash
 
 PACKAGER=$1
-if [ -z "PACKAGER" ]; then
+if [ -z "$PACKAGER" ]; then
     PACKAGER="apt"
 fi
 shift
 PACKAGER_COMMAND="$@"
-if [ -z "PACKAGER_COMMAND" ]; then
+if [ -z "$PACKAGER_COMMAND" ]; then
     PACKAGER_COMMAND="install"
 fi
 
