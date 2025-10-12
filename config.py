@@ -22,7 +22,12 @@ define_conditional_modmap(lambda wm_class, device: device.startswith('Keychron Q
     Key.KATAKANAHIRAGANA: Key.RIGHT_META,
     Key.HENKAN: Key.MUHENKAN,
 })
-
+define_conditional_modmap(lambda wm_class, device: device.startswith('VMware VMware Virtual USB Keyboard'), {
+    # Eisu
+    Key.CAPSLOCK: Key.MUHENKAN,
+    # Kana
+    Key.HANGEUL: Key.MUHENKAN,
+})
 define_multipurpose_modmap(
     {Key.MUHENKAN: [Key.MUHENKAN, Key.LEFT_ALT]}
 )
