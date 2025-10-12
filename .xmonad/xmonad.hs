@@ -750,8 +750,7 @@ main = do
 --        , ("<XF86AudioMute>",        setMute(False) >> setVolume 50   >> return ()) -- toggleMuteで問題がなければそうすると良いです。
         , ("<XF86LaunchA>", withoutLogHook $ showOrHideScratchpads myScratchpads False)
         , ("<XF86LaunchB>", withoutLogHook $ showOrHideScratchpads myScratchpads True)
-        ] `removeKeys`
-        [
+        ] `removeKeys` [
           (mod4Mask .|. shiftMask, xK_q)
         ] `additionalMouseBindings` [
           ((mod4Mask, button1), \w -> focus w >> mouseMoveWindow w)
@@ -785,13 +784,14 @@ main = do
         , ((0, 15), \w -> return ())
         , ((0, 12), \w -> spawn $ "xdotool key XF86Copy")
         , ((0, 13), \w -> spawn $ "xdotool key XF86Paste")
-        ] --`advancedMouseBindings` [
---          ([10], (0, 8), \w -> prevVirtualScreen)
---        , ([10], (0, 9), \w -> nextVirtualScreen)
---        , ([10], (0, 1), \w -> focus w >> kill)
---        , ([10], (0, 4), \w -> windows floatAvoidFocusUp)
---        , ([10], (0, 5), \w -> windows floatAvoidFocusDown)
---        ] `ungrabButtons'` [1, 2, 3, 4, 5]
+        ]
+        `advancedMouseBindings` [
+          ([10], (0, 8), \w -> prevVirtualScreen)
+        , ([10], (0, 9), \w -> nextVirtualScreen)
+        , ([10], (0, 1), \w -> focus w >> kill)
+        , ([10], (0, 4), \w -> windows floatAvoidFocusUp)
+        , ([10], (0, 5), \w -> windows floatAvoidFocusDown)
+        ] `ungrabButtons'` [1, 2, 3, 4, 5]
 
 -- Libraries
 
@@ -1458,6 +1458,7 @@ advancedMouseBindings conf list = do
            AdvancedMouseState oldTargetButtons mask history <- XS.get
            XS.put $ AdvancedMouseState (L.nub $ oldTargetButtons ++ targetButtons) mask history
         }
+infixl 4 `advancedMouseBindings`
 
 advancedMouseBinding :: XConfig a -> [Button] -> KeyMask -> Button -> (Window -> X ()) -> XConfig a
 advancedMouseBinding conf buttons mask button action = do
@@ -1470,7 +1471,6 @@ advancedMouseBinding conf buttons mask button action = do
                                              (if b then action else a) w
                                     ) conf' mask button
     conf''
-infixl 4 `advancedMouseBinding`
 
 rebindMouseBinding f conf mask button =
   conf {mouseBindings = \xconfig -> do
