@@ -3,3 +3,4 @@
 *.hi
 *.o
 *.state
+dist-newstyle/cache/compiler
