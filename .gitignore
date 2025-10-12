@@ -1,4 +1,5 @@
 .xmonad/xmonad-x86_64-linux
+.xmonad/xmonad-aarch64-linux
 *.errors
 *.hi
 *.o
