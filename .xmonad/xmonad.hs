@@ -119,6 +119,8 @@ import XMonad.Hooks.ManageDocks (avoidStruts, docksEventHook, ToggleStruts(..))
 
 import XMonad.Actions.FloatAwareFocus
 
+import XMonad.Actions.DrawShape
+
 black = "#4E4B42"
 brightBlack = "#635F54"
 gray = "#B4AF9A"
@@ -356,7 +358,8 @@ myHandleEventHook =
     measureEventHook "keepWindowSizeHandleEventHook-gimp" (keepWindowSizeHandleEventHook $ (isDialog <&&> (className =? "Gimp"))) <+>
     measureEventHook "fullScreenEventHook" fullScreenEventHook <+>
     measureEventHook "handleMetaMeta" (handleMetaMeta [xK_Super_L, xK_Super_R] 300 (myNamedScratchpadAction "fzf_actions")) <+>
-    measureEventHook "dunstEventHook" dunstEventHook
+    measureEventHook "dunstEventHook" dunstEventHook <+>
+    measureEventHook "redrawAllShapes" drawShapeEventHook
 
 myStartupHook =
     startupHook gnomeConfig <+>
@@ -614,6 +617,12 @@ utilKeys = [
   , ((mod4Mask .|. shiftMask, xK_e), spawn "gmrun")
   , ((mod4Mask, xK_g), selectSearchBrowser "/usr/bin/vivaldi" google)
   , ((mod4Mask, xK_backslash), launchIntelliJTerminal intelliJTerminalEnv)
+
+  --
+  , ((meta, xK_z), drawShapeOnMouse $ DrawShape OutlinedRectangle 5 rgb_red)
+  , ((meta .|. shft, xK_z), drawShapeOnMouse $ DrawShape FilledRectangle 5 rgb_red)
+  , ((meta .|. ctrl, xK_z), drawShapeOnMouse $ DrawShape LongestStraightLine 5 rgb_red)
+  , ((meta .|. alt, xK_z), removeLatestDrawnShape)
   ]
 
 workspaceHistoryKeys = [
