@@ -120,7 +120,8 @@ changeCurrentVirtualMouse mid (defX, defY) = do
 moveMouseTo x y = do
   rootw <- asks theRoot
   withDisplay $ \d ->
-    io $ warpPointer d none rootw 0 0 0 0 (fromIntegral x) (fromIntegral y)
+    -- io $ warpPointer d none rootw 0 0 0 0 (fromIntegral x) (fromIntegral y)
+    spawn $ "echo " ++ (show $ fromIntegral x) ++ "," ++ (show $ fromIntegral y) ++ " >> /mnt/hgfs/data/mouse-location"
 ------------------------------------------------------------------------------------------
 -- MousePosition
 ------------------------------------------------------------------------------------------
