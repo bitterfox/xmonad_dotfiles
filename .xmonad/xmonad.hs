@@ -164,14 +164,18 @@ systemActions = [
 
 priorityDisplayEDIDs :: [EDID]
 priorityDisplayEDIDs = [
- "00ffffffffffff0010ac4da2534e4a30", -- AW3225
- "00ffffffffffff0010ac49a2534e4a30",
- "00ffffffffffff0010acb7414c323332", -- U2720Q 9x16
- "00ffffffffffff0010acb4414c323332",
- "00ffffffffffff0010acb5414c323332",
- "00ffffffffffff00061044a000000000", -- Laptop display
- "00ffffffffffff0010acb3414c333232", -- U2720Q 16x9
- "00ffffffffffff0010acb5414c333232"]
+  "3840x2160+2294+0",
+  "2294x1432+0+0",
+  "1890x3360+6134+0",
+
+  "00ffffffffffff0010ac4da2534e4a30", -- AW3225
+  "00ffffffffffff0010ac49a2534e4a30",
+  "00ffffffffffff0010acb7414c323332", -- U2720Q 9x16
+  "00ffffffffffff0010acb4414c323332",
+  "00ffffffffffff0010acb5414c323332",
+  "00ffffffffffff00061044a000000000", -- Laptop display
+  "00ffffffffffff0010acb3414c333232", -- U2720Q 16x9
+  "00ffffffffffff0010acb5414c333232"]
 
 intelliJTerminalEnv =
   IntelliJTerminalEnvironment {
@@ -1167,8 +1171,9 @@ screenInfo screenDetail = (show $ rect_width $ screenDetail) ++ "x" ++ (show $ r
 
 getEDID :: Rectangle -> X EDID
 getEDID screenDetail = do
-  edid <- runProcessWithInput "sh" ["-c", "xrandr --verbose | grep -A1000 ' connected .*" ++ screenInfo screenDetail ++ "' | grep -A1 EDID | head -n 2 | tail -n 1 | awk '{print $1}' | xargs echo -n"] ""
-  return (edid :: EDID)
+  let si = screenInfo screenDetail
+  edid <- runProcessWithInput "sh" ["-c", "xrandr --verbose | grep -A1000 ' connected .*" ++ si ++ "' | grep -A1 EDID | head -n 2 | tail -n 1 | awk '{print $1}' | xargs echo -n"] ""
+  return ((if null edid then si else edid) :: EDID)
 --getEDID screenDetail = runProcessWithInput "sh" ["-c", "xrandr --verbose | grep -A1000 ' connected " ++ (screenInfo screenDetail) ++ "' | grep -A1 EDID | head -n 2 | tail -n 1 | awk '{print $1}'"] ""
 --getEDID screenDetail = runProcessWithInput "sh" ["-c", "echo ' connected " ++ (screenInfo screenDetail) ++ "'"] ""
 
