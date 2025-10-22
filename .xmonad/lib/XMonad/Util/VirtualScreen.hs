@@ -4,7 +4,7 @@
 module XMonad.Util.VirtualScreen (
       VirtualScreen(rootSid, originalRect, screenLayout, screenStack),
       VirtualScreens,
-      virtualScreenLogHook,
+      virtualScreenLogHook, virtualScreenEventHandler,
       getVirtualScreens,
       resetVirtualScreens,
       resetVirtualScreen,
@@ -23,12 +23,15 @@ module XMonad.Util.VirtualScreen (
 
 import qualified Data.List as L
 import Data.Maybe
+import Data.Monoid
 
 import XMonad
 import qualified XMonad.StackSet as W
 import qualified XMonad.Util.ExtensibleState as XS
 
 import XMonad.Prompt (mkUnmanagedWindow)
+
+import XMonad.Actions.DrawShape
 
 ------------------------------------------------------------------------------------------
 -- Virtual screen a.k.a. Split screen
@@ -49,7 +52,7 @@ data VirtualScreen = VirtualScreen {
   originalRect :: Rectangle,
   screenLayout :: ScreenLayout ScreenId,
   screenStack :: W.Stack ScreenId,
-  borderWins :: [Window]
+  borders :: [DrawnShape]
 } deriving (Typeable, Show)
 
 data VirtualScreens = VirtualScreens [VirtualScreen] deriving (Typeable, Show)
@@ -66,13 +69,40 @@ virtualScreenLogHook = do
       whenJust (focusIt sid $ screenStack vs) $ \s ->
         XS.put $ replaceVirtualScreen virtualScreens $ vs {screenStack = s}
 
+virtualScreenEventHandler activeColor inactiveColor e = do
+  -- redraw border shapes
+  VirtualScreens vss <- getVirtualScreens
+  let bs = L.map (\dns -> modifyDrawnShapeColor dns inactiveColor) $ L.concat $ L.map (borders) vss
+  case e of
+    (MapNotifyEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_override_redirect) -> do
+      redrawAllDrawnShapes' True bs
+      active <- currentVirtualScreen
+      case active of
+        Just a -> do
+           let ab = (borders a) !! (L.length $ W.up $ screenStack a)
+           let ds = drawnShape ab
+           redrawAllDrawnShapes' True $ [modifyDrawnShapeColor ab activeColor]
+        _ -> return ()
+    _ -> do
+      redrawAllDrawnShapes' False bs
+      active <- currentVirtualScreen
+      case active of
+        Just a -> do
+           let ab = (borders a) !! (L.length $ W.up $ screenStack a)
+           redrawAllDrawnShapes' False $ [modifyDrawnShapeColor ab activeColor]
+        _ -> return ()
+  return $ All True
+modifyDrawnShapeColor :: DrawnShape -> RGB -> DrawnShape
+modifyDrawnShapeColor dns@DrawnShape { drawnShape = ds } rgb =
+    dns { drawnShape = ds { color = rgb } }
+
 getVirtualScreens :: X VirtualScreens
 getVirtualScreens = XS.get
 
 resetVirtualScreens :: X ()
 resetVirtualScreens = do
   VirtualScreens vss <- getVirtualScreens
-  destoryAllWindow $ L.concat $ L.map (borderWins) vss
+  removeAllDrawnShapes' $ L.concat $ L.map (borders) vss
   XS.put $ emptyVirtualScreens
 
 findVirtualScreen :: VirtualScreens -> ScreenId -> Maybe VirtualScreen
@@ -99,7 +129,7 @@ newVirtualScreen screen layout =
                     W.up = [],
                     W.down = []
                   },
-    borderWins = []
+    borders = []
   }
   where sid = W.screen screen
 
@@ -155,10 +185,10 @@ resetVirtualScreen = do
         let sids = L.delete sid $ W.integrate $ screenStack vs
         let newVisible = L.filter (\e -> L.notElem (W.screen e) sids) $ W.visible ws
         let workspaces = L.map W.workspace $ L.filter (\e -> L.elem (W.screen e) sids) $ W.visible ws
-        destoryAllWindow $ borderWins vs
+        removeAllDrawnShapes' $ borders vs
         XS.put $ replaceVirtualScreen virtualScreens $ vs {
                                                          screenStack = W.Stack { W.focus = rootSid vs, W.up = [], W.down = [] },
-                                                         borderWins = []
+                                                         borders = []
                                                        }
         windows $ \_ -> ws {
           W.current = current {
@@ -192,12 +222,12 @@ createVirtualScreen' defaultLayout nextWorkspace = do
                  W.tag = show $ rootSid nvs,
                  W.layout = screenLayout nvs,
                  W.stack = Just $ screenStack nvs}) (originalRect nvs)
-    destoryAllWindow $ borderWins nvs
-    wins <- drawLayoutRectangles $ L.map snd newRects
+    removeAllDrawnShapes' $ borders nvs
+    borders <- drawLayoutRectangles $ L.map snd newRects
 
     XS.put $ replaceVirtualScreen virtualScreens $ case newLayoutMaybe of
-                                                     Just newLayout -> nvs {screenLayout = newLayout, borderWins = wins}
-                                                     Nothing -> nvs {borderWins = wins}
+                                                     Just newLayout -> nvs {screenLayout = newLayout, borders = borders}
+                                                     Nothing -> nvs {borders = borders}
 
     let nextWS = nextWorkspace ws
     let newHidden = L.filter (\w -> W.tag nextWS /= W.tag w) $ W.hidden ws
@@ -238,11 +268,11 @@ removeVirtualScreen = do
                        W.tag = show $ rootSid nvs',
                        W.layout = screenLayout nvs',
                        W.stack = Just $ screenStack nvs'}) (originalRect nvs')
-          destoryAllWindow $ borderWins nvs
-          wins <- drawLayoutRectangles $ L.map snd newRects
+          removeAllDrawnShapes' $ borders nvs
+          borders <- drawLayoutRectangles $ L.map snd newRects
           XS.put $ replaceVirtualScreen virtualScreens $ case newLayoutMaybe of
-                                                           Just newLayout -> nvs' {screenLayout = newLayout, borderWins = wins}
-                                                           Nothing -> nvs' {borderWins = wins}
+                                                           Just newLayout -> nvs' {screenLayout = newLayout, borders = borders}
+                                                           Nothing -> nvs' {borders = borders}
 
 
           let newHidden = W.hidden ws ++ [W.workspace current]
@@ -296,9 +326,9 @@ sendScreenMessage msg = do
                  W.tag = show $ rootSid vs,
                  W.layout = l,
                  W.stack = Just $ newStack}) (originalRect vs)
-          destoryAllWindow $ borderWins vs
-          wins <- drawLayoutRectangles $ L.map snd rect
-          XS.put $ replaceVirtualScreen virtualScreens $ vs {screenLayout = l, borderWins = wins}
+          removeAllDrawnShapes' $ borders vs
+          borders <- drawLayoutRectangles $ L.map snd rect
+          XS.put $ replaceVirtualScreen virtualScreens $ vs {screenLayout = l, borders = borders}
           let visible = W.visible ws
           windows $ \_ -> ws {
             W.current = replaceScreenRect rect current,
@@ -390,41 +420,14 @@ focusChildScreen f = do
 
 drawLayoutRectangles rects =
     L.foldr (\r x -> do
-               wins1 <- drawBorders r
-               wins2 <- x
-               return (wins1 ++ wins2)) (return []) rects
-
-drawBorders rect@Rectangle{
-                  rect_x = x,
-                  rect_y = y,
-                  rect_width = width,
-                  rect_height = height
-                } = do
-  win1 <- drawHorLine x y (fromIntegral height)
-  win2 <- drawVerLine x y (fromIntegral width)
-  win3 <- drawHorLine (x+(fromIntegral width)) y (fromIntegral height)
-  win4 <- drawVerLine x (y+(fromIntegral height)) (fromIntegral width)
-  return [win1, win2, win3, win4]
-
-drawHorLine x y len = withDisplay $ \dpy -> do
-  rootw <- asks theRoot
-  win <- liftIO $ mkUnmanagedWindow dpy (defaultScreenOfDisplay dpy) rootw x y 1 len
-  liftIO $ mapWindow dpy win
-  --let win = defaultRootWindow dpy
-  gc <- liftIO $ createGC dpy win
-  liftIO $ drawRectangle dpy win gc (fromInteger 0) (fromInteger 0) (fromInteger 0) (fromIntegral len)
-  liftIO $ freeGC dpy gc
-  return win
-
-drawVerLine x y len = withDisplay $ \dpy -> do
-  rootw <- asks theRoot
-  win <- liftIO $ mkUnmanagedWindow dpy (defaultScreenOfDisplay dpy) rootw x y len 1
-  liftIO $ mapWindow dpy win
-  --let win = defaultRootWindow dpy
-  gc <- liftIO $ createGC dpy win
-  liftIO $ drawRectangle dpy win gc (fromInteger 0) (fromInteger 0) (fromIntegral len) (fromInteger 0)
-  liftIO $ freeGC dpy gc
-  return win
-
-destoryAllWindow wins = withDisplay $ \dpy -> do
-  liftIO $ L.foldr (\w io -> destroyWindow dpy w >> io) (return ()) wins
+               ds <- drawShape DrawShape {
+                       shape = OutlinedRectangle,
+                       width = (fromIntegral borderWidth),
+                       color = red_rgb
+                     } r { rect_width = (rect_width r) - (fromIntegral borderWidth),
+                           rect_height = (rect_height r) - (fromIntegral borderWidth)
+                         }
+               dss <- x
+               return (ds:dss)
+            ) (return []) rects
+    where borderWidth = 3

@@ -4,9 +4,16 @@ module XMonad.Actions.DrawShape (
   drawShapeEventHook,
   removeAllDrawnShapes,
   removeLatestDrawnShape,
-  rgb_red,
+  red_rgb, blue_rgb,
   Shape(..),
+  RGB(..),
   DrawShape(..),
+
+  -- For advanced users
+  DrawnShape(..),
+  drawShape,
+  removeAllDrawnShapes',
+  redrawAllDrawnShapes',
 ) where
 
 import Data.Bits (shiftL)
@@ -57,12 +64,13 @@ data Shape = OutlinedRectangle | FilledRectangle | LongestStraightLine
              deriving (Typeable, Show)
 
 data RGB = RGB {
-      red :: Int,
-      green :: Int,
-      blue :: Int
+      rgb_red :: Int,
+      rgb_green :: Int,
+      rgb_blue :: Int
 } deriving (Typeable, Show)
 
-rgb_red = RGB { red = 255, green = 0, blue = 0 }
+red_rgb = RGB { rgb_red = 255, rgb_green = 0, rgb_blue = 0 }
+blue_rgb = RGB { rgb_red = 0, rgb_green = 0, rgb_blue = 255 }
 
 drawShapeOnMouse :: DrawShape -> X ()
 drawShapeOnMouse ds = do
@@ -105,8 +113,10 @@ drawShape ds r =
 
 removeAllDrawnShapes = do
   dss :: DrawnShapes <- XS.get
-  destoryAllWindows' $ L.foldr (\ds wins -> wins ++ (L.map win $ drawnWindows ds)) [] $ drawnShapes dss
+  removeAllDrawnShapes' $ drawnShapes dss
   XS.put $ dss { drawnShapes = [] }
+removeAllDrawnShapes' dss =
+  destoryAllWindows' $ L.foldr (\ds wins -> wins ++ (L.map win $ drawnWindows ds)) [] $ dss
 
 removeLatestDrawnShape = do
   dss :: DrawnShapes <- XS.get
@@ -118,10 +128,12 @@ removeLatestDrawnShape = do
 
 redrawAllDrawnShapes raise = do
   dss :: DrawnShapes <- XS.get
+  redrawAllDrawnShapes' raise $ drawnShapes dss
+redrawAllDrawnShapes' raise dss = do
   L.foldr (\ds x -> do
                x
                redrawShape raise ds
-          ) (return ()) $ drawnShapes dss
+          ) (return ()) $ dss
 redrawShape raise ds@DrawnShape {drawnWindows = wins, drawnShape = s} = withDisplay $ \dpy -> do
   L.foldr (\dw x -> do
              x
@@ -207,7 +219,7 @@ destoryAllWindows' wins = withDisplay $ \dpy -> do
 
 setRGBForeground dpy gc rgb = do
   setForeground dpy gc $ rgbColorPointer rgb
-rgbColorPointer rgb@RGB { red = r, green = g, blue = b } = (fromIntegral b) + (shiftL (fromIntegral g) 8) + (shiftL (fromIntegral r) 16)
+rgbColorPointer rgb@RGB { rgb_red = r, rgb_green = g, rgb_blue = b } = (fromIntegral b) + (shiftL (fromIntegral g) 8) + (shiftL (fromIntegral r) 16)
 
 grabCursorForDraw dpy win = do
   cur <- createFontCursor dpy xC_crosshair

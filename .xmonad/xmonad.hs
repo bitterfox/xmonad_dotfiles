@@ -127,7 +127,16 @@ gray = "#B4AF9A"
 darkWhite = "#CDC8B0"
 white = "#DAD4BB"
 red = "#CC654C"
+redRGB = RGB { rgb_red = 204, rgb_green = 101, rgb_blue = 76 }
 blue = "#3BA99F"
+blueRGB = RGB { rgb_red = 59, rgb_green = 169, rgb_blue = 159 }
+
+-- #C14BCC
+purpleRGB = RGB { rgb_red = 193, rgb_green = 75, rgb_blue = 204 }
+-- #4B6BCC
+darkBlueRGB = RGB { rgb_red = 75, rgb_green = 107, rgb_blue = 204 }
+-- #A89F3B
+yellowRGB = RGB { rgb_red = 168, rgb_green = 159, rgb_blue = 59 }
 
 intellijCommand = "~/bin/idea"
 
@@ -363,7 +372,8 @@ myHandleEventHook =
     measureEventHook "fullScreenEventHook" fullScreenEventHook <+>
     measureEventHook "handleMetaMeta" (handleMetaMeta [xK_Super_L, xK_Super_R] 300 (myNamedScratchpadAction "fzf_actions")) <+>
     measureEventHook "dunstEventHook" dunstEventHook <+>
-    measureEventHook "redrawAllShapes" drawShapeEventHook
+    measureEventHook "redrawAllShapes" drawShapeEventHook <+>
+    measureEventHook "virtualScreenEventHandler" (virtualScreenEventHandler purpleRGB darkBlueRGB)
 
 myStartupHook =
     startupHook gnomeConfig <+>
@@ -623,9 +633,9 @@ utilKeys = [
   , ((mod4Mask, xK_backslash), launchIntelliJTerminal intelliJTerminalEnv)
 
   --
-  , ((meta, xK_z), drawShapeOnMouse $ DrawShape OutlinedRectangle 5 rgb_red)
-  , ((meta .|. shft, xK_z), drawShapeOnMouse $ DrawShape FilledRectangle 5 rgb_red)
-  , ((meta .|. ctrl, xK_z), drawShapeOnMouse $ DrawShape LongestStraightLine 5 rgb_red)
+  , ((meta, xK_z), drawShapeOnMouse $ DrawShape OutlinedRectangle 5 red_rgb)
+  , ((meta .|. shft, xK_z), drawShapeOnMouse $ DrawShape FilledRectangle 5 red_rgb)
+  , ((meta .|. ctrl, xK_z), drawShapeOnMouse $ DrawShape LongestStraightLine 5 red_rgb)
   , ((meta .|. alt, xK_z), removeLatestDrawnShape)
   ]
 
