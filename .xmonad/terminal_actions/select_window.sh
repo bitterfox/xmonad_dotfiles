@@ -15,4 +15,4 @@ if [ $current_line -lt 0 ]; then
     current_line=0
 fi
 
-cat $1 | fzf --header-lines=1 --with-nth=2.. --bind 'change:' --bind "load:pos($current_line)" | awk '{print $1}'> $2
+cat $1 | fzf --header-lines=1 --with-nth=2.. --bind 'change:' --bind "load:pos($current_line)" --scheme=history | awk '{print $1}'> $2
