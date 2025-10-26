@@ -66,7 +66,7 @@ import XMonad.Hooks.DynamicLog
 import XMonad.Layout.Fullscreen
 import XMonad.Layout.Gaps
 import qualified XMonad.Layout.LayoutModifier as LM
-import XMonad.Layout.LayoutScreens
+--import XMonad.Layout.LayoutScreens
 import XMonad.Layout.Mosaic
 import XMonad.Layout.MultiColumns
 import XMonad.Layout.MyMultiToggle
@@ -110,7 +110,9 @@ import XMonad.Layout.CachedLayout
 
 import XMonad.Util.MyUtils
 
+import XMonad.Util.AdvancedMouse
 import XMonad.Util.VirtualMouse
+import XMonad.Util.PhysicalScreen
 import XMonad.Util.VirtualScreen
 import XMonad.Util.WorkspaceFamily
 
@@ -185,6 +187,18 @@ priorityDisplayEDIDs = [
   "00ffffffffffff00061044a000000000", -- Laptop display
   "00ffffffffffff0010acb3414c333232", -- U2720Q 16x9
   "00ffffffffffff0010acb5414c333232"]
+
+myrestart = withWindowSet $ myrestart' . W.screen . W.current
+myrestart' sid = do
+  if sid == 0 then
+      spawn "if type xmonad; then xmonad --recompile && xmonad --restart; else xmessage xmonad not in \\$PATH: \"$PATH\"; fi"
+  else
+      (viewScreen $ sid - 1) >> (myrestart' $ sid - 1)
+
+togglegamemode = do
+  homeDirectory <- liftIO getHomeDirectory
+  runProcessWithInputAndWait "sh" ["-c", "bash '" ++ homeDirectory ++ "/.xmonad/toggle_game.sh' >> /tmp/xmonad.debug"] "" (seconds 1)
+  myrestart
 
 intelliJTerminalEnv =
   IntelliJTerminalEnvironment {
@@ -378,7 +392,7 @@ myHandleEventHook =
 myStartupHook =
     startupHook gnomeConfig <+>
     docksStartupHook <+>
-    myrescreen priorityDisplayEDIDs <+>
+    rePhysicalScreen priorityDisplayEDIDs <+>
     initializeScreenMouses <+>
     grabMetaKey [xK_Super_L, xK_Super_R]
 
@@ -413,6 +427,16 @@ systemKeys = [
   --      durations <- getDurations
   --      spawn $ "echo '" ++ (show durations) ++ "' >> /tmp/xmonad.perf")
   ]
+
+myrefresh = withWindowSet $ \ws -> do
+  let sid = W.screen $ W.current ws
+  viewScreen 0
+  refresh
+  rePhysicalScreen priorityDisplayEDIDs
+  docksStartupHook
+  resetVirtualScreens
+  initializeScreenMouses
+  viewScreen sid
 
 dunstKeys = [
     ((mod4Mask, xK_slash), spawn "dunstctl close")
@@ -828,12 +852,6 @@ main = do
 --modifyWindowSet :: (WindowSet -> WindowSet) -> X ()
 --modifyWindowSet f = modify $ \xst -> xst { windowset = f (windowset xst) }
 
-isDialog = ask >>= \w -> liftX $ do
-  desk <- getAtom "_NET_WM_WINDOW_TYPE_DIALOG"
-  mbr <- getProp32s "_NET_WM_WINDOW_TYPE" w
-  case mbr of
-    Just rs -> return $ any (== desk) (map fromIntegral rs)
-    _       -> return False
 ------------------------------------------------------------------------------------------
 -- XMonad utils
 ------------------------------------------------------------------------------------------
@@ -1155,62 +1173,6 @@ copyAllWindowTo ws s = foldr (\w -> \s' -> copyWindow w ws s') s $ W.allWindows 
 viewScreen :: ScreenId -> X ()
 viewScreen sid = screenWorkspace sid >>= doForJust (windows . W.view)
 
-myrestart = withWindowSet $ myrestart' . W.screen . W.current
-myrestart' sid = do
-  if sid == 0 then
-      spawn "if type xmonad; then xmonad --recompile && xmonad --restart; else xmessage xmonad not in \\$PATH: \"$PATH\"; fi"
-  else
-      (viewScreen $ sid - 1) >> (myrestart' $ sid - 1)
-
-togglegamemode = do
-  homeDirectory <- liftIO getHomeDirectory
-  runProcessWithInputAndWait "sh" ["-c", "bash '" ++ homeDirectory ++ "/.xmonad/toggle_game.sh' >> /tmp/xmonad.debug"] "" (seconds 1)
-  myrestart
---togglegamemode = withWindowSet $ togglegamemode' . W.screen . W.current
---togglegamemode' sid = do
---  -- FIXME
---  -- Somehow enter key is pressed
---  -- Somehow Screen 2 and 3 is swapped at xrandr, after togglegamemode finished, refresh(S+r) fixes it
---  if sid == 0 then do
---    homeDirectory <- liftIO getHomeDirectory
---    runProcessWithInputAndWait "sh" ["-c", "bash '" ++ homeDirectory ++ "/.xmonad/toggle_game.sh' >> /tmp/xmonad.debug"] "" (seconds 10)
---    myrefresh
---  else
---      (viewScreen $ sid - 1) >> (togglegamemode' $ sid - 1)
-------
-
-screenInfo screenDetail = (show $ rect_width $ screenDetail) ++ "x" ++ (show $ rect_height $ screenDetail) ++ "+" ++ (show $ rect_x $ screenDetail) ++ "+" ++ (show $ rect_y $ screenDetail)
-
-getEDID :: Rectangle -> X EDID
-getEDID screenDetail = do
-  let si = screenInfo screenDetail
-  edid <- runProcessWithInput "sh" ["-c", "xrandr --verbose | grep -A1000 ' connected .*" ++ si ++ "' | grep -A1 EDID | head -n 2 | tail -n 1 | awk '{print $1}' | xargs echo -n"] ""
-  return ((if null edid then si else edid) :: EDID)
---getEDID screenDetail = runProcessWithInput "sh" ["-c", "xrandr --verbose | grep -A1000 ' connected " ++ (screenInfo screenDetail) ++ "' | grep -A1 EDID | head -n 2 | tail -n 1 | awk '{print $1}'"] ""
---getEDID screenDetail = runProcessWithInput "sh" ["-c", "echo ' connected " ++ (screenInfo screenDetail) ++ "'"] ""
-
--- debugEDID = withWindowSet $ \s -> do
---        io $ appendFile "/tmp/debug" $ "debugEDID" ++ (screenInfo $ screenRect $ W.screenDetail $ W.current s)
---        edid <- getEDID $ screenRect $ W.screenDetail $ W.current s
---        io $ appendFile "/tmp/debug" $ edid
-
-debugEDID = getCurrentScreenEDIDMap
-
-getCurrentScreenEDIDMap = withWindowSet $ \s -> do
-                            screenEDIDList <- toScreenEDIDList ((W.current s) : (W.visible s))
-                            io $ appendFile "/tmp/debug" $ (show screenEDIDList)
-
-toScreenEDIDList [] = return []
-toScreenEDIDList (screen:rest) = do
-    let screenId = W.screen screen
-    edid <- getEDID $ screenRect $ W.screenDetail $ screen
-    screenEDIDList <- toScreenEDIDList rest
-    return $ (screenId, edid) : screenEDIDList
-
-type EDID = String
-data ScreenEDIDMap = ScreenEDIDMap (M.Map ScreenId EDID) deriving Typeable
-instance ExtensionClass ScreenEDIDMap where
-  initialValue = ScreenEDIDMap M.empty
 
 runProcessWithInput' :: MonadIO m => FilePath -> [String] -> String -> m String
 runProcessWithInput' cmd args input = io $ do
@@ -1226,73 +1188,6 @@ runProcessWithInput' cmd args input = io $ do
     return output
 
 --dunstEventHook e = return (All True) -- spawn "xdotool search --class Dunst | xargs xdotool windowraise" >> return (All True)
-
-myrefresh = withWindowSet $ \ws -> do
-  let sid = W.screen $ W.current ws
-  viewScreen 0
-  refresh
-  myrescreen priorityDisplayEDIDs
-  docksStartupHook
-  resetVirtualScreens
-  initializeScreenMouses
-  viewScreen sid
-
-myrescreen :: [EDID] -> X ()
-myrescreen priorityDisplayEDIDs = do
-    xinesc <- (withDisplay getCleanedScreenInfo) :: X [Rectangle]
-    spawn $ "echo 'xinesc: " ++ (show xinesc) ++ "' >> /tmp/xmonad.debug"
-
-    edidToScreenRectangles <- (mapM (\screenRectangle -> do
-        edid <- getEDID screenRectangle
-        return (edid, screenRectangle)) xinesc) :: X [(EDID, Rectangle)]
-    spawn $ "echo 'edidToScreenRectangles: " ++ (show edidToScreenRectangles) ++ "' >> /tmp/xmonad.debug"
-    let edidToScreenRectanglesMap = M.fromList edidToScreenRectangles
-    spawn $ "echo 'edidToScreenRectanglesMap: " ++ (show edidToScreenRectanglesMap) ++ "' >> /tmp/xmonad.debug"
-
-    let prioritiedEDIDToScreenRectangles = L.foldr (++) [] $ L.map (\edid -> case M.lookup edid edidToScreenRectanglesMap of
-                                                                       Just screenRectangle -> [(edid, screenRectangle)]
-                                                                       Nothing -> []) priorityDisplayEDIDs
-    spawn $ "echo 'prioritiedEDIDToScreenRectangles" ++ (show prioritiedEDIDToScreenRectangles) ++ "' >> /tmp/xmonad.debug"
-    let sortedEDIDToScreenRectangles = prioritiedEDIDToScreenRectangles ++ (L.filter (\(edid, screenRectangle) -> not $ edid `elem` priorityDisplayEDIDs) edidToScreenRectangles)
-
-    originalToCurrent <- originalScreenIdToCurrentScreenId priorityDisplayEDIDs
-    spawn $ "echo 'originalToCurrent" ++ (show originalToCurrent) ++ "' >> /tmp/xmonad.debug"
-    XS.put $ OriginalDisplayIdToCurrentScreenId $ originalToCurrent
-
-    spawn $ "echo '" ++ (show sortedEDIDToScreenRectangles) ++ "' >> /tmp/xmonad.debug"
-    windows $ \ws@(W.StackSet { W.current = v, W.visible = vs, W.hidden = hs }) ->
-        let (xs, ys) = splitAt (length xinesc) $ map W.workspace (L.sortOn (W.screen) (v:vs)) ++ hs
-            (a:as)   = zipWith3 W.Screen xs [0..] $ map SD $ map (snd) sortedEDIDToScreenRectangles
-        in  ws { W.current = a
-               , W.visible = as
-               , W.hidden  = ys }
-
-data OriginalDisplayIdToCurrentScreenId = OriginalDisplayIdToCurrentScreenId (M.Map Int Int) deriving Typeable
-instance ExtensionClass OriginalDisplayIdToCurrentScreenId where
-  initialValue = OriginalDisplayIdToCurrentScreenId M.empty
-
-originalScreenIdToCurrentScreenId priorityDisplayEDIDs = do
-    xinesc <- (withDisplay getCleanedScreenInfo) :: X [Rectangle]
-
-    edidToOriginalScreenIds <- (mapM (\(i, screenRectangle) -> do
-        edid <- getEDID screenRectangle
-        return (edid, i)) $ indexed xinesc) :: X [(EDID, Int)]
-
-    let edidToOriginalScreenIdsMap = M.fromList edidToOriginalScreenIds
-
-    let prioritiedOriginalScreenIds = L.foldr (++) [] $ L.map (\edid -> case M.lookup edid edidToOriginalScreenIdsMap of
-                                                                       Just i -> [i]
-                                                                       Nothing -> []) priorityDisplayEDIDs
-    let originalScreenIds = prioritiedOriginalScreenIds ++ (L.map (snd) $ L.filter (\(edid, i) -> not $ edid `elem` priorityDisplayEDIDs) edidToOriginalScreenIds)
-
-    return $ M.fromList $ L.map (\(currentScreenId, originalScreenId) -> (originalScreenId, currentScreenId) ) $ indexed originalScreenIds
-
-
---sortedEDIDToScreenRectangles (priorityDisplayEDID:rest) edidToScreenRectanglesMap =
---    case M.lookup edid
-
-indexed l = L.zip [0..(L.length l)] l
-
 
 -- | The 'LayoutClass' instance for a 'ModifiedLayout' defines the
 --   semantics of a 'LayoutModifier' applied to an underlying layout.
@@ -1323,10 +1218,6 @@ data MyModifiedLayout l a = MyModifiedLayout (l a) deriving ( Read, Show )
 -- N.B. I think there is a Haddock bug here; the Haddock output for
 -- the above does not parenthesize (m a) and (l a), which is obviously
 -- incorrect.
-
-
-
-
 
 data TitleTransformer = TitleTransformer deriving (Read, Show, Eq, Typeable)
 
@@ -1463,140 +1354,3 @@ runOpenITerminalAction = do
 ------------------------------------------------------------------------------------------
 -- Terminal actions
 ------------------------------------------------------------------------------------------
-
-------------------------------------------------------------------------------------------
--- Advanced Mouse
-------------------------------------------------------------------------------------------
-
--- AdvancedMouseState <target buttons> <current pressed button (mask)> <button press histories>
-data AdvancedMouseState = AdvancedMouseState [Button] ButtonMask [(Button, UTCTime)] deriving (Typeable)
-instance ExtensionClass AdvancedMouseState where
-  initialValue = AdvancedMouseState [] 0 []
-
-buttonMask :: Button -> ButtonMask
-buttonMask id = (1 :: CUInt) `shift` (fromIntegral (7 + id))
-
-advancedMouseBindings :: XConfig a -> [([Button], (KeyMask, Button), (Window -> X ()))] -> XConfig a
-advancedMouseBindings conf list = do
-  let conf' = L.foldr (\(bs, (m, b), a) -> \c -> advancedMouseBinding c bs m b a) conf list
-  let targetButtons = list >>= (\(bs, _, _) -> bs)
-  conf' {startupHook = do
-           startupHook conf'
-           AdvancedMouseState oldTargetButtons mask history <- XS.get
-           XS.put $ AdvancedMouseState (L.nub $ oldTargetButtons ++ targetButtons) mask history
-        }
-infixl 4 `advancedMouseBindings`
-
-advancedMouseBinding :: XConfig a -> [Button] -> KeyMask -> Button -> (Window -> X ()) -> XConfig a
-advancedMouseBinding conf buttons mask button action = do
-    let conf' = L.foldr (\b -> \c -> rebindMouseBinding (\a -> \w -> do
-                                          onlyTargetButtonPressed <- testButtonMask $ buttonMask b
-                                          if onlyTargetButtonPressed then a w else return ()) c 0 b) conf buttons
-    let bm = L.foldr (\l -> \r -> (buttonMask l) .|. r) 0 buttons
-    let conf'' = rebindMouseBinding (\a -> \w -> do
-                                             b <- testButtonMask bm
-                                             (if b then action else a) w
-                                    ) conf' mask button
-    conf''
-
-rebindMouseBinding f conf mask button =
-  conf {mouseBindings = \xconfig -> do
-                          let actions = mouseBindings conf xconfig
-                          let action = fromMaybe (\w -> return ()) $ M.lookup (mask, button) $ actions
-                          let newAction = f action
-                          M.insert (mask, button) newAction actions
-       }
---  
---  let action = fromMaybe (\w -> return ()) $ M.lookup (mask, button) $ mouseBindings conf conf
---    conf `additionalMouseBindings` [((mask, button), newAction)]
-
-
-isButtonPressed :: X Bool
-isButtonPressed = do
-  AdvancedMouseState _ mask last <- XS.get
-  spawn $ "echo 'test isButtonPressed' >> /tmp/xmonad.debug.event"
-  return $ mask /= 0
-
-testButtonMask :: ButtonMask -> X Bool
-testButtonMask mask = do
-  AdvancedMouseState _ m _ <- XS.get
-  spawn $ "echo 'test "++(show m) ++ " with "++(show m)++"' >> /tmp/xmonad.debug.event"
-  return $ mask == m
-
-advancedMouseEventHook e@ButtonEvent{ev_event_type = ev_event_type, ev_button = ev_button} = do
-  AdvancedMouseState buttons mask history <- XS.get
-  if L.any (ev_button ==) buttons then do
-    let newMask = if ev_event_type == buttonPress then
-                     mask .|. (buttonMask ev_button)
-                 else
-                     mask .&. (complement (buttonMask ev_button))
-    if ev_event_type == buttonPress then
-        grabPointer'
-    else if newMask == 0 then
-        ungrabPointer'
-    else return ()
-    newLastTime <- io $ getCurrentTime
-    let newHistory = if ev_event_type == buttonPress then
-                     (ev_button, newLastTime):history
-                 else history
-    XS.put $ AdvancedMouseState buttons newMask (limitSize 5 $ newHistory)
-    spawn $ "echo 'Before: " ++ (show mask) ++ ", " ++ (show newHistory) ++ "' >> /tmp/xmonad.debug.event"
-    spawn $ "echo 'After: " ++ (show newMask) ++ ", " ++ (show (ev_button, newLastTime)) ++ "' >> /tmp/xmonad.debug.event"
-  else do
-    spawn $ "echo 'Ignore: " ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
-    return ()
-  return $ All True
-advancedMouseEventHook e = do
-  -- spawn $ "echo 'Ignore: " ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
-  return $ All True
-
-grabButtons' = do
-    XConf { display = dpy, theRoot = rootw } <- ask
-    let grab button mask = io $ grabButton dpy button mask rootw False (buttonPressMask .|. buttonReleaseMask)
-                                           grabModeAsync grabModeSync none none
-    io $ ungrabButton dpy anyButton anyModifier rootw
-    ems <- extraModifiers
-    ba <- asks buttonActions
-    mapM_ (\(m,b) -> mapM_ (grab b . (m .|.)) ems) (M.keys $ ba)
-ungrabButtons' conf (x:xs) = do
-  let conf' = conf { startupHook = do
-                       startupHook conf
-                       XConf { display = dpy, theRoot = rootw } <- ask
-                       io $ ungrabButton dpy x 0 rootw
-                       -- io $ ungrabButton dpy x anyModifier rootw
-                   }
-  ungrabButtons' conf' xs
-ungrabButtons' conf [] = conf
-infixl 4 `ungrabButtons'`
-
-grabPointer' = do
-  XConf { theRoot = root, display = d } <- ask
-  io $ grabPointer d root False (buttonPressMask .|. buttonReleaseMask .|. pointerMotionMask)
-         grabModeAsync grabModeAsync none none currentTime
-  return ()
-
-ungrabPointer' = withDisplay $ io . flip ungrabPointer currentTime
-
-whenDoubleClick interval buttonFirst buttonSecond x = do
-  dc <- isDoubleClick (0.300 :: NominalDiffTime) buttonFirst buttonSecond
-  if dc then x
-  else return ()
-
-isDoubleClick interval buttonFirst buttonSecond = do
-  AdvancedMouseState _ mask history <- XS.get
-  if L.length history >= 2 then do
-      let (buttonFirst', timeFirst) = head history
-      let (buttonSecond', timeSecond) = head $ tail history
-      return $ buttonFirst == buttonFirst' && buttonSecond == buttonSecond' && diffUTCTime timeFirst timeSecond <= interval
-  else
-      return False
-
-clearHistory :: X ()
-clearHistory = do
-  AdvancedMouseState buttons mask history <- XS.get
-  XS.put $ AdvancedMouseState buttons mask []
-
-limitSize x list = limitSize' x [] list
-limitSize' x l1 l2 =
-    if x > 0 && (L.length l2) > 0 then limitSize' (x-1) ((head l2):l1) $ tail l2
-    else L.reverse l1
