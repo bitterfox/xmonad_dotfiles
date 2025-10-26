@@ -20,6 +20,7 @@ import XMonad.Util.PhysicalScreen (EDID(..))
 import XMonad.Util.NamedScratchpad2
 import XMonad.Util.MyNamedScratchpad
 import XMonad.Util.ManageHookUtils
+import XMonad.Util.WorkspaceFamily
 
 baseConfig = gnomeConfig
 
@@ -170,3 +171,8 @@ mySDConfig = def {
              , decoHeight = 32
              , fontName = "xft:monospace-9:bold,Symbola-9:bold"
 }
+
+-- Workspace
+originalWorkspaces = map show ([1 .. 9 :: Int] ++ [0])
+workspaceFamilies = map show ([1 .. 9 :: Int] ++ [0])
+myWorkspaces = expandWorkspacesToFamily workspaceFamilies originalWorkspaces
