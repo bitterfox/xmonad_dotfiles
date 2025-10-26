@@ -1,14 +1,8 @@
 
-module XMonad.Util.MyUtils (
-  ifX,
-  xnot,
-  caseMaybeJust,
-  doForJust,
-  andThen,
-  isDialog,
-) where
+module XMonad.Util.MyUtils where
 
 import XMonad
+import qualified XMonad.StackSet as W
 import XMonad.Util.WindowProperties (getProp32s)
 
 ifX :: Bool -> X() -> X()
@@ -35,3 +29,6 @@ isDialog = ask >>= \w -> liftX $ do
   case mbr of
     Just rs -> return $ any (== desk) (map fromIntegral rs)
     _       -> return False
+
+viewScreen :: ScreenId -> X ()
+viewScreen sid = screenWorkspace sid >>= doForJust (windows . W.view)
