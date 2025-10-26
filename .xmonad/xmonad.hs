@@ -125,61 +125,8 @@ import XMonad.Actions.DrawShape
 
 import XMonad.Conf.MyConf
 import XMonad.Conf.MyTerminalAction
-
-intelliJTerminalEnv =
-  IntelliJTerminalEnvironment {
-    homeDirectory = liftIO getHomeDirectory,
-    XMonad.Actions.IntelliJTerminal.hook = onBottom
-  }
-
-myManageHookAll = manageHook gnomeConfig -- defaultConfig
-                       <+> docksManageHook
-                       <+> myScratchpadsManageHook
-                       <+> terminalManageHook myTerminal myTerminalActions
-                       <+> ((fmap (L.isSuffixOf ".onBottom") appName) --> onBottom)
-                       <+> (stringProperty "WM_WINDOW_ROLE" =? "GtkFileChooserDialog" --> onCenter' 0.1)
-                       <+> ((isDialog <&&> (className =? "Gimp")) --> onCenter' 0.1)
-                       <+> ((className =? "jetbrains-idea") <&&> (title =? "win0") --> doFloat)
-                       <+> intelliJTerminalManageHook intelliJTerminalEnv
-                       <+> ((appName =? "gnome-screenshot") --> doIgnore)
---                       <+> ((className =? "Vivaldi-stable") <&&> (stringProperty "WM_WINDOW_ROLE" =? "pop-up") --> onCenter' 0.3)
---                       <+> (ask >>= \w -> liftX (debugWindow w))
-
---debugWindow w = do
---  appName <- runQuery appName w
---  className <- runQuery className w
---  spawn $ "echo '" ++ appName ++ ", " ++ className ++ "' >> /tmp/xmonad.managehook.debug"
---  spawn $ "xprop -id " ++ (show w) ++ "' >> /tmp/xmonad.managehook.debug"
---  return $ Endo $ \a -> a
-
--- myLayout = measureLayoutHook "myLayout" $ compositeTall (3/100) wide
-myLayout = compositeTall (3/100) (toggleLayouts (Full) wide)
-  where wide = simpleWide (3/100)
-myLayoutForVirtualScreen = compositeTall (3/100) (toggleLayouts (Full) wide)
-  where wide = simpleWide (3/100)
-
---myLayout = (ResizableTall 1 (3/100) (1/2) [])
-myLayoutHookAll = avoidStruts $ WindowViewableLayout Normal (
-                                      (noBorders $ AndroidLikeWindowView (1/7) (3/100) (1/30) (1/100))
-                                  ||| (Roledex)) $
-                       toggleLayouts (renamed [Replace "■"] $ noBorders Full) $
-                       (   (renamed [Replace "┣"] $ mkToggleInitial (single TitleTransformer) TitleTransformer $ myLayout)
-                       ||| (renamed [Replace "┳"] $ mkToggleInitial (single TitleTransformer) TitleTransformer $ Mirror myLayout)
---                       ||| (renamed [Replace "┳"] $ Mirror myLayout)
---                       ||| (Circle)
---                       ||| (OneBig (3/4) (3/4))
---                       ||| (Accordion)
-                       )
-
-tall = Tall 1 (3/100) (1/2)
-
-myLogHook xmprocs = switchableLogHook $ do
-    measure "virtualScreenLogHook" virtualScreenLogHook
-    measure "xmobarLogHook" $ xmobarLogHook xmprocs
-    measure "checkAndHandleDisplayChange" $ handleScreenChange moveScreenMouseToLastPosition
-    measure "floatOnUp" $ floatOnUp
-    measure "terminalLogHook" $ terminalLogHook myTerminal myTerminalActions
-    measure "workspaceHistoryLogHook" $ workspaceHistoryLogHook 10
+import XMonad.Conf.MyTerminalAction.Fallback
+import XMonad.Conf.MyHook
 
 xmobarLogHook xmprocs = withWindowSet (\s ->
     L.foldl (>>) def (map (\(i, xmproc) -> do
@@ -223,104 +170,6 @@ toVirtualScreen currentActive sid =
     black white $ sid == currentActive
 
 --value_mask :: !CULong = (bit 2) (.|.) (bit 3)
-myHandleEventHook =
-    measureEventHook "advancedMouseEventHook" advancedMouseEventHook <+>
-   -- (\e ->
-       -- case e of
-         -- (ClientMessageEvent {ev_message_type = mt, ev_data = d, ev_window = w}) -> do
-              -- names <- withDisplay $ \d -> io $ getAtomNames d [mt]
-              -- if (not $ L.null names) && (head names == "_NET_ACTIVE_WINDOW") then do
-                -- spawn $ "echo 'Ignore " ++ (show e) ++ "," ++ (show names) ++ "' >> /tmp/xmonad.debug.event"
-                  -- withDisplay $ \dpy -> withWindowAttributes dpy w $ \wa -> io $ allocaXEvent $ \ev -> do
-                    -- setEventType ev configureNotify
-                    -- setConfigureEvent ev w w
-                        -- (wa_x wa) (wa_y wa) (wa_width wa)
-                        -- (wa_height wa) (wa_border_width wa) none (wa_override_redirect wa)
-                    -- sendEvent dpy w False 0 ev
-                -- return (All False)
-              -- else
-                -- return (All True)
-         -- (AnyEvent {}) -> do
-                -- spawn $ "echo 'Ignore " ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
-                -- return (All False)
-         -- (PropertyEvent {}) -> do
-                -- spawn $ "echo 'Ignore " ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
-                -- return (All False)
-         -- _ -> do
-              -- return (All True)) <+>
---    measureEventHook "handleEventHook-gnomeConfig" (handleEventHook gnomeConfig) <+>
-    (\e ->
-         case e of
-           (ClientMessageEvent{ev_window = w, ev_message_type = mt, ev_data = d}) -> do
-             withWindowSet $ \s -> do
-               a_aw <- getAtom "_NET_ACTIVE_WINDOW"
-               if mt == a_aw && (head d) /= 2 && W.peek s /= Just w then do
-                   smartGreedyViewWindow w
-               else return ()
-             return (All True)
-           _ -> return (All True)) <+>
-    measureEventHook "docksEventHook" docksEventHook <+>
-    measureEventHook "loggingCurrentScreenMousePositionEventHook" loggingCurrentScreenMousePositionEventHook <+>
-    measureEventHook "myScratchpadsHandleEventHook" myScratchpadsHandleEventHook <+>
-    measureEventHook "myTerminalActionHandleEventHook" myTerminalActionHandleEventHook <+>
-    measureEventHook "eventhook1" (\e ->
-      case e of
-        (ConfigureRequestEvent ev_event_type ev_serial ev_send_event ev_event_display ev_parent ev_window ev_x ev_y ev_width ev_height ev_border_width ev_above ev_detail ev_value_mask) -> do
---             n <- runQuery className ev_window
---             spawn $ "echo '" ++ n ++ ":" ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
---             withWindowSet $ \ws -> do
---               let pairs = M.assocs $ W.floating ws
---               forM pairs $ \(win, rect) -> do
---                 n <- runQuery title win
---                 spawn $ "echo '" ++ n ++ ":" ++ (show rect) ++ "' >> /tmp/xmonad.debug.event"
---             spawn $ "echo '' >> /tmp/xmonad.debug.event"
-
--- Performance
---             ifX (testBit ev_value_mask 6) $ windows (\s -> W.focusWindow ev_window s)
-             return (All True)
-        _ -> return (All True)) <+>
-    --(\e -> do
-       -- case e of
-         -- (PropertyEvent ev_event_type ev_serial ev_send_event ev_event_display ev_window ev_atom ev_time ev_propstate) -> do
-              -- withWindowSet (\ws -> spawn $ "echo '" ++ (show $ W.current ws) ++ "' >> /tmp/xmonad.debug.event")
-              -- names <- withDisplay $ \d -> io $ getAtomNames d [ev_atom]
-              -- spawn $ "echo '" ++ (show e) ++ "," ++ (show names) ++ "' >> /tmp/xmonad.debug.event"
-              -- return (All True)
-         -- (ClientMessageEvent {ev_message_type = mt, ev_data = d, ev_window = w}) -> do
-              -- withWindowSet (\ws -> spawn $ "echo '" ++ (show $ W.current ws) ++ "' >> /tmp/xmonad.debug.event")
-              -- names <- withDisplay $ \d -> io $ getAtomNames d [mt]
-              -- if (not $ L.null names) && (head names == "_NET_WM_STATE") then do
-                -- ns <- withDisplay $ \dpy -> io $ getAtomNames dpy [fromIntegral $ d!!1]
-                -- spawn $ "echo '" ++ (show e) ++ "," ++ (show names) ++ "," ++ (show ns) ++ "' >> /tmp/xmonad.debug.event"
-                -- if (not $ L.null ns) && (head ns == "_NET_WM_STATE_FULLSCREEN") then
-                  -- withDisplay $ \dpy -> withWindowAttributes dpy w $ \wa -> io $ allocaXEvent $ \ev -> do
-                    -- setEventType ev configureNotify
-                    -- setConfigureEvent ev w w
-                        -- (wa_x wa) (wa_y wa) (wa_width wa)
-                        -- (wa_height wa) (wa_border_width wa) none (wa_override_redirect wa)
-                    -- sendEvent dpy w False 0 ev
-                -- else return ()
-              -- else
-                -- spawn $ "echo '" ++ (show e) ++ "," ++ (show names) ++ "' >> /tmp/xmonad.debug.event"
-              -- return (All True)
---          _ -> do
---               withWindowSet (\ws -> spawn $ "echo '" ++ (show $ W.current ws) ++ "' >> /tmp/xmonad.debug.event")
---               spawn $ "echo '" ++ (show e) ++ "' >> /tmp/xmonad.debug.event"
---               return (All True)) <+>
-    measureEventHook "keepWindowSizeHandleEventHook-file" (keepWindowSizeHandleEventHook $ stringProperty "WM_WINDOW_ROLE" =? "GtkFileChooserDialog") <+>
-    measureEventHook "keepWindowSizeHandleEventHook-gimp" (keepWindowSizeHandleEventHook $ (isDialog <&&> (className =? "Gimp"))) <+>
-    measureEventHook "fullScreenEventHook" fullScreenEventHook <+>
-    measureEventHook "handleMetaMeta" (handleMetaMeta [xK_Super_L, xK_Super_R] 300 (myNamedScratchpadAction "fzf_actions")) <+>
-    measureEventHook "dunstEventHook" dunstEventHook <+>
-    measureEventHook "redrawAllShapes" drawShapeEventHook <+>
-    measureEventHook "virtualScreenEventHandler" (virtualScreenEventHandler purpleRGB darkBlueRGB)
-
-myStartupHook =
-    startupHook gnomeConfig <+>
-    docksStartupHook <+>
-    rePhysicalScreen priorityDisplayEDIDs <+>
-    initializeScreenMouses <+>
-    grabMetaKey [xK_Super_L, xK_Super_R]
 
 watch :: String -> String -> IO ()
 watch cmd interval = spawn $ "while :; do " ++ cmd ++ "; sleep " ++ interval ++ "; done"
@@ -640,13 +489,12 @@ main = do
     spawn "~/.xmonad/system_scripts/bright/sync.sh"
 
 --    spawn $ "echo '" ++ (show $ mkToggleInitial (single TitleTransformer) TitleTransformer $ myLayout) ++ "' >> /tmp/xmonad.debug.layout"
-    xmonad $ gnomeConfig
-        { manageHook = myManageHookAll
---        , layoutHook =  measureLayoutHook "layoutHook" $ myLayoutHookAll
+    xmonad $ baseConfig
+        { startupHook = myStartupHook
+        , manageHook = myManageHookAll
         , layoutHook =  myLayoutHookAll
-        , logHook = measure "logHook" $ myLogHook xmprocs
+        , logHook = measure "logHook" $ myLogHook $ xmobarLogHook xmprocs
         , handleEventHook = \e -> measure "handleEventHook" $ myHandleEventHook e
-        , startupHook = myStartupHook
         , modMask = mod4Mask     -- Rebind Mod to the Windows key
         , borderWidth = 4
         , normalBorderColor  = blue
@@ -655,7 +503,7 @@ main = do
         , clickJustFocuses = False
         , XMonad.Core.workspaces = myWorkspaces
         --, clientMask = keyPressMask
-        , rootMask = (rootMask gnomeConfig) .|. buttonReleaseMask
+        , rootMask = (rootMask baseConfig) .|. buttonReleaseMask
         } `additionalKeys` (L.concat $ [
           systemKeys
         , dunstKeys
@@ -781,23 +629,6 @@ main = do
 ------------------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------------------
--- Scratchpad
-------------------------------------------------------------------------------------------
-myScratchpadsManageHook = namedScratchpadManageHook myScratchpads
-myScratchpadsHandleEventHook =
-    namedScratchpadHandleEventHook myScratchpads <+>
-    (keepWindowSizeHandleEventHook $ intelliJTerminalQuery)
-
-myNamedScratchpadAction = myNamedScratchpadActionInternal myScratchpads
-
-myNamedScratchpadActionMaybe mns =
-  whenJust mns $ \ns -> myNamedScratchpadAction $ name ns
-
-------------------------------------------------------------------------------------------
--- Scratchpad
-------------------------------------------------------------------------------------------
-
-------------------------------------------------------------------------------------------
 -- WorkspaceFamily
 ------------------------------------------------------------------------------------------
 originalWorkspaces = map show ([1 .. 9 :: Int] ++ [0])
@@ -906,108 +737,6 @@ shiftToScreen screenId = do
 ------------------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------------------
--- GridSelect
-------------------------------------------------------------------------------------------
-hidpiGSConfig :: HasColorizer a => GSConfig a
-hidpiGSConfig = (buildDefaultGSConfig nierColorizer) {
-                  gs_cellheight = 80
-                , gs_cellwidth = 800
-                , gs_font = "xft:monospace-9:bold,Symbola-9:bold"
-                , gs_navigate   = myNavNSearch
-}
-
-nierColorizer :: a-> Bool -> X (String, String)
-nierColorizer a active =
-  if active then
-      return (black, white)
-  else
-      return (gray, black)
-
-spawnAppSelected conf apps = gridselect conf apps >>= doForJust spawn
-
-runActionSelected conf actions = gridselect conf actions >>= doForJust (\x -> x)
-
-myNavNSearch :: TwoD a (Maybe a)
-myNavNSearch = makeXEventhandler $ shadowWithKeymap navNSearchKeyMap navNSearchDefaultHandler
-  where navNSearchKeyMap = M.fromList [
-           ((0,xK_Escape)     , cancel)
-          ,((controlMask,xK_g), cancel)
-          ,((0,xK_Return)     , select)
-          ,((0,xK_Left)       , move (-1,0) >> myNavNSearch)
-          ,((controlMask, xK_b)       , move (-1,0) >> myNavNSearch)
-          ,((0,xK_Right)      , move (1,0) >> myNavNSearch)
-          ,((controlMask, xK_f)       , move (1,0) >> myNavNSearch)
-          ,((0,xK_Down)       , move (0,1) >> myNavNSearch)
-          ,((controlMask, xK_n)       , move (0,1) >> myNavNSearch)
-          ,((0,xK_Up)         , move (0,-1) >> myNavNSearch)
-          ,((controlMask, xK_p)       , move (0,-1) >> myNavNSearch)
-          ,((controlMask, xK_a)       , move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> move (-1,0) >> myNavNSearch)
-          ,((controlMask, xK_e)       , move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> move (1,0) >> myNavNSearch)
-          ,((0,xK_Tab)        , moveNext >> myNavNSearch)
-          ,((shiftMask,xK_Tab), movePrev >> myNavNSearch)
-          ,((0,xK_BackSpace), transformSearchString (\s -> if (s == "") then "" else init s) >> myNavNSearch)
-          ]
-        -- The navigation handler ignores unknown key symbols, therefore we const
-        navNSearchDefaultHandler (_,s,mask) = do
-          if mask == 0 then
-            transformSearchString (++ s)
-            >> myNavNSearch
-          else
-            myNavNSearch
-
-scratchpadSelected :: GSConfig NamedScratchpad -> [NamedScratchpad] -> X()
-scratchpadSelected config scratchpads = do
-    scratchpadMaybe <- gridselect config (map (\s -> (name s, s)) scratchpads)
-    myNamedScratchpadActionMaybe scratchpadMaybe
-
-mySDConfig = def {
-               activeColor = white
-             , inactiveColor = black
-             , urgentColor = "white"
-             , activeTextColor = black
-             , inactiveTextColor = white
-             , urgentTextColor = "red"
-             , activeBorderColor = white
-             , inactiveBorderColor = black
-             , urgentBorderColor = "pink"
-             , decoHeight = 32
-             , fontName = "xft:monospace-9:bold,Symbola-9:bold"
-}
-
-anyWorkspacePredicate :: WindowSet -> WindowSpace -> Bool
-anyWorkspacePredicate windowset workspace = ("NSP" :: WorkspaceId) /= (W.tag workspace)
-anyWorkspaceInCurrentWorkspaceFamilyPredicate :: WindowSet -> WindowSpace -> Bool
-anyWorkspaceInCurrentWorkspaceFamilyPredicate windowset workspace = anyWorkspacePredicate windowset workspace && ((toFamilyIdMaybe $ W.currentTag windowset) == (toFamilyIdMaybe $ W.tag workspace))
-visibleWorkspacesPredicate :: WindowSet -> WindowSpace -> Bool
-visibleWorkspacesPredicate windowset workspace = anyWorkspacePredicate windowset workspace && ((W.tag workspace == W.currentTag windowset) || (L.elem (W.tag workspace) $ L.map (W.tag . W.workspace) $ W.visible windowset))
-
-goToSelected' :: (WindowSet -> WindowSpace -> Bool) -> GSConfig Window -> X ()
-goToSelected' =
-    withSelectedWindow' $ \w -> do
-      s <- gets windowset
-      case W.findTag w s of
-        Just tag -> windows $ (W.focusWindow w) . (W.greedyView tag)
-        Nothing -> windows $ W.focusWindow w
-
-shiftSelected' :: (WindowSet -> WindowSpace -> Bool) -> GSConfig Window -> X ()
-shiftSelected' =
-    withSelectedWindow' $ \w -> (windows $ \s -> W.shiftMaster $ W.focusWindow w $ W.shiftWin (W.currentTag s) w s)
-
--- | Like `gridSelect' but with the current windows and their titles as elements
-gridselectWindow' :: (WindowSet -> WindowSpace -> Bool) -> GSConfig Window -> X (Maybe Window)
-gridselectWindow' predicate gsconf = windowMap' predicate >>= gridselect gsconf
-
--- | Brings up a 2D grid of windows in the center of the screen, and one can
--- select a window with cursors keys. The selected window is then passed to
--- a callback function.
-withSelectedWindow' :: (Window -> X ()) -> (WindowSet -> WindowSpace -> Bool) -> GSConfig Window -> X ()
-withSelectedWindow' callback predicate conf = gridselectWindow' predicate conf >>= doForJust callback
-
-------------------------------------------------------------------------------------------
--- GridSelect
-------------------------------------------------------------------------------------------
-
-------------------------------------------------------------------------------------------
 -- AllWindow
 ------------------------------------------------------------------------------------------
 showAllWindow = windows $ \s -> W.greedyView "0_1" $ copyAllWindowTo "0_1" s
@@ -1064,8 +793,3 @@ data MyModifiedLayout l a = MyModifiedLayout (l a) deriving ( Read, Show )
 -- N.B. I think there is a Haddock bug here; the Haddock output for
 -- the above does not parenthesize (m a) and (l a), which is obviously
 -- incorrect.
-
-data TitleTransformer = TitleTransformer deriving (Read, Show, Eq, Typeable)
-
-instance Transformer TitleTransformer Window where
-    transform TitleTransformer x k = k (noFrillsDeco shrinkText mySDConfig x) (\(LM.ModifiedLayout _ x') -> x')

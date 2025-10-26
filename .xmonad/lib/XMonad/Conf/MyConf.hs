@@ -9,14 +9,19 @@ import XMonad.Core
 import qualified XMonad.StackSet as W
 import XMonad.ManageHook
 import XMonad.Util.Run(runProcessWithInputAndWait, seconds)
+import XMonad.Config.Gnome
+import XMonad.Layout.SimpleDecoration
 
 import XMonad.Util.MyUtils
 
 import XMonad.Actions.DrawShape (RGB(..))
+import XMonad.Actions.IntelliJTerminal
 import XMonad.Util.PhysicalScreen (EDID(..))
 import XMonad.Util.NamedScratchpad2
 import XMonad.Util.MyNamedScratchpad
 import XMonad.Util.ManageHookUtils
+
+baseConfig = gnomeConfig
 
 ------------------------------------------------------------------------------------------
 -- Color
@@ -63,6 +68,11 @@ applications = [
 webApplication url = "vivaldi-stable --app=" ++ url
 javaHome = "~/.sdkman/candidates/java/current"
 jshellPath = javaHome ++ "/bin/jshell"
+intelliJTerminalEnv =
+  IntelliJTerminalEnvironment {
+    homeDirectory = liftIO getHomeDirectory,
+    XMonad.Actions.IntelliJTerminal.hook = onBottom
+  }
 
 ------------------------------------------------------------------------------------------
 -- Display
@@ -113,7 +123,17 @@ myScratchpads = [
             (appName =? "chatgpt.com")
             $ onCenter''' 0.25 0.01 $ minWidth 1600
  ]
+myScratchpadsManageHook = namedScratchpadManageHook myScratchpads
+myScratchpadsHandleEventHook =
+    namedScratchpadHandleEventHook myScratchpads <+>
+    (keepWindowSizeHandleEventHook $ intelliJTerminalQuery)
+myNamedScratchpadAction = myNamedScratchpadActionInternal myScratchpads
+myNamedScratchpadActionMaybe mns =
+  whenJust mns $ \ns -> myNamedScratchpadAction $ name ns
 
+------------------------------------------------------------------------------------------
+-- Action
+------------------------------------------------------------------------------------------
 systemActions = [
   ("Reload", myrestart),
   ("Lock", spawn "gnome-screensaver-command --lock"),
@@ -135,3 +155,18 @@ togglegamemode = do
   homeDirectory <- liftIO getHomeDirectory
   runProcessWithInputAndWait "sh" ["-c", "bash '" ++ homeDirectory ++ "/.xmonad/toggle_game.sh' >> /tmp/xmonad.debug"] "" (seconds 1)
   myrestart
+
+-- SD
+mySDConfig = def {
+               activeColor = white
+             , inactiveColor = black
+             , urgentColor = "white"
+             , activeTextColor = black
+             , inactiveTextColor = white
+             , urgentTextColor = "red"
+             , activeBorderColor = white
+             , inactiveBorderColor = black
+             , urgentBorderColor = "pink"
+             , decoHeight = 32
+             , fontName = "xft:monospace-9:bold,Symbola-9:bold"
+}
