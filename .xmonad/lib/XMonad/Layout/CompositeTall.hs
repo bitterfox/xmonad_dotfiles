@@ -7,6 +7,7 @@ module XMonad.Layout.CompositeTall (
   DelegateMessage(..),
   ResizeAnotherSide(..),
   ResetSize(..),
+  GridLayout(..),
   CompositeTallMessage(..),
   SimpleWide(..),
   simpleWide
@@ -46,6 +47,9 @@ instance Message ResizeAnotherSide
 data ResetSize = ResetSize deriving ( Typeable )
 instance Message ResetSize
 
+data GridLayout = GridLayout Int deriving ( Typeable )
+instance Message GridLayout
+
 data CompositeTallMessage = CompositeTallMessage {
       message :: SomeMessage,
       messageAtWindow :: Int
@@ -84,7 +88,8 @@ instance (LayoutClass l a, Show a, Eq a) => LayoutClass (CompositeTall l) a wher
                            ,fmap (handleResizeAnotherSide maybeCells maybeLayouts) (fromMessage m)
                            ,fmap handleResetSize (fromMessage m)
                            ,fmap (handleIncMasterN maybeCells) (fromMessage m)
-                           ,fmap (handleNewCellMessage maybeLayouts) (fromMessage m)]
+                           ,fmap (handleNewCellMessage maybeLayouts) (fromMessage m)
+                           ,fmap handleGridLayout (fromMessage m)]
       case maybeNewLayout of
         Just newLayout ->
           case fromMessage m of
@@ -145,6 +150,9 @@ instance (LayoutClass l a, Show a, Eq a) => LayoutClass (CompositeTall l) a wher
           let len = L.length $ W.up layouts
           let (ls,rs) = L.splitAt (len+1) $ compositeTallCells layout
           layout {compositeTallCells = ls ++ [CompositeCell 1 1 $ compositeTallLayoutTemplate layout] ++ rs}
+        handleGridLayout (GridLayout n) = do
+          let r = ceiling $ sqrt $ fromIntegral n
+          layout {compositeTallCells = L.replicate r (CompositeCell r 1 $ compositeTallLayoutTemplate layout) }
         handleDelegateMessage currentLayout (Just layouts) m = do
               ml <- handleMessage (W.focus layouts) m
               return (ml >>= (\l -> Just $ layouts {
@@ -323,4 +331,3 @@ splitRect' ((wins, ratio, layout):list) rect len currentWidth =
           mw = rect_width rect
           width = (fromIntegral $ mw) `div` len
 splitRect' [] rect len cw = []
-
