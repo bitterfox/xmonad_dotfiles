@@ -27,9 +27,10 @@ startXMobar = do
   numDisplayStr <- runProcessWithInput "sh" ["-c", "xrandr --query | grep -c '\\bconnected\\b'"] ""
   let numDisplay = read numDisplayStr :: Int
   dpiStr <- runProcessWithInput "sh" ["-c", "xrdb -query | grep Xft.dpi | awk '{print $2}'"] ""
+  let dpi = read dpiStr :: Int
   spawn $ "echo '" ++ (show numDisplay) ++ "' > /tmp/test"
   spawn $ "xrandr --query | grep -c '\\bconnected\\b' >> /tmp/test"
-  xmprocs <- mapM (\displayId -> spawnPipe $ "export FONTCONFIG_FILE=" ++ homeDirectory ++ "/.xmobar/font.conf && /usr/bin/xmobar -D " ++ dpiStr ++ " " ++ (if displayId == 0 then "" else "-p 'TopSize L 100 30' -x " ++ (show displayId)) ++ " ~/.xmobarrc") [0..numDisplay-1]
+  xmprocs <- mapM (\displayId -> spawnPipe $ "export FONTCONFIG_FILE=" ++ homeDirectory ++ "/.xmobar/font.conf && /usr/bin/xmobar -D " ++ (show dpi) ++ " " ++ (if displayId == 0 then "" else "-p 'TopSize L 100 30' -x " ++ (show displayId)) ++ " ~/.xmobarrc") [0..numDisplay-1]
   return xmprocs
 
 xmobarLogHook xmprocs = withWindowSet (\s ->
