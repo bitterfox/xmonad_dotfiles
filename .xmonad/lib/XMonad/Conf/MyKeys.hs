@@ -240,6 +240,9 @@ layoutKeys = [
   , ((mod4Mask .|. shiftMask, xK_period), sendMessage (IncMasterN (-1)))
   , ((mod4Mask .|. controlMask, xK_comma     ), sendMessage NewCellAtLeft)
   , ((mod4Mask .|. controlMask, xK_period ), sendMessage NewCellAtRight)
+  , ((mod4Mask .|. shiftMask, xK_g), withWindowSet $ \ws ->
+         sendMessage $ GridLayout $ max 1 $ L.length $ W.integrate' $ W.stack $ W.workspace $ W.current ws
+    )
 
   -- Struts
   , ((mod4Mask, xK_h), docksOnBottom >> (sendMessage ToggleStruts))
