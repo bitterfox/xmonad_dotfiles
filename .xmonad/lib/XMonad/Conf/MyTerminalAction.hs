@@ -31,8 +31,10 @@ dmenuRunTerminalAction =
   (terminalActionTemplate "dmenu.run" "~/.xmonad/terminal_actions/dmenu_run.sh" terminalActionManageHook)
   .| withFirstLine .>> spawn
 openBrowserHistoryTerminalAction =
-  (terminalActionTemplate "open.history" "~/.xmonad/terminal_actions/select_browser_history.sh" $ onCenter'' 0.1 0.2)
+  (terminalActionTemplate "open.browser.history" "~/.xmonad/terminal_actions/select_browser_history.sh" $ onCenter'' 0.1 0.2)
   .| withFirstLine .|| (\s -> "xdg-open '" ++ s ++ "'") .>> spawn
+openBrowserTabTerminalAction =
+  (terminalActionTemplate "open.browser.tab" "~/.xmonad/terminal_actions/select_browser_tab.sh" $ onCenter'' 0.1 0.2) .>| ()
 copyFromClipboardHistoryListTerminalAction =
   (terminalActionTemplate "copy.from.clipboard.history.list" "~/.xmonad/terminal_actions/select_clipboard.sh" $ terminalActionManageHook) .>| ()
 copyFromClipboardHistoryAgTerminalAction =
@@ -58,6 +60,7 @@ myTerminalActions = [
    .| withFirstLine .|| ((intellijCommand ++ " ") ++) .>> spawn
   , dmenuRunTerminalAction
   , openBrowserHistoryTerminalAction
+  , openBrowserTabTerminalAction
   , copyFromClipboardHistoryListTerminalAction
   , copyFromClipboardHistoryAgTerminalAction
   , copyFromClipboardHistoryListMultiTerminalAction
@@ -78,6 +81,9 @@ runOpenBrowserHistoryTerminalAction = do
   let sort = ["often", "recent"]
   runCyclicTerminalAction myTerminal "open.browser.history" $
                           L.map (openBrowserHistoryTerminalAction .<) sort
+
+runOpenBrowserTabTerminalAction = do
+  runNamedTerminalAction myTerminal myTerminalActions "open.browser.tab"
 
 runCopyFromClipboardHistoryTerminalAction = do
   runCyclicTerminalAction myTerminal "copy.from.clipboard.history" $

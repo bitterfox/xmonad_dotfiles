@@ -50,7 +50,7 @@ yellowRGB = RGB { rgb_red = 168, rgb_green = 159, rgb_blue = 59 }
 intellijCommand = "~/bin/idea"
 applications = [
 -- ("Vivaldi (Web browser)", "export GDK_DPI_SCALE=1.02; vivaldi"),
- ("Vivaldi (Web browser)", "vivaldi"),
+ ("Vivaldi (Web browser)", "vivaldi --remote-debugging-port=9222"),
  ("Nautilus (File browser)", "nautilus"),
  ("Emacs (Editor)", "emacs"),
  -- ("LINE", "wine '/home/jp21734/.wine/drive_c/users/jp21734/Local Settings/Application Data/LINE/bin/LineLauncher.exe'"),
