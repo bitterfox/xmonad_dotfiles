@@ -303,6 +303,7 @@ terminalActionKeys = [
   , ((meta .|. shft, xK_at), runOpenITerminalAction)
   , ((meta, xK_colon),       openIntelliJTerminalAction)
   , ((meta, xK_semicolon),   runOpenBrowserHistoryTerminalAction)
+  , ((meta .|. shft, xK_semicolon),   runOpenBrowserTabTerminalAction)
   , ((meta, xK_c),           runCopyFromClipboardHistoryTerminalAction)
   , ((meta .|. ctrl, xK_c),  runOnePasswordTerminalAction)
   ]
