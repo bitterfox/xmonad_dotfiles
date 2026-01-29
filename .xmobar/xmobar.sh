@@ -7,7 +7,14 @@ start=`date +%s%N`
 
 wip_task=`wip_task`
 
-export NIC="enp130s0"
+export NIC=""
+if [ -z "$NIC" ]; then
+    # Find prefered NIC automatically
+    nic=`ls /sys/class/net/*/statistics/rx_bytes | while read line; do
+        echo "$line $(cat $line)"
+    done | sort -n -k 2 | tail -n 1 | awk -F/ '{print $5}'`
+    export NIC="$nic"
+fi
 system_metrics=`$basedir/main`
 fan_speed=`fan_speed`
 
