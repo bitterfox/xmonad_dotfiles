@@ -285,7 +285,8 @@ scratchpadKeys = [
   , ((mod4Mask .|. controlMask, xK_bracketleft), myNamedScratchpadAction "jshell1")
   , ((mod4Mask .|. controlMask, xK_bracketright), myNamedScratchpadAction "jshell2")
 
-  , ((mod4Mask, xK_a), myNamedScratchpadAction "ai")
+  , ((mod4Mask, xK_a), myNamedScratchpadAction "ai-chatgpt")
+  , ((mod4Mask .|. shft, xK_a), myNamedScratchpadAction "ai-gemini")
 
   , ((mod4Mask .|. controlMask, xK_F7), toggleScrachpadAction $ L.reverse myScratchpads)
   , ((mod4Mask .|. controlMask, xK_F8), withoutLogHook $ showOrHideScratchpads myScratchpads True)
