@@ -48,7 +48,9 @@ myStartupHook =
     docksStartupHook <+>
     rePhysicalScreen priorityDisplayEDIDs <+>
     initializeScreenMouses <+>
-    grabMetaKey [xK_Super_L, xK_Super_R]
+    grabMetaKey [xK_Super_L, xK_Super_R] <+>
+    spawn "xmodmap ~/.xmodmap"
+
 
 myManageHookAll = manageHook baseConfig -- defaultConfig
                        <+> docksManageHook
