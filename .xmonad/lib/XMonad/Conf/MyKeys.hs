@@ -65,6 +65,7 @@ myKeys = L.concat $ [
         , scratchpadKeys
         , utilKeys
         , workspaceHistoryKeys
+        , vmwareSupportKeys
         ]
 myKeysP = [-- 輝度・ボリューム周り
           ("<XF86MonBrightnessDown>", spawn "sh ~/.xmonad/system_scripts/bright/down.sh")
@@ -355,3 +356,7 @@ workspaceHistoryKeys = [
     ((mod4Mask, xK_comma ), undoWorkspaceHistory)
   , ((mod4Mask, xK_period), redoWorkspaceHistory)
   ]
+
+vmwareSupportKeys = [
+   ((0, xK_F19), spawn "echo 'F19' >> /mnt/hgfs/data/mission-control")
+ ]
