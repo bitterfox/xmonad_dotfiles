@@ -173,6 +173,9 @@ changeFocusedSid vs@VirtualScreen{screenStack = ss} sid =
 replaceVirtualScreen :: VirtualScreens -> VirtualScreen -> VirtualScreens
 replaceVirtualScreen (VirtualScreens vss) vs =
   VirtualScreens $ vs:(L.filter ((rootSid vs /=) . rootSid) vss)
+excludeVirtualScreen :: VirtualScreens -> ScreenId -> VirtualScreens
+excludeVirtualScreen (VirtualScreens vss) rsid =
+  VirtualScreens $ (L.filter ((rsid /=) . rootSid) vss)
 
 resetVirtualScreen :: X()
 resetVirtualScreen = do
@@ -186,10 +189,7 @@ resetVirtualScreen = do
         let newVisible = L.filter (\e -> L.notElem (W.screen e) sids) $ W.visible ws
         let workspaces = L.map W.workspace $ L.filter (\e -> L.elem (W.screen e) sids) $ W.visible ws
         removeAllDrawnShapes' $ borders vs
-        XS.put $ replaceVirtualScreen virtualScreens $ vs {
-                                                         screenStack = W.Stack { W.focus = rootSid vs, W.up = [], W.down = [] },
-                                                         borders = []
-                                                       }
+        XS.put $ excludeVirtualScreen virtualScreens $ rootSid vs
         windows $ \_ -> ws {
           W.current = current {
                         W.screen = rootSid vs,
