@@ -30,6 +30,7 @@ define_keymap(lambda wm_class: ((wm_class not in (
     "Gnome-terminal",
     "gnome-terminal-server",
     "jetbrains-idea",
+    "jetbrains-idea-ce",
     "term1",
     "term2",
     "termL",
@@ -114,7 +115,7 @@ define_keymap(lambda wm_class: ((wm_class not in (
 }, "Emacs-like keys")
 
 
-define_keymap(lambda wm_class: wm_class in ("jetbrains-idea"), {
+define_keymap(lambda wm_class: wm_class in ("jetbrains-idea", "jetbrains-idea-ce"), {
     # Cancel
     K("C-g"): [K("esc"), set_mark(False)],
     K("M-n"): K("M-tab"),
