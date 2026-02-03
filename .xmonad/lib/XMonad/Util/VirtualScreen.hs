@@ -286,6 +286,7 @@ removeVirtualScreen = do
             W.visible = newVisible,
             W.hidden = newHidden
           }
+          if (L.length $ W.integrate $ screenStack nvs') == 1 then resetVirtualScreen else return ()
 
       Nothing -> return ()
 
