@@ -12,7 +12,7 @@ import XMonad.Conf.MyMouse
 import XMonad.Conf.MyXMobar
 
 bitterfoxConfig xmprocs = configureMouse $ configureKeys $ baseConfig
-  { startupHook = myStartupHook
+  { startupHook = myStartupHook <+> describeMyKeys
   , manageHook = myManageHookAll
   , layoutHook =  myLayoutHookAll
   , logHook = measure "logHook" $ myLogHook $ xmobarLogHook xmprocs
