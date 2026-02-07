@@ -1,0 +1,6 @@
+! Hyper key
+remove mod4 = Super_R
+add mod5 = Super_R
+
+! Function keys
+keycode 197 = F19
