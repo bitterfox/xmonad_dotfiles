@@ -17,24 +17,19 @@ import XMonad.Util.NamedScratchpad2
 import qualified XMonad.Util.ExtensibleState as XS
 import XMonad.Util.HandleEventHooks
 
+import XMonad.Actions.TerminalAction
+
 ------------------------------------------------------------------------------------------
 -- Scratchpad
 ------------------------------------------------------------------------------------------
 
-terminalScratchpad :: String -> Maybe String -> ManageHook -> NamedScratchpad
-terminalScratchpad name execMaybe manageHook =
+terminalScratchpad :: Terminal t => t -> String -> Maybe String -> ManageHook -> NamedScratchpad
+terminalScratchpad term name execMaybe manageHook =
     NS name
-       ("~/.xmonad/gnome-terminal-server" ++
-           " --app-id bitter_fox.xmonad." ++ name ++
-           " --name=" ++ name ++ " --class=" ++ name ++
-           " & gnome-terminal --app-id bitter_fox.xmonad." ++ name ++
-           (case execMaybe of
-              Just exec -> " -e " ++ exec
-              Nothing -> ""
-           )
-       )
-       (className =? name)
+       (startTerminalCommand term id execMaybe)
+       (className =? id)
        manageHook
+    where id = "xmonad.namedscratchpad." ++ name
 
 data NamedScratchpadSendEventWindows = NamedScratchpadSendEventWindows [Window] deriving Typeable
 instance ExtensionClass NamedScratchpadSendEventWindows where

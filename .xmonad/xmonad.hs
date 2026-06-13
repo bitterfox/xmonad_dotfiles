@@ -53,4 +53,5 @@ main = do
     spawn "~/.xmonad/system_scripts/bright/sync.sh"
 
 --    spawn $ "echo '" ++ (show $ mkToggleInitial (single TitleTransformer) TitleTransformer $ myLayout) ++ "' >> /tmp/xmonad.debug.layout"
-    xmonad $ bitterfoxConfig xmprocs
+    config <- bitterfoxConfig xmprocs
+    xmonad $ config

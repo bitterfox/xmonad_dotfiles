@@ -22,5 +22,5 @@ PACKAGES="$XMONAD_PACKAGES $XMONAD_TOOLS_PACKAGES $GNOME_PACKAGES $FONT_PACKAGES
 sudo $PACKAGER $PACKAGER_COMMAND $PACKAGES
 
 cabal update
-cabal install --lib xmonad xmonad-contrib extensible-exceptions clock X11 split utf8-string
+cabal install --lib xmonad xmonad-contrib extensible-exceptions clock X11 split utf8-string data-default
 # mtl parsec

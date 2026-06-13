@@ -38,6 +38,7 @@ import XMonad.Util.WorkspaceHistory
 import XMonad.Util.MyNamedScratchpad
 
 import XMonad.Conf.MyConf
+import XMonad.Conf.MyParameters
 import XMonad.Conf.MyHook
 import XMonad.Conf.MyTerminalAction
 import XMonad.Conf.MyTerminalAction.Fallback

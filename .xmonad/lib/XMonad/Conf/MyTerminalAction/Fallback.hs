@@ -14,6 +14,7 @@ import XMonad.Util.MyUtils
 
 import XMonad.Conf.MyConf
 import XMonad.Conf.MyTerminalAction
+import XMonad.Conf.MyParameters
 
 ------------------------------------------------------------------------------------------
 -- GridSelect
