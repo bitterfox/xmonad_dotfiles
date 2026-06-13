@@ -66,6 +66,7 @@ myKeys = L.concat $ [
         , scratchpadKeys
         , utilKeys
         , workspaceHistoryKeys
+        , mouseEmulator
         ]
 myKeysP = [-- 輝度・ボリューム周り
           ("<XF86MonBrightnessDown>", spawn "sh ~/.xmonad/system_scripts/bright/down.sh")
@@ -355,4 +356,9 @@ utilKeys = [
 workspaceHistoryKeys = [
     ((mod4Mask, xK_comma ), undoWorkspaceHistory)
   , ((mod4Mask, xK_period), redoWorkspaceHistory)
+  ]
+
+mouseEmulator = [ -- warpd
+    ((mod4Mask, xK_m), spawn "warpd --hint")
+  , ((meta .|. shft, xK_m), spawn "warpd --grid")
   ]

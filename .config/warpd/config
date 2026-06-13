@@ -1,0 +1,24 @@
+exit: space escape
+grid_exit: space escape
+hint_exit: space escape
+
+cursor_size: 12
+
+left: j
+up: i
+down: k
+right: l
+
+buttons: h ; +
+drag: H
+
+grid_cut_up: i
+grid_cut_down: k
+grid_cut_left: j
+grid_cut_right: l
+grid_keys: u o m .
+
+hint: M-m
+hint_size: 20
+hint_bgcolor: #ffff00
+hint_fgcolor: #ff0000
