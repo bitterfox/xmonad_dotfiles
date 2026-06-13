@@ -91,7 +91,7 @@ myLogHook xmobarLogHook = switchableLogHook $ do
     measure "checkAndHandleDisplayChange" $ handleScreenChange moveScreenMouseToLastPosition
     measure "floatOnUp" $ floatOnUp
     measure "terminalLogHook" $ terminalLogHook myTerminal myTerminalActions
-    measure "workspaceHistoryLogHook" $ workspaceHistoryLogHook 10
+    measure "workspaceHistoryLogHook" $ workspaceHistoryLogHook 10 1 -- 1 sec
 
 myHandleEventHook =
     measureEventHook "advancedMouseEventHook" advancedMouseEventHook <+>
