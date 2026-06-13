@@ -161,6 +161,9 @@ class Terminal t where
       else return ()
 
     startTerminal :: t -> TerminalAction () -> FilePath -> FilePath -> X ()
+    startTerminalInternal :: t -> String -> Maybe String -> X ()
+    startTerminalInternal term appId command = spawn $ startTerminalCommand term appId command
+    startTerminalCommand :: t -> String -> Maybe String -> String
 
     terminalManageHook :: t -> [TerminalAction ()] -> ManageHook
     terminalManageHook t as = composeAll $ L.map (\a -> (terminalQuery t a) --> (actionManageHook a)) as

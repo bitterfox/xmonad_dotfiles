@@ -41,6 +41,7 @@ import XMonad.Util.DunstSupport
 import XMonad.Util.MyUtils
 
 import XMonad.Conf.MyConf
+import XMonad.Conf.MyParameters
 import XMonad.Conf.MyTerminalAction
 
 myStartupHook =

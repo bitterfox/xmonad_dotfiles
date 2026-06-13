@@ -19,6 +19,7 @@ import XMonad.Util.PhysicalScreen
 import XMonad.Util.VirtualScreen
 import XMonad.Util.WorkspaceFamily
 
+import XMonad.Conf.MyParameters
 import XMonad.Conf.MyConf
 
 startXMobar :: IO [Handle]

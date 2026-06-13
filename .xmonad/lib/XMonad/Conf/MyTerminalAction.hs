@@ -11,16 +11,21 @@ import qualified XMonad.StackSet as W
 
 import XMonad.Actions.TerminalAction
 import XMonad.Actions.TerminalAction.GnomeBackend
+--import XMonad.Actions.TerminalAction.AlacrittyBackend
 
 import XMonad.Util.ManageHookUtils
 import XMonad.Util.HandleEventHooks
 import XMonad.Util.WorkspaceFamily
 import XMonad.Util.MyUtils
-import XMonad.Conf.MyConf
+import XMonad.Conf.MyParameters
 
 terminalActionManageHook = onCenter'' 0.3 0.2
 
-myTerminal = GnomeTerminal "xmonad.terminal.action"
+myTerminal :: GnomeTerminal = def {
+                pathForServer = "~/.xmonad/gnome-terminal-server",
+                extraArgs = "--profile=55afc181-baa2-40e5-975a-cfc014b8cf08"
+              }
+-- myTerminal :: AlacrittyTerminal = def
 selectWindowTerminalActionTemplate =
   (terminalActionTemplate "select.window" "~/.xmonad/terminal_actions/select_window.sh" $ onCenter'' 0.1 0.2)
   .| withFirstLine .|| words .|| head .|| read
