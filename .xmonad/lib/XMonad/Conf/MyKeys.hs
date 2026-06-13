@@ -79,6 +79,7 @@ myKeysWithDescription = [
   , drawShapeKeys
   , utilKeys
   , vmwareSupportKeys
+  , mouseEmulator
   ]
 
 myKeys = myKeysWithDescription >>= keysWithoutDescription
@@ -404,6 +405,11 @@ workspaceHistoryKeys = ("Workspace history", [
 vmwareSupportKeys = ("VMWare", [
    ("Mission control", (0, xK_F19), spawn "echo 'F19' >> /mnt/hgfs/data/mission-control")
  ])
+
+mouseEmulator = ("Mouse emulator", [ -- warpd
+    ("Start warpd with hint mode", (super, xK_m), spawn "warpd --hint")
+  , ("Start warpd with grid mode", (super .|. shft, xK_m), spawn "warpd --grid")
+  ])
 
 hyperCompatible keys compatibleModifier =
     [ (((mods .&. complement hyper) .|. compatibleModifier, key), action)

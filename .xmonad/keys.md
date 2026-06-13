@@ -275,3 +275,10 @@
 | -- | -- |
 | F19 | Mission control |
 
+# Mouse emulator
+
+| Key | Action |
+| -- | -- |
+| ⌘+m | Start warpd with hint mode |
+| ⌘⇧+m | Start warpd with grid mode |
+
