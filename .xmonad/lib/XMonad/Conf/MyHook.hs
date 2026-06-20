@@ -181,7 +181,11 @@ myHandleEventHook =
     measureEventHook "keepWindowSizeHandleEventHook-file" (keepWindowSizeHandleEventHook $ stringProperty "WM_WINDOW_ROLE" =? "GtkFileChooserDialog") <+>
     measureEventHook "keepWindowSizeHandleEventHook-gimp" (keepWindowSizeHandleEventHook $ (isDialog <&&> (className =? "Gimp"))) <+>
     measureEventHook "fullScreenEventHook" fullScreenEventHook <+>
-    measureEventHook "handleMetaMeta" (handleMetaMeta [xK_Super_L, xK_Super_R] 300 (myNamedScratchpadAction "fzf_actions")) <+>
+    measureEventHook "handleMetaMeta" (handleMetaMeta [xK_Super_L, xK_Super_R] 300 (
+      do
+          resetMetaMetaPressState
+          myNamedScratchpadAction "fzf_actions"
+    )) <+>
     measureEventHook "dunstEventHook" dunstEventHook <+>
     measureEventHook "redrawAllShapes" drawShapeEventHook <+>
     measureEventHook "virtualScreenEventHandler" (virtualScreenEventHandler purpleRGB darkBlueRGB)

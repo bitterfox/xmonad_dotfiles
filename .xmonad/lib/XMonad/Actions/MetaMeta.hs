@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module XMonad.Actions.MetaMeta (
-  grabMetaKey, handleMetaMeta
+  grabMetaKey, handleMetaMeta, resetMetaMetaPressState
 ) where
 
 import Control.Exception.Extensible as E
@@ -27,7 +27,7 @@ grabMetaKey metaKeys = do
       grab kc anyModifier
   return ()
 
-handleMetaMeta metaKeys interval x e@(KeyEvent {ev_event_type = t, ev_state = m, ev_keycode = code, ev_time = time}) =
+handleMetaMeta metaKeys interval action e@(KeyEvent {ev_event_type = t, ev_state = m, ev_keycode = code, ev_time = time}) =
   withDisplay $ \dpy -> do
     s <- io $ keycodeToKeysym dpy code 0
     if L.elem s metaKeys  then do
@@ -38,12 +38,12 @@ handleMetaMeta metaKeys interval x e@(KeyEvent {ev_event_type = t, ev_state = m,
         else return ()
         if t == keyPress then do
             LastMetaPress lastMetaPress <- XS.get
+            XS.put $ LastMetaPress $ Just (s, time)
             case lastMetaPress of
               Just (lastKey, lastTime) -> do
                 let diffTime = time - lastTime
-                if lastKey == s && diffTime < interval then x else return ()
+                if lastKey == s && diffTime < interval then action else return ()
               _ -> return ()
-            XS.put $ LastMetaPress $ Just (s, time)
         else return ()
         return $ All False
     else do
@@ -59,6 +59,10 @@ handleMetaMeta metaKeys _ _ e = do
       grabMetaKey metaKeys
   else return ()
   return (All True)
+
+resetMetaMetaPressState :: X ()
+resetMetaMetaPressState =
+  XS.put $ LastMetaPress Nothing
 
 data LastMetaPress = LastMetaPress (Maybe (KeySym, Time)) deriving Typeable
 instance ExtensionClass LastMetaPress where
