@@ -56,10 +56,11 @@ undoWorkspaceHistory = do
       let screen = W.screen $ W.current ws
       if M.member screen histories then do
           let history = histories M.! screen
+          let current = workspaceHistoryCurrent history
           let undo = workspaceHistoryUndo history
           if undo == [] then return ()
           else do
-              let x:xs = undo
+              let x:xs = dropWhile (current ==) undo
               let redo = (workspaceHistoryCurrent history):(workspaceHistoryRedo history)
               XS.put $ WorkspaceHistories $ M.insert screen (WorkspaceHistory x zeroTime xs redo) histories
               windows $ W.greedyView x
