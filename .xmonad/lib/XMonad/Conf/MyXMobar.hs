@@ -57,11 +57,19 @@ toScreenList ws vss xmobarScreenId = do
   L.foldr (++) ("") screenDesc
 
 toScreen sid currentActive xmobarScreenId =
-    xmobarColor'
-    (wrap (if xmobarScreenId == sid then "[" else " ") (if xmobarScreenId == sid then "]" else " ") $
-          show $ sid + 1)
-    black white $ sid == currentActive
-
+    if xmobarScreenId == sid then
+        if sid == currentActive then
+            xmobarColor'
+            (wrap " " " " $ show $ sid + 1)
+            white red True
+        else
+            xmobarColor'
+            (wrap " " " " $ show $ sid + 1)
+            blue white False
+    else
+        xmobarColor'
+        (wrap " " " " $ show $ sid + 1)
+        black white $ sid == currentActive
 
 toVirtualScreenList ws vss xmobarScreenId = do
   let S sidCurrentActive = W.screen $ W.current ws
