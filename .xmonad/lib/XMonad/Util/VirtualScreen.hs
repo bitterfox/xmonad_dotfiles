@@ -274,7 +274,6 @@ removeVirtualScreen = do
                                                            Just newLayout -> nvs' {screenLayout = newLayout, borders = borders}
                                                            Nothing -> nvs' {borders = borders}
 
-
           let newHidden = W.hidden ws ++ [W.workspace current]
           let focusSid = W.focus $ screenStack nvs'
           let focusScreen = fromJust $ L.find (\s -> W.screen s == focusSid) $ visible'
@@ -419,7 +418,9 @@ focusChildScreen f = do
       Nothing -> ws
 
 drawLayoutRectangles rects =
-    L.foldr (\r x -> do
+    if (L.length rects == 1) then
+        return []
+    else L.foldr (\r x -> do
                ds <- drawShape DrawShape {
                        shape = OutlinedRectangle,
                        width = (fromIntegral borderWidth),
